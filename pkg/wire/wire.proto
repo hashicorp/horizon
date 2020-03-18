@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+message Timestamp {
+  uint64 sec = 1;
+  uint64 nsec  = 2;
+}
+
+message Preamble {
+  string session_id = 1;
+  string token = 2;
+  repeated string labels = 3;
+}
+
+message Confirmation {
+  Timestamp time = 1;
+  string status = 2;
+}
+
+message Header {
+  string name = 1;
+  repeated string value = 2;
+}
+
+message Request {
+  enum Type {
+    HTTP = 0;
+    WEBSOCKET = 1;
+    TCP = 2;
+    UDP = 3;
+  }
+
+  Type type = 1;
+  string method = 2;
+  string path = 3;
+  repeated Header headers = 4;
+  string remote_addr = 5;
+}
+
+message Response {
+  string error = 1;
+  int32 code = 2;
+  repeated Header headers = 3;
+}
