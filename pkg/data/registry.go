@@ -39,6 +39,22 @@ func (b *Bolt) AddAccount(id, target string) error {
 	})
 }
 
+func (b *Bolt) KnownTarget(name string) bool {
+	var ok bool
+
+	b.db.View(func(tx *bbolt.Tx) error {
+		buk := tx.Bucket([]byte("account-targets"))
+		if buk == nil {
+			return nil
+		}
+
+		ok = buk.Get([]byte(name)) != nil
+		return nil
+	})
+
+	return ok
+}
+
 func (b *Bolt) CheckAccount(id string) bool {
 	var ok bool
 

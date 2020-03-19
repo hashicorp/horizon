@@ -150,7 +150,9 @@ func runHub() {
 	go http.ListenAndServe(*fHTTPAddr, &frontend)
 
 	if *fTLS != "" {
-		tls, err := web.NewTLS(L, *fTLS, *fEmail, true, db.CertStorage())
+		tls, err := web.NewTLS(L, *fTLS, *fEmail, true, db.CertStorage(), func(name string) error {
+			return reg.CertDecision(L, name)
+		})
 		if err != nil {
 			log.Fatal(err)
 		}

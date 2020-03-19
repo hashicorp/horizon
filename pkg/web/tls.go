@@ -12,7 +12,7 @@ type TLS struct {
 	cfg *certmagic.Config
 }
 
-func NewTLS(L hclog.Logger, path, email string, test bool, storage certmagic.Storage) (*TLS, error) {
+func NewTLS(L hclog.Logger, path, email string, test bool, storage certmagic.Storage, decision func(name string) error) (*TLS, error) {
 	certmagic.DefaultACME.Agreed = true
 	certmagic.DefaultACME.DisableHTTPChallenge = true
 
@@ -25,10 +25,7 @@ func NewTLS(L hclog.Logger, path, email string, test bool, storage certmagic.Sto
 	cfg := certmagic.NewDefault()
 	cfg.Storage = storage
 	cfg.OnDemand = &certmagic.OnDemandConfig{
-		DecisionFunc: func(name string) error {
-			L.Info("tls decision calculation", "name", name)
-			return nil
-		},
+		DecisionFunc: decision,
 	}
 
 	return &TLS{

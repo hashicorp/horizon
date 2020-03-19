@@ -21,8 +21,6 @@ type Registry struct {
 	key    []byte
 	suffix string
 	mu     sync.RWMutex
-	// accounts      map[string]*Account
-	// targetAccount map[string]string
 
 	sessions map[string]map[string]map[string]struct{}
 
@@ -44,16 +42,27 @@ const KeySize = blake2b.BlockSize
 
 func NewRegistry(key []byte, suffix string, storage *data.Bolt) (*Registry, error) {
 	reg := &Registry{
-		suffix:  suffix,
-		storage: storage,
-		// accounts:      make(map[string]*Account),
-		// targetAccount: make(map[string]string),
+		suffix:   suffix,
+		storage:  storage,
 		sessions: make(map[string]map[string]map[string]struct{}),
 	}
 
 	petname.NonDeterministicMode()
 
 	return reg, nil
+}
+
+var ErrNoTarget = errors.New("unknown target")
+
+func (r *Registry) CertDecision(L hclog.Logger, name string) error {
+	if !r.storage.KnownTarget(name) {
+		L.Info("unknown target requested", "name", name)
+		return ErrNoTarget
+	}
+
+	L.Info("cert needed for target", "name", name)
+
+	return nil
 }
 
 const ulidSize = 16
@@ -106,17 +115,7 @@ func (r *Registry) AddAccount(L hclog.Logger) (ulid.ULID, error) {
 		return ulid.ULID{}, err
 	}
 
-	/*
-		acc := &Account{
-			id:        id,
-			defTarget: defTarget,
-			sessions:  make(map[string]map[string]struct{}),
-		}
-	*/
-
 	r.storage.AddAccount(id.String(), defTarget)
-	// r.accounts[id.String()] = acc
-	// r.targetAccount[defTarget] = id.String()
 
 	L.Info("created account", "id", id.String(), "def-target", defTarget)
 
@@ -187,20 +186,6 @@ var (
 	ErrNoAccount = errors.New("no account found")
 	ErrNoRoute   = errors.New("no route found")
 )
-
-type Route struct {
-	target   string
-	labelKey string
-}
-
-/*
-type Account struct {
-	id        ulid.ULID
-	defTarget string
-	mu        sync.RWMutex
-	sessions  map[string]map[string]struct{}
-}
-*/
 
 func (r *Registry) Token(L hclog.Logger, accId ulid.ULID) (string, error) {
 	h, err := blake2b.New256(r.key)
