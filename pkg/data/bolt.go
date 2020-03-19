@@ -2,14 +2,19 @@ package data
 
 import (
 	"bytes"
+	"encoding/base32"
+	"io"
 	"sync"
 	"time"
 
 	"github.com/caddyserver/certmagic"
+	"github.com/hashicorp/go-hclog"
 	"go.etcd.io/bbolt"
+	"golang.org/x/crypto/blake2b"
 )
 
 type Bolt struct {
+	L  hclog.Logger
 	db *bbolt.DB
 }
 
@@ -20,7 +25,10 @@ func NewBolt(path string) (*Bolt, error) {
 		return nil, err
 	}
 
-	b := &Bolt{db: db}
+	b := &Bolt{
+		L:  hclog.L().Named("bolt"),
+		db: db,
+	}
 
 	return b, nil
 }
@@ -52,6 +60,7 @@ type CertStorage struct {
 // case Unlock is unable to be called due to some sort of network
 // failure or system crash.
 func (c *CertStorage) Lock(key string) error {
+	c.b.L.Debug("cert-storage lock", "key", key)
 	c.mu.Lock()
 	return nil
 }
@@ -61,6 +70,7 @@ func (c *CertStorage) Lock(key string) error {
 // critical section is finished, even if it errored or timed
 // out. Unlock cleans up any resources allocated during Lock.
 func (c *CertStorage) Unlock(key string) error {
+	c.b.L.Debug("cert-storage unlock", "key", key)
 	c.mu.Unlock()
 	return nil
 }
@@ -82,24 +92,39 @@ func (c *CertStorage) Store(key string, value []byte) error {
 
 		data = append(data, value...)
 
+		c.b.L.Debug("cert-storage store", "key", key, "value-size", len(value), "value", hash(value))
+
 		return buk.Put([]byte(key), data)
 	})
+}
+
+func hash(value []byte) string {
+	h, _ := blake2b.New256(nil)
+	h.Write(value)
+
+	return base32.HexEncoding.EncodeToString(h.Sum(nil))
 }
 
 // Load retrieves the value at key.
 func (c *CertStorage) Load(key string) ([]byte, error) {
 	var data []byte
 	err := c.b.db.View(func(tx *bbolt.Tx) error {
-		buk, err := tx.CreateBucketIfNotExists([]byte("certs"))
-		if err != nil {
-			return err
+		buk := tx.Bucket([]byte("certs"))
+		if buk == nil {
+			return certmagic.ErrNotExist(io.EOF)
 		}
 
 		data = buk.Get([]byte(key))
+
+		if data == nil {
+			return certmagic.ErrNotExist(io.EOF)
+		}
+
 		if data != nil {
 			data = data[15:]
 		}
 
+		c.b.L.Debug("cert-storage load", "key", key, "value-size", len(data), "value", hash(data))
 		return nil
 	})
 
@@ -113,9 +138,9 @@ func (c *CertStorage) Load(key string) ([]byte, error) {
 // Delete deletes key.
 func (c *CertStorage) Delete(key string) error {
 	return c.b.db.Update(func(tx *bbolt.Tx) error {
-		buk, err := tx.CreateBucketIfNotExists([]byte("certs"))
-		if err != nil {
-			return err
+		buk := tx.Bucket([]byte("certs"))
+		if buk == nil {
+			return certmagic.ErrNotExist(io.EOF)
 		}
 
 		return buk.Delete([]byte(key))
@@ -170,6 +195,8 @@ func (c *CertStorage) List(prefix string, recursive bool) ([]string, error) {
 		})
 	})
 
+	c.b.L.Debug("cert-storage list", "prefix", prefix, "rec", recursive, "matches", matches)
+
 	return matches, err
 }
 
@@ -178,14 +205,14 @@ func (c *CertStorage) Stat(key string) (certmagic.KeyInfo, error) {
 	var ki certmagic.KeyInfo
 
 	err := c.b.db.View(func(tx *bbolt.Tx) error {
-		buk, err := tx.CreateBucketIfNotExists([]byte("certs"))
-		if err != nil {
-			return err
+		buk := tx.Bucket([]byte("certs"))
+		if buk == nil {
+			return nil
 		}
 
 		data := buk.Get([]byte(key))
 
-		err = ki.Modified.UnmarshalBinary(data[:15])
+		err := ki.Modified.UnmarshalBinary(data[:15])
 		if err != nil {
 			return err
 		}

@@ -112,6 +112,9 @@ func runHub() {
 	L := hclog.L().Named("hub")
 	L.SetLevel(hclog.Trace)
 
+	// To pickup logs from certmagic et al.
+	log.SetOutput(L.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
+
 	if db.Empty() {
 		acc, err := reg.AddAccount(L)
 		if err != nil {
