@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
+	"github.com/hashicorp/horizon/pkg/data"
 	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/registry"
 	"github.com/hashicorp/horizon/pkg/web"
@@ -28,6 +29,7 @@ var (
 	fTLS      = flag.String("tls", "", "activate tls and store data in the given path")
 	fSuffix   = flag.String("domain-suffix", ".localhost", "suffix to apply to generated domains")
 	fEmail    = flag.String("email", "", "email address to use for generated certs")
+	fDB       = flag.String("db", "horizon.db", "path to store hub data")
 )
 
 func main() {
@@ -97,7 +99,12 @@ func runAgent() {
 func runHub() {
 	key := registry.RandomKey()
 
-	reg, err := registry.NewRegistry(key, *fSuffix)
+	db, err := data.NewBolt(*fDB)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	reg, err := registry.NewRegistry(key, *fSuffix, db)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -105,19 +112,21 @@ func runHub() {
 	L := hclog.L().Named("hub")
 	L.SetLevel(hclog.Trace)
 
-	acc, err := reg.AddAccount(L)
-	if err != nil {
-		log.Fatal(err)
+	if db.Empty() {
+		acc, err := reg.AddAccount(L)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		token, err := reg.Token(L, acc)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		fmt.Printf("token: %s\n", token)
+
+		ioutil.WriteFile("test-token", []byte(token), 0755)
 	}
-
-	token, err := reg.Token(L, acc)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("token: %s\n", token)
-
-	ioutil.WriteFile("test-token", []byte(token), 0755)
 
 	h, err := hub.NewHub(L, reg)
 	if err != nil {
@@ -138,7 +147,7 @@ func runHub() {
 	go http.ListenAndServe(*fHTTPAddr, &frontend)
 
 	if *fTLS != "" {
-		tls, err := web.NewTLS(L, *fTLS, *fEmail, true)
+		tls, err := web.NewTLS(L, *fTLS, *fEmail, true, db.CertStorage())
 		if err != nil {
 			log.Fatal(err)
 		}

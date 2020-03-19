@@ -12,17 +12,21 @@ import (
 
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/pkg/data"
 	"github.com/oklog/ulid"
-	"github.com/y0ssar1an/q"
 	"golang.org/x/crypto/blake2b"
 )
 
 type Registry struct {
-	key           []byte
-	suffix        string
-	mu            sync.RWMutex
-	accounts      map[string]*Account
-	targetAccount map[string]string
+	key    []byte
+	suffix string
+	mu     sync.RWMutex
+	// accounts      map[string]*Account
+	// targetAccount map[string]string
+
+	sessions map[string]map[string]map[string]struct{}
+
+	storage *data.Bolt
 }
 
 func RandomKey() []byte {
@@ -38,11 +42,13 @@ func RandomKey() []byte {
 
 const KeySize = blake2b.BlockSize
 
-func NewRegistry(key []byte, suffix string) (*Registry, error) {
+func NewRegistry(key []byte, suffix string, storage *data.Bolt) (*Registry, error) {
 	reg := &Registry{
-		suffix:        suffix,
-		accounts:      make(map[string]*Account),
-		targetAccount: make(map[string]string),
+		suffix:  suffix,
+		storage: storage,
+		// accounts:      make(map[string]*Account),
+		// targetAccount: make(map[string]string),
+		sessions: make(map[string]map[string]map[string]struct{}),
 	}
 
 	petname.NonDeterministicMode()
@@ -55,6 +61,8 @@ const ulidSize = 16
 var ErrBadToken = errors.New("bad token detected")
 
 func (r *Registry) verifyToken(L hclog.Logger, token string) (ulid.ULID, error) {
+	L.Debug("verifying token", "token", token)
+
 	var id ulid.ULID
 
 	data, err := base64.RawURLEncoding.DecodeString(token)
@@ -66,8 +74,6 @@ func (r *Registry) verifyToken(L hclog.Logger, token string) (ulid.ULID, error) 
 	copy(id[:], accId)
 
 	givenSum := data[ulidSize:]
-
-	q.Q(data, accId, givenSum)
 
 	L.Debug("token account", "id", id.String(), "sum", givenSum)
 
@@ -89,7 +95,7 @@ func (r *Registry) verifyToken(L hclog.Logger, token string) (ulid.ULID, error) 
 
 var mrand = ulid.Monotonic(rand.Reader, 1)
 
-func (r *Registry) AddAccount(L hclog.Logger) (*Account, error) {
+func (r *Registry) AddAccount(L hclog.Logger) (ulid.ULID, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -97,22 +103,24 @@ func (r *Registry) AddAccount(L hclog.Logger) (*Account, error) {
 
 	id, err := ulid.New(ulid.Now(), mrand)
 	if err != nil {
-		return nil, err
+		return ulid.ULID{}, err
 	}
 
-	acc := &Account{
-		id:        id,
-		defTarget: defTarget,
-		sessions:  make(map[string]map[string]struct{}),
-		routes:    make(map[string]*Route),
-	}
+	/*
+		acc := &Account{
+			id:        id,
+			defTarget: defTarget,
+			sessions:  make(map[string]map[string]struct{}),
+		}
+	*/
 
-	r.accounts[id.String()] = acc
-	r.targetAccount[defTarget] = id.String()
+	r.storage.AddAccount(id.String(), defTarget)
+	// r.accounts[id.String()] = acc
+	// r.targetAccount[defTarget] = id.String()
 
-	L.Info("created account", "id", id.String(), "def-target", acc.defTarget)
+	L.Info("created account", "id", id.String(), "def-target", defTarget)
 
-	return acc, nil
+	return id, nil
 }
 
 func compressLabels(v []string) string {
@@ -122,7 +130,7 @@ func compressLabels(v []string) string {
 }
 
 func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string) (string, func(), error) {
-	acc, err := r.FindAccount(L, token)
+	accId, err := r.FindAccount(L, token)
 	if err != nil {
 		return "", nil, err
 	}
@@ -136,33 +144,40 @@ func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string) (str
 
 	labelKey := compressLabels(labels)
 
-	acc.mu.Lock()
-	defer acc.mu.Unlock()
+	L.Info("agent authenticated", "id", id.String(), "label-key", labelKey, "account-id", accId.String())
 
-	L.Info("agent authenticated", "id", id.String(), "label-key", labelKey, "account-id", acc.id.String())
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
-	sessions := acc.sessions[labelKey]
+	account := r.sessions[accId.String()]
+	if account == nil {
+		account = make(map[string]map[string]struct{})
+		r.sessions[accId.String()] = account
+	}
+
+	sessions := account[labelKey]
 	if sessions == nil {
 		sessions = make(map[string]struct{})
-		acc.sessions[labelKey] = sessions
+		account[labelKey] = sessions
 	}
 
 	sessions[agentKey] = struct{}{}
 
 	remove := func() {
-		acc.mu.Lock()
-		defer acc.mu.Unlock()
+		r.mu.Lock()
+		defer r.mu.Unlock()
 		delete(sessions, agentKey)
 	}
 
 	// Create a default route and tag it with the given labels
-	if len(acc.routes) == 0 {
-		L.Info("creating default route", "target", acc.defTarget, "label-key", labelKey)
 
-		acc.routes[acc.defTarget] = &Route{
-			target:   acc.defTarget,
-			labelKey: labelKey,
-		}
+	created, err := r.storage.CreateDefaultRoute(accId.String(), labelKey)
+	if err != nil {
+		return "", nil, err
+	}
+
+	if created {
+		L.Info("created default route", "account", accId.String(), "label-key", labelKey)
 	}
 
 	return agentKey, remove, nil
@@ -178,76 +193,66 @@ type Route struct {
 	labelKey string
 }
 
+/*
 type Account struct {
 	id        ulid.ULID
 	defTarget string
 	mu        sync.RWMutex
 	sessions  map[string]map[string]struct{}
-	routes    map[string]*Route
 }
+*/
 
-func (r *Registry) Token(L hclog.Logger, acc *Account) (string, error) {
+func (r *Registry) Token(L hclog.Logger, accId ulid.ULID) (string, error) {
 	h, err := blake2b.New256(r.key)
 	if err != nil {
 		return "", err
 	}
 
-	h.Write(acc.id[:])
+	h.Write(accId[:])
 
 	sum := h.Sum(nil)
 
-	token := append([]byte(nil), acc.id[:]...)
+	token := append([]byte(nil), accId[:]...)
 	token = append(token, sum...)
 
-	L.Debug("created token", "account-id", acc.id.String(), "sum", sum)
-
-	q.Q(acc.id, sum, token)
+	L.Debug("created token", "account-id", accId.String(), "sum", sum)
 
 	return base64.RawURLEncoding.EncodeToString(token), nil
 }
 
-func (r *Registry) FindAccount(L hclog.Logger, token string) (*Account, error) {
+func (r *Registry) FindAccount(L hclog.Logger, token string) (ulid.ULID, error) {
 	accId, err := r.verifyToken(L, token)
 	if err != nil {
-		return nil, err
+		return ulid.ULID{}, err
 	}
 
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	acc, ok := r.accounts[accId.String()]
-	if !ok {
-		return nil, ErrNoAccount
+	if !r.storage.CheckAccount(accId.String()) {
+		return ulid.ULID{}, ErrNoAccount
 	}
 
-	return acc, nil
+	return accId, nil
 }
 
 func (r *Registry) ResolveAgent(L hclog.Logger, target string) (string, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	accId, ok := r.targetAccount[target]
-	if !ok {
-		L.Info("no account for target", "target", target)
+	accId, labelKey, err := r.storage.LabelsForTarget(target)
+	if err != nil {
+		return "", err
+	}
+
+	if accId == "" || labelKey == "" {
 		return "", ErrNoAccount
 	}
 
-	acc, ok := r.accounts[accId]
+	account, ok := r.sessions[accId]
 	if !ok {
 		L.Error("account missing", "id", accId)
 		return "", ErrNoAccount
 	}
 
-	acc.mu.RLock()
-	defer acc.mu.RUnlock()
-
-	route, ok := acc.routes[target]
-	if !ok {
-		return "", ErrNoRoute
-	}
-
-	sessions, ok := acc.sessions[route.labelKey]
+	sessions, ok := account[labelKey]
 	if !ok {
 		return "", ErrNoRoute
 	}

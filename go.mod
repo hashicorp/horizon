@@ -11,5 +11,6 @@ require (
 	github.com/oklog/ulid v1.3.1
 	github.com/sqs/goreturns v0.0.0-20181028201513-538ac6014518 // indirect
 	github.com/y0ssar1an/q v1.0.9
+	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200317142112-1b76d66859c6
 )
