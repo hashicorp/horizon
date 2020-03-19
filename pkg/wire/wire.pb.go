@@ -50,7 +50,7 @@ var Request_Type_value = map[string]int32{
 }
 
 func (Request_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{4, 0}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{5, 0}
 }
 
 type Timestamp struct {
@@ -265,18 +265,72 @@ func (m *Header) GetValue() []string {
 	return nil
 }
 
+type Auth struct {
+	User     string `protobuf:"bytes,1,opt,name=user,proto3" json:"user,omitempty"`
+	Password string `protobuf:"bytes,2,opt,name=password,proto3" json:"password,omitempty"`
+}
+
+func (m *Auth) Reset()      { *m = Auth{} }
+func (*Auth) ProtoMessage() {}
+func (*Auth) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{4}
+}
+func (m *Auth) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *Auth) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_Auth.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *Auth) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Auth.Merge(m, src)
+}
+func (m *Auth) XXX_Size() int {
+	return m.Size()
+}
+func (m *Auth) XXX_DiscardUnknown() {
+	xxx_messageInfo_Auth.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Auth proto.InternalMessageInfo
+
+func (m *Auth) GetUser() string {
+	if m != nil {
+		return m.User
+	}
+	return ""
+}
+
+func (m *Auth) GetPassword() string {
+	if m != nil {
+		return m.Password
+	}
+	return ""
+}
+
 type Request struct {
 	Type       Request_Type `protobuf:"varint,1,opt,name=type,proto3,enum=Request_Type" json:"type,omitempty"`
 	Method     string       `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`
 	Path       string       `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	Headers    []*Header    `protobuf:"bytes,4,rep,name=headers,proto3" json:"headers,omitempty"`
-	RemoteAddr string       `protobuf:"bytes,5,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`
+	Query      string       `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
+	Fragment   string       `protobuf:"bytes,5,opt,name=fragment,proto3" json:"fragment,omitempty"`
+	Auth       *Auth        `protobuf:"bytes,6,opt,name=auth,proto3" json:"auth,omitempty"`
+	Headers    []*Header    `protobuf:"bytes,7,rep,name=headers,proto3" json:"headers,omitempty"`
+	RemoteAddr string       `protobuf:"bytes,8,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`
 }
 
 func (m *Request) Reset()      { *m = Request{} }
 func (*Request) ProtoMessage() {}
 func (*Request) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{4}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{5}
 }
 func (m *Request) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -326,6 +380,27 @@ func (m *Request) GetPath() string {
 	return ""
 }
 
+func (m *Request) GetQuery() string {
+	if m != nil {
+		return m.Query
+	}
+	return ""
+}
+
+func (m *Request) GetFragment() string {
+	if m != nil {
+		return m.Fragment
+	}
+	return ""
+}
+
+func (m *Request) GetAuth() *Auth {
+	if m != nil {
+		return m.Auth
+	}
+	return nil
+}
+
 func (m *Request) GetHeaders() []*Header {
 	if m != nil {
 		return m.Headers
@@ -349,7 +424,7 @@ type Response struct {
 func (m *Response) Reset()      { *m = Response{} }
 func (*Response) ProtoMessage() {}
 func (*Response) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{5}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{6}
 }
 func (m *Response) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -405,6 +480,7 @@ func init() {
 	proto.RegisterType((*Preamble)(nil), "Preamble")
 	proto.RegisterType((*Confirmation)(nil), "Confirmation")
 	proto.RegisterType((*Header)(nil), "Header")
+	proto.RegisterType((*Auth)(nil), "Auth")
 	proto.RegisterType((*Request)(nil), "Request")
 	proto.RegisterType((*Response)(nil), "Response")
 }
@@ -412,35 +488,39 @@ func init() {
 func init() { proto.RegisterFile("wire.proto", fileDescriptor_f2dcdddcdf68d8e0) }
 
 var fileDescriptor_f2dcdddcdf68d8e0 = []byte{
-	// 441 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x92, 0x41, 0x6e, 0xd3, 0x40,
-	0x14, 0x86, 0x3d, 0xb1, 0x93, 0xd4, 0x2f, 0x14, 0x59, 0x23, 0x84, 0xbc, 0x61, 0x48, 0xbd, 0xca,
-	0xca, 0x52, 0x03, 0x17, 0xa0, 0xa1, 0xa8, 0x88, 0x05, 0xd1, 0x60, 0xd4, 0x65, 0x35, 0xe9, 0x3c,
-	0x14, 0x8b, 0xd8, 0x63, 0x66, 0x26, 0xa0, 0xee, 0x38, 0x02, 0xc7, 0xe0, 0x28, 0xec, 0xc8, 0xb2,
-	0x4b, 0xe2, 0x6c, 0x58, 0xf6, 0x08, 0x68, 0xc6, 0x2e, 0x62, 0xc1, 0xee, 0xff, 0x7f, 0xeb, 0xbd,
-	0xff, 0x7b, 0xb6, 0x01, 0xbe, 0x94, 0x1a, 0xf3, 0x46, 0x2b, 0xab, 0xb2, 0x53, 0x88, 0x8b, 0xb2,
-	0x42, 0x63, 0x45, 0xd5, 0xd0, 0x04, 0x42, 0x83, 0xd7, 0x29, 0x99, 0x92, 0x59, 0xc4, 0x9d, 0xa4,
-	0x14, 0xa2, 0xda, 0x45, 0x03, 0x1f, 0x79, 0x9d, 0x5d, 0xc2, 0xd1, 0x52, 0xa3, 0xa8, 0x56, 0x1b,
-	0xa4, 0x4f, 0x00, 0x0c, 0x1a, 0x53, 0xaa, 0xfa, 0xaa, 0x94, 0x7e, 0x30, 0xe6, 0x71, 0x9f, 0xbc,
-	0x96, 0xf4, 0x11, 0x0c, 0xad, 0xfa, 0x88, 0xb5, 0x9f, 0x8f, 0x79, 0x67, 0xe8, 0x63, 0x18, 0x6d,
-	0xc4, 0x0a, 0x37, 0x26, 0x0d, 0xa7, 0xe1, 0x2c, 0xe6, 0xbd, 0xcb, 0x5e, 0xc1, 0x83, 0x85, 0xaa,
-	0x3f, 0x94, 0xba, 0x12, 0xb6, 0x54, 0x35, 0x65, 0x10, 0xd9, 0xb2, 0x42, 0xbf, 0x76, 0x32, 0x87,
-	0xfc, 0x2f, 0x28, 0xf7, 0xb9, 0xdb, 0x63, 0xac, 0xb0, 0x5b, 0xd3, 0xaf, 0xef, 0x5d, 0x36, 0x87,
-	0xd1, 0x05, 0x0a, 0x89, 0xda, 0xe3, 0x8b, 0x7e, 0x43, 0xcc, 0xbd, 0x76, 0x4c, 0x9f, 0xc5, 0x66,
-	0x8b, 0xe9, 0xc0, 0x97, 0x77, 0x26, 0xfb, 0x49, 0x60, 0xcc, 0xf1, 0xd3, 0x16, 0x8d, 0xa5, 0x27,
-	0x10, 0xd9, 0x9b, 0xa6, 0x9b, 0x7a, 0x38, 0x3f, 0xce, 0xfb, 0x3c, 0x2f, 0x6e, 0x1a, 0xe4, 0xfe,
-	0x91, 0xab, 0xae, 0xd0, 0xae, 0x95, 0xbc, 0xaf, 0xee, 0x9c, 0x2b, 0x6c, 0x84, 0x5d, 0xa7, 0x61,
-	0x57, 0xe8, 0x34, 0x3d, 0x81, 0xf1, 0xda, 0xe3, 0x98, 0x34, 0x9a, 0x86, 0xb3, 0xc9, 0x7c, 0x9c,
-	0x77, 0x78, 0xfc, 0x3e, 0xa7, 0x4f, 0x61, 0xa2, 0xb1, 0x52, 0x16, 0xaf, 0x84, 0x94, 0x3a, 0x1d,
-	0xfa, 0x69, 0xe8, 0xa2, 0x17, 0x52, 0xea, 0xec, 0x14, 0x22, 0xd7, 0x4e, 0x8f, 0x20, 0xba, 0x28,
-	0x8a, 0x65, 0x12, 0xd0, 0x63, 0x88, 0x2f, 0xcf, 0xcf, 0xde, 0xbd, 0x5d, 0xbc, 0x39, 0x2f, 0x12,
-	0x42, 0xc7, 0x10, 0x16, 0x8b, 0x65, 0x32, 0x70, 0xe2, 0xfd, 0xcb, 0x65, 0x12, 0xba, 0xcf, 0xc4,
-	0xd1, 0x34, 0xaa, 0x36, 0xfe, 0x66, 0xd4, 0x5a, 0xe9, 0xfe, 0x45, 0x74, 0xc6, 0xc1, 0x5e, 0x2b,
-	0x89, 0xfe, 0x84, 0x21, 0xf7, 0xfa, 0x5f, 0xd8, 0xf0, 0xff, 0xb0, 0x67, 0xcf, 0x77, 0x7b, 0x16,
-	0xdc, 0xee, 0x59, 0x70, 0xb7, 0x67, 0xe4, 0x6b, 0xcb, 0xc8, 0xf7, 0x96, 0x91, 0x1f, 0x2d, 0x23,
-	0xbb, 0x96, 0x91, 0x5f, 0x2d, 0x23, 0xbf, 0x5b, 0x16, 0xdc, 0xb5, 0x8c, 0x7c, 0x3b, 0xb0, 0x60,
-	0x77, 0x60, 0xc1, 0xed, 0x81, 0x05, 0xab, 0x91, 0xff, 0xdf, 0x9e, 0xfd, 0x09, 0x00, 0x00, 0xff,
-	0xff, 0x51, 0x33, 0xcd, 0x4f, 0x7d, 0x02, 0x00, 0x00,
+	// 508 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x6c, 0x52, 0xcd, 0x6e, 0xd3, 0x40,
+	0x18, 0xb4, 0x63, 0xe7, 0xc7, 0x5f, 0x28, 0x8a, 0x56, 0x08, 0x19, 0x24, 0x96, 0xd4, 0xa7, 0x9c,
+	0x2c, 0x35, 0x20, 0xee, 0x6d, 0x28, 0x2a, 0xe2, 0x40, 0xb4, 0x18, 0xf5, 0x58, 0x6d, 0xea, 0xaf,
+	0xc4, 0x22, 0xf6, 0xba, 0xbb, 0x6b, 0xaa, 0xdc, 0x78, 0x04, 0x1e, 0x80, 0x07, 0xe0, 0x51, 0x38,
+	0xe6, 0xd8, 0x23, 0x71, 0x2e, 0x1c, 0xfb, 0x08, 0x68, 0xd7, 0x4e, 0xc5, 0xa1, 0xb7, 0x99, 0x59,
+	0x7d, 0xf3, 0xcd, 0x37, 0x5a, 0x80, 0x9b, 0x4c, 0x62, 0x5c, 0x4a, 0xa1, 0x45, 0x74, 0x04, 0x41,
+	0x92, 0xe5, 0xa8, 0x34, 0xcf, 0x4b, 0x32, 0x02, 0x4f, 0xe1, 0x65, 0xe8, 0x8e, 0xdd, 0x89, 0xcf,
+	0x0c, 0x24, 0x04, 0xfc, 0xc2, 0x48, 0x1d, 0x2b, 0x59, 0x1c, 0x9d, 0xc3, 0x60, 0x2e, 0x91, 0xe7,
+	0x8b, 0x15, 0x92, 0x17, 0x00, 0x0a, 0x95, 0xca, 0x44, 0x71, 0x91, 0xa5, 0x76, 0x30, 0x60, 0x41,
+	0xab, 0xbc, 0x4f, 0xc9, 0x13, 0xe8, 0x6a, 0xf1, 0x15, 0x0b, 0x3b, 0x1f, 0xb0, 0x86, 0x90, 0xa7,
+	0xd0, 0x5b, 0xf1, 0x05, 0xae, 0x54, 0xe8, 0x8d, 0xbd, 0x49, 0xc0, 0x5a, 0x16, 0xbd, 0x83, 0x47,
+	0x33, 0x51, 0x5c, 0x65, 0x32, 0xe7, 0x3a, 0x13, 0x05, 0xa1, 0xe0, 0xeb, 0x2c, 0x47, 0x6b, 0x3b,
+	0x9c, 0x42, 0x7c, 0x1f, 0x94, 0x59, 0xdd, 0xf8, 0x28, 0xcd, 0x75, 0xa5, 0x5a, 0xfb, 0x96, 0x45,
+	0x53, 0xe8, 0x9d, 0x21, 0x4f, 0x51, 0xda, 0xf8, 0xbc, 0x75, 0x08, 0x98, 0xc5, 0x26, 0xd3, 0x37,
+	0xbe, 0xaa, 0x30, 0xec, 0xd8, 0xe5, 0x0d, 0x89, 0xde, 0x80, 0x7f, 0x5c, 0xe9, 0xa5, 0x99, 0xa8,
+	0x14, 0xca, 0xfd, 0x84, 0xc1, 0xe4, 0x39, 0x0c, 0x4a, 0xae, 0xd4, 0x8d, 0x90, 0x69, 0xbb, 0xe9,
+	0x9e, 0x47, 0x3f, 0x3b, 0xd0, 0x67, 0x78, 0x5d, 0xa1, 0xd2, 0xe4, 0x10, 0x7c, 0xbd, 0x2e, 0x9b,
+	0x6d, 0x8f, 0xa7, 0x07, 0x71, 0xab, 0xc7, 0xc9, 0xba, 0x44, 0x66, 0x9f, 0x4c, 0xe4, 0x1c, 0xf5,
+	0x52, 0xec, 0x8d, 0x5a, 0x66, 0xd6, 0x96, 0x5c, 0x2f, 0x43, 0xaf, 0x59, 0x6b, 0xb0, 0x09, 0x7a,
+	0x5d, 0xa1, 0x5c, 0x87, 0x7e, 0x53, 0x9e, 0x25, 0x26, 0xcc, 0x95, 0xe4, 0x5f, 0x72, 0x2c, 0x74,
+	0xd8, 0x6d, 0xc2, 0xec, 0x39, 0x79, 0x06, 0x3e, 0xaf, 0xf4, 0x32, 0xec, 0xd9, 0xc2, 0xba, 0xb1,
+	0xb9, 0x88, 0x59, 0x89, 0x1c, 0x42, 0x7f, 0x69, 0x3b, 0x51, 0x61, 0x7f, 0xec, 0x4d, 0x86, 0xd3,
+	0x7e, 0xdc, 0x74, 0xc4, 0xf6, 0x3a, 0x79, 0x09, 0x43, 0x89, 0xb9, 0xd0, 0x78, 0xc1, 0xd3, 0x54,
+	0x86, 0x03, 0x6b, 0x0e, 0x8d, 0x74, 0x9c, 0xa6, 0x32, 0x3a, 0x02, 0xdf, 0x9c, 0x42, 0x06, 0xe0,
+	0x9f, 0x25, 0xc9, 0x7c, 0xe4, 0x90, 0x03, 0x08, 0xce, 0x4f, 0x4f, 0x3e, 0x7d, 0x9c, 0x7d, 0x38,
+	0x4d, 0x46, 0x2e, 0xe9, 0x83, 0x97, 0xcc, 0xe6, 0xa3, 0x8e, 0x01, 0x9f, 0xdf, 0xce, 0x47, 0x9e,
+	0xf9, 0x2b, 0x0c, 0x55, 0x29, 0x0a, 0x65, 0x8b, 0x47, 0x29, 0xc5, 0xbe, 0xdb, 0x86, 0x98, 0xcb,
+	0x2f, 0x45, 0x8a, 0xb6, 0x8f, 0x2e, 0xb3, 0xf8, 0xff, 0xb0, 0xde, 0xc3, 0x61, 0x4f, 0x5e, 0x6f,
+	0xb6, 0xd4, 0xb9, 0xdd, 0x52, 0xe7, 0x6e, 0x4b, 0xdd, 0xef, 0x35, 0x75, 0x7f, 0xd5, 0xd4, 0xfd,
+	0x5d, 0x53, 0x77, 0x53, 0x53, 0xf7, 0x4f, 0x4d, 0xdd, 0xbf, 0x35, 0x75, 0xee, 0x6a, 0xea, 0xfe,
+	0xd8, 0x51, 0x67, 0xb3, 0xa3, 0xce, 0xed, 0x8e, 0x3a, 0x8b, 0x9e, 0xfd, 0xf4, 0xaf, 0xfe, 0x05,
+	0x00, 0x00, 0xff, 0xff, 0x7a, 0x23, 0x4f, 0xa4, 0x02, 0x03, 0x00, 0x00,
 }
 
 func (x Request_Type) String() string {
@@ -571,6 +651,33 @@ func (this *Header) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *Auth) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*Auth)
+	if !ok {
+		that2, ok := that.(Auth)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.User != that1.User {
+		return false
+	}
+	if this.Password != that1.Password {
+		return false
+	}
+	return true
+}
 func (this *Request) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -597,6 +704,15 @@ func (this *Request) Equal(that interface{}) bool {
 		return false
 	}
 	if this.Path != that1.Path {
+		return false
+	}
+	if this.Query != that1.Query {
+		return false
+	}
+	if this.Fragment != that1.Fragment {
+		return false
+	}
+	if !this.Auth.Equal(that1.Auth) {
 		return false
 	}
 	if len(this.Headers) != len(that1.Headers) {
@@ -694,15 +810,31 @@ func (this *Header) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *Auth) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&wire.Auth{")
+	s = append(s, "User: "+fmt.Sprintf("%#v", this.User)+",\n")
+	s = append(s, "Password: "+fmt.Sprintf("%#v", this.Password)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func (this *Request) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 9)
+	s := make([]string, 0, 12)
 	s = append(s, "&wire.Request{")
 	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
 	s = append(s, "Method: "+fmt.Sprintf("%#v", this.Method)+",\n")
 	s = append(s, "Path: "+fmt.Sprintf("%#v", this.Path)+",\n")
+	s = append(s, "Query: "+fmt.Sprintf("%#v", this.Query)+",\n")
+	s = append(s, "Fragment: "+fmt.Sprintf("%#v", this.Fragment)+",\n")
+	if this.Auth != nil {
+		s = append(s, "Auth: "+fmt.Sprintf("%#v", this.Auth)+",\n")
+	}
 	if this.Headers != nil {
 		s = append(s, "Headers: "+fmt.Sprintf("%#v", this.Headers)+",\n")
 	}
@@ -892,6 +1024,43 @@ func (m *Header) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *Auth) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *Auth) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *Auth) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Password) > 0 {
+		i -= len(m.Password)
+		copy(dAtA[i:], m.Password)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.Password)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.User) > 0 {
+		i -= len(m.User)
+		copy(dAtA[i:], m.User)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.User)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *Request) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -917,7 +1086,7 @@ func (m *Request) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		copy(dAtA[i:], m.RemoteAddr)
 		i = encodeVarintWire(dAtA, i, uint64(len(m.RemoteAddr)))
 		i--
-		dAtA[i] = 0x2a
+		dAtA[i] = 0x42
 	}
 	if len(m.Headers) > 0 {
 		for iNdEx := len(m.Headers) - 1; iNdEx >= 0; iNdEx-- {
@@ -930,8 +1099,34 @@ func (m *Request) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 				i = encodeVarintWire(dAtA, i, uint64(size))
 			}
 			i--
-			dAtA[i] = 0x22
+			dAtA[i] = 0x3a
 		}
+	}
+	if m.Auth != nil {
+		{
+			size, err := m.Auth.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintWire(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.Fragment) > 0 {
+		i -= len(m.Fragment)
+		copy(dAtA[i:], m.Fragment)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.Fragment)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	if len(m.Query) > 0 {
+		i -= len(m.Query)
+		copy(dAtA[i:], m.Query)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.Query)))
+		i--
+		dAtA[i] = 0x22
 	}
 	if len(m.Path) > 0 {
 		i -= len(m.Path)
@@ -1089,6 +1284,23 @@ func (m *Header) Size() (n int) {
 	return n
 }
 
+func (m *Auth) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.User)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	l = len(m.Password)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	return n
+}
+
 func (m *Request) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1104,6 +1316,18 @@ func (m *Request) Size() (n int) {
 	}
 	l = len(m.Path)
 	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	l = len(m.Query)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	l = len(m.Fragment)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	if m.Auth != nil {
+		l = m.Auth.Size()
 		n += 1 + l + sovWire(uint64(l))
 	}
 	if len(m.Headers) > 0 {
@@ -1192,6 +1416,17 @@ func (this *Header) String() string {
 	}, "")
 	return s
 }
+func (this *Auth) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&Auth{`,
+		`User:` + fmt.Sprintf("%v", this.User) + `,`,
+		`Password:` + fmt.Sprintf("%v", this.Password) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *Request) String() string {
 	if this == nil {
 		return "nil"
@@ -1205,6 +1440,9 @@ func (this *Request) String() string {
 		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
 		`Method:` + fmt.Sprintf("%v", this.Method) + `,`,
 		`Path:` + fmt.Sprintf("%v", this.Path) + `,`,
+		`Query:` + fmt.Sprintf("%v", this.Query) + `,`,
+		`Fragment:` + fmt.Sprintf("%v", this.Fragment) + `,`,
+		`Auth:` + strings.Replace(this.Auth.String(), "Auth", "Auth", 1) + `,`,
 		`Headers:` + repeatedStringForHeaders + `,`,
 		`RemoteAddr:` + fmt.Sprintf("%v", this.RemoteAddr) + `,`,
 		`}`,
@@ -1714,6 +1952,123 @@ func (m *Header) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *Auth) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWire
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: Auth: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: Auth: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field User", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.User = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Password", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Password = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWire(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWire
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthWire
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *Request) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -1828,6 +2183,106 @@ func (m *Request) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 4:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Query", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Query = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Fragment", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Fragment = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Auth", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Auth == nil {
+				m.Auth = &Auth{}
+			}
+			if err := m.Auth.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 7:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Headers", wireType)
 			}
 			var msglen int
@@ -1860,7 +2315,7 @@ func (m *Request) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		case 5:
+		case 8:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field RemoteAddr", wireType)
 			}

@@ -21,6 +21,11 @@ message Header {
   repeated string value = 2;
 }
 
+message Auth {
+  string user = 1;
+  string password = 2;
+}
+
 message Request {
   enum Type {
     HTTP = 0;
@@ -32,8 +37,11 @@ message Request {
   Type type = 1;
   string method = 2;
   string path = 3;
-  repeated Header headers = 4;
-  string remote_addr = 5;
+  string query = 4;
+  string fragment = 5;
+  Auth auth = 6;
+  repeated Header headers = 7;
+  string remote_addr = 8;
 }
 
 message Response {

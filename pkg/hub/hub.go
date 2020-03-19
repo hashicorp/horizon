@@ -14,15 +14,22 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
+type Registry interface {
+	AuthAgent(L hclog.Logger, token string, labels []string) (string, func(), error)
+	ResolveAgent(L hclog.Logger, target string) (string, error)
+}
+
 type Hub struct {
 	L   hclog.Logger
 	cfg *yamux.Config
+
+	reg Registry
 
 	mu     sync.RWMutex
 	active map[string]*yamux.Session
 }
 
-func NewHub(L hclog.Logger) (*Hub, error) {
+func NewHub(L hclog.Logger, r Registry) (*Hub, error) {
 	cfg := yamux.DefaultConfig()
 	cfg.EnableKeepAlive = true
 	cfg.KeepAliveInterval = 30 * time.Second
@@ -34,6 +41,7 @@ func NewHub(L hclog.Logger) (*Hub, error) {
 	h := &Hub{
 		L:      L,
 		cfg:    cfg,
+		reg:    r,
 		active: make(map[string]*yamux.Session),
 	}
 
@@ -52,6 +60,8 @@ func (h *Hub) Serve(ctx context.Context, l net.Listener) error {
 }
 
 func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
+	defer conn.Close()
+
 	fr := &wire.Framing{RW: conn}
 
 	var preamble wire.Preamble
@@ -61,6 +71,14 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		h.L.Error("error decoding preamble", "error", err)
 		return
 	}
+
+	agentKey, remove, err := h.reg.AuthAgent(h.L, preamble.Token, preamble.Labels)
+	if err != nil {
+		h.L.Error("error authenticating agent", "error", err)
+		return
+	}
+
+	defer remove()
 
 	ts := time.Now()
 
@@ -85,11 +103,14 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 	}
 
 	h.mu.Lock()
-
-	h.active[preamble.SessionId] = sess
-	defer delete(h.active, preamble.SessionId)
-
+	h.active[agentKey] = sess
 	h.mu.Unlock()
+
+	defer func() {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		delete(h.active, agentKey)
+	}()
 
 	for {
 		stream, err := sess.AcceptStream()
@@ -103,11 +124,20 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 }
 
 func (h *Hub) findSession(target string) (*yamux.Session, error) {
-	for _, v := range h.active {
-		return v, nil
+	agentKey, err := h.reg.ResolveAgent(h.L, target)
+	if err != nil {
+		return nil, err
 	}
 
-	return nil, io.EOF
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	sess, ok := h.active[agentKey]
+	if !ok {
+		return nil, io.EOF
+	}
+
+	return sess, nil
 }
 
 type frameWriter struct {

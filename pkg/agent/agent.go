@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -188,6 +189,11 @@ func (a *Agent) handleHTTP(ctx context.Context, L hclog.Logger, stream *yamux.St
 	hreq, err := http.NewRequestWithContext(ctx, req.Method, a.localUrl+req.Path, &frameReader{r: stream})
 	if err != nil {
 		return err
+	}
+	hreq.URL.RawQuery = req.Query
+	hreq.URL.Fragment = req.Fragment
+	if req.Auth != nil {
+		hreq.URL.User = url.UserPassword(req.Auth.User, req.Auth.Password)
 	}
 
 	hresp, err := http.DefaultClient.Do(hreq)

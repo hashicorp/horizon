@@ -25,7 +25,15 @@ func (f *Frontend) Serve(l net.Listener) error {
 func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var wreq wire.Request
 	wreq.Method = req.Method
-	wreq.Path = req.URL.RawPath
+	wreq.Path = req.URL.EscapedPath()
+	wreq.Query = req.URL.RawQuery
+	wreq.Fragment = req.URL.Fragment
+	if user, pass, ok := req.BasicAuth(); ok {
+		wreq.Auth = &wire.Auth{
+			User:     user,
+			Password: pass,
+		}
+	}
 
 	for k, v := range req.Header {
 		wreq.Headers = append(wreq.Headers, &wire.Header{
@@ -39,7 +47,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	f.L.Info("request",
 		"target", target,
 		"method", req.Method,
-		"path", req.URL.RawPath,
+		"path", req.URL.Path,
 		"content-length", req.ContentLength,
 	)
 

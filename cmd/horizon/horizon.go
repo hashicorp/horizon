@@ -4,13 +4,16 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
 	"github.com/hashicorp/horizon/pkg/hub"
+	"github.com/hashicorp/horizon/pkg/registry"
 	"github.com/hashicorp/horizon/pkg/web"
 )
 
@@ -20,6 +23,11 @@ var (
 	fAgent    = flag.String("agent", "", "as an agent, serve traffic from the given server")
 	fHubAddr  = flag.String("hub-addr", "localhost:22100", "connect to the given hub as an agent")
 	fHTTPAddr = flag.String("http-addr", "localhost:22200", "address to run the http frontend on")
+	fToken    = flag.String("token", "", "token to authenticate the agent with")
+	fLabels   = flag.String("labels", "env=test", "labels to associate with this agent")
+	fTLS      = flag.String("tls", "", "activate tls and store data in the given path")
+	fSuffix   = flag.String("domain-suffix", ".localhost", "suffix to apply to generated domains")
+	fEmail    = flag.String("email", "", "email address to use for generated certs")
 )
 
 func main() {
@@ -46,8 +54,15 @@ func main() {
 func runHello() {
 	L := hclog.L().Named("hello")
 	http.ListenAndServe(*fHello, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		L.Info("request", "method", req.Method, "path", req.URL.RawPath)
-		defer L.Info("request ended", "method", req.Method, "path", req.URL.RawPath)
+		user, pass, _ := req.BasicAuth()
+
+		L.Info("request",
+			"method", req.Method,
+			"path", req.URL.Path,
+			"query", req.URL.RawQuery,
+			"fragement", req.URL.Fragment,
+			"auth", user+":"+pass,
+		)
 
 		fmt.Fprintf(w, "hello from horizon hello-world\n")
 	}))
@@ -60,6 +75,11 @@ func runAgent() {
 	g, err := agent.NewAgent(L, *fAgent)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	g.Token = *fToken
+	for _, label := range strings.Split(*fLabels, ",") {
+		g.Labels = append(g.Labels, strings.TrimSpace(label))
 	}
 
 	c, err := net.Dial("tcp", *fHubAddr)
@@ -75,10 +95,31 @@ func runAgent() {
 }
 
 func runHub() {
+	key := registry.RandomKey()
+
+	reg, err := registry.NewRegistry(key, *fSuffix)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	L := hclog.L().Named("hub")
 	L.SetLevel(hclog.Trace)
 
-	h, err := hub.NewHub(L)
+	acc, err := reg.AddAccount(L)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	token, err := reg.Token(L, acc)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("token: %s\n", token)
+
+	ioutil.WriteFile("test-token", []byte(token), 0755)
+
+	h, err := hub.NewHub(L, reg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -95,6 +136,15 @@ func runHub() {
 	frontend.L = L.Named("web")
 
 	go http.ListenAndServe(*fHTTPAddr, &frontend)
+
+	if *fTLS != "" {
+		tls, err := web.NewTLS(L, *fTLS, *fEmail, true)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		go tls.ListenAndServe(":443", &frontend)
+	}
 
 	ctx := context.Background()
 
