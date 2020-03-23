@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/agent"
 	"github.com/hashicorp/horizon/pkg/data"
 	"github.com/hashicorp/horizon/pkg/hub"
+	"github.com/hashicorp/horizon/pkg/noiseconn"
 	"github.com/hashicorp/horizon/pkg/registry"
 	"github.com/hashicorp/horizon/pkg/web"
 )
@@ -30,6 +31,7 @@ var (
 	fSuffix   = flag.String("domain-suffix", ".localhost", "suffix to apply to generated domains")
 	fEmail    = flag.String("email", "", "email address to use for generated certs")
 	fDB       = flag.String("db", "horizon.db", "path to store hub data")
+	fPeerKey  = flag.String("peer-key", "", "peer public key")
 )
 
 func main() {
@@ -74,7 +76,12 @@ func runAgent() {
 	L := hclog.L().Named("agent")
 	L.SetLevel(hclog.Trace)
 
-	g, err := agent.NewAgent(L, *fAgent)
+	key, err := noiseconn.GenerateKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	g, err := agent.NewAgent(L, *fAgent, key)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -91,7 +98,7 @@ func runAgent() {
 
 	ctx := context.Background()
 
-	g.Nego(ctx, L, c)
+	g.Nego(ctx, L, c, *fPeerKey)
 
 	select {}
 }
@@ -131,7 +138,16 @@ func runHub() {
 		ioutil.WriteFile("test-token", []byte(token), 0755)
 	}
 
-	h, err := hub.NewHub(L, reg)
+	dkey, err := noiseconn.GenerateKey()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("peer-key: %s\n", noiseconn.PublicKey(dkey))
+
+	ioutil.WriteFile("peer-key", []byte(noiseconn.PublicKey(dkey)), 0755)
+
+	h, err := hub.NewHub(L, reg, dkey)
 	if err != nil {
 		log.Fatal(err)
 	}

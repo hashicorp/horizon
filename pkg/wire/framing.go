@@ -1,31 +1,108 @@
 package wire
 
 import (
+	"bufio"
 	"encoding/binary"
-	io "io"
+	"errors"
+	"io"
 	"sync"
 )
 
-var frameBufPool = sync.Pool{}
-
-const minBufSize = 1024
-
-type Framing struct {
-	RW    io.ReadWriter
-	szbuf [4]byte
+var frPool = sync.Pool{
+	New: func() interface{} { return &FramingReader{} },
 }
+
+type FramingReader struct {
+	br *bufio.Reader
+
+	readLeft int
+}
+
+func NewFramingReader(r io.Reader) (*FramingReader, error) {
+	vf := frPool.Get().(*FramingReader)
+
+	if vf.br == nil {
+		vf.br = bufio.NewReader(r)
+	} else {
+		vf.br.Reset(r)
+	}
+
+	return vf, nil
+}
+
+func (f *FramingReader) Recycle() {
+	frPool.Put(f)
+}
+
+func (f *FramingReader) BufReader() *bufio.Reader {
+	return f.br
+}
+
+type recycleFR struct {
+	io.Reader
+	f *FramingReader
+}
+
+func (r *recycleFR) Recycle() {
+	r.f.Recycle()
+}
+
+func (f *FramingReader) RecylableBufReader() io.Reader {
+	return &recycleFR{Reader: f.br, f: f}
+}
+
+type Recyclable interface {
+	Recycle()
+}
+
+func Recycle(v interface{}) {
+	if r, ok := v.(Recyclable); ok {
+		r.Recycle()
+	}
+}
+
+func (f *FramingReader) Next() (byte, int, error) {
+	tag, err := f.br.ReadByte()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	sz, err := binary.ReadUvarint(f.br)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	f.readLeft = int(sz)
+
+	return tag, int(sz), nil
+}
+
+func (f *FramingReader) Read(b []byte) (int, error) {
+	if f.readLeft == 0 {
+		return 0, io.EOF
+	}
+
+	if f.readLeft > len(b) {
+		f.readLeft -= len(b)
+	} else {
+		b = b[:f.readLeft]
+		f.readLeft = 0
+	}
+
+	return f.br.Read(b)
+}
+
+var frameBufPool = sync.Pool{}
 
 type Unmarshaller interface {
 	Unmarshal([]byte) error
 }
 
-func (f *Framing) ReadMessage(v Unmarshaller) (int, error) {
-	_, err := io.ReadFull(f.RW, f.szbuf[:])
+func (f *FramingReader) ReadMarshal(v Unmarshaller) (byte, int, error) {
+	tag, sz, err := f.Next()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
-
-	sz := int(binary.BigEndian.Uint32(f.szbuf[:]))
 
 	buf, ok := frameBufPool.Get().([]byte)
 	if !ok || sz > len(buf) {
@@ -34,25 +111,98 @@ func (f *Framing) ReadMessage(v Unmarshaller) (int, error) {
 
 	defer frameBufPool.Put(buf)
 
-	_, err = io.ReadFull(f.RW, buf[:sz])
+	_, err = io.ReadFull(f, buf[:sz])
 	if err != nil {
-		return 4, err
+		return 0, 0, err
 	}
 
 	err = v.Unmarshal(buf[:sz])
-	if err != nil {
-		return 4 + sz, err
+	return tag, sz, err
+}
+
+func (f *FramingReader) ReadAdapter() *ReadAdapter {
+	return &ReadAdapter{FR: f}
+}
+
+var fwPool = sync.Pool{
+	New: func() interface{} {
+		return &FramingWriter{
+			sz: make([]byte, binary.MaxVarintLen64),
+		}
+	},
+}
+
+type FramingWriter struct {
+	bw *bufio.Writer
+
+	sz        []byte
+	writeLeft int
+}
+
+func NewFramingWriter(w io.Writer) (*FramingWriter, error) {
+	fw := fwPool.Get().(*FramingWriter)
+
+	if fw.bw == nil {
+		fw.bw = bufio.NewWriter(w)
+	} else {
+		fw.bw.Reset(w)
 	}
 
-	return 4 + sz, nil
+	return fw, nil
+}
+
+func (f *FramingWriter) Recycle() {
+	fwPool.Put(f)
+}
+
+func (f *FramingWriter) WriteFrame(tag byte, size int) error {
+	bufsz := binary.PutUvarint(f.sz, uint64(size))
+
+	b := f.sz[:bufsz]
+
+	f.bw.WriteByte(tag)
+	f.bw.Write(b)
+
+	if size == 0 {
+		f.bw.Flush()
+	} else {
+		f.writeLeft = size
+	}
+
+	return nil
+}
+
+var ErrTooMuchData = errors.New("more data that expected passed in")
+
+func (f *FramingWriter) Write(b []byte) (int, error) {
+	if f.writeLeft == 0 {
+		return 0, io.EOF
+	}
+
+	if len(b) > f.writeLeft {
+		return 0, ErrTooMuchData
+	}
+
+	n, err := f.bw.Write(b)
+	if err != nil {
+		return n, err
+	}
+
+	f.writeLeft -= n
+
+	if f.writeLeft == 0 {
+		err = f.bw.Flush()
+	}
+
+	return n, err
 }
 
 type Marshaller interface {
 	Size() int
-	MarshalTo([]byte) (int, error)
+	MarshalTo(b []byte) (int, error)
 }
 
-func (f *Framing) WriteMessage(v Marshaller) (int, error) {
+func (f *FramingWriter) WriteMarshal(tag byte, v Marshaller) (int, error) {
 	sz := v.Size()
 	buf, ok := frameBufPool.Get().([]byte)
 	if !ok || sz > len(buf) {
@@ -66,17 +216,14 @@ func (f *Framing) WriteMessage(v Marshaller) (int, error) {
 		return 0, err
 	}
 
-	binary.BigEndian.PutUint32(f.szbuf[:], uint32(sz))
-
-	n, err := f.RW.Write(f.szbuf[:])
+	err = f.WriteFrame(tag, sz)
 	if err != nil {
-		return n, err
+		return 0, err
 	}
 
-	m, err := f.RW.Write(buf[:sz])
-	if err != nil {
-		return n + m, err
-	}
+	return f.Write(buf[:sz])
+}
 
-	return n + m, nil
+func (f *FramingWriter) WriteAdapter() *WriteAdapter {
+	return &WriteAdapter{FW: f}
 }
