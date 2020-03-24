@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package token;
+
+message Header {
+  string key = 1;
+  int64 ikey = 2;
+
+  string sval = 3;
+  int64 ival = 4;
+  bytes bval = 5;
+}
+
+message Headers {
+  repeated Header headers = 1;
+}
+
+message Signature {
+  Headers headers = 1;
+  bytes signature = 2;
+}
+
+message Token {
+  bytes protected = 1;
+  Headers unprotected = 2;
+  bytes payload = 3;
+  repeated Signature signatures = 4;
+}

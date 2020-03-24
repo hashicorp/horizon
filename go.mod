@@ -9,10 +9,10 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/hashicorp/go-hclog v0.12.1
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
+	github.com/kr/pretty v0.2.0 // indirect
+	github.com/mr-tron/base58 v1.1.3
 	github.com/oklog/ulid v1.3.1
 	github.com/pkg/errors v0.8.1
-	github.com/satori/go.uuid v1.2.0
-	github.com/y0ssar1an/q v1.0.9
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200317142112-1b76d66859c6
 )

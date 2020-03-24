@@ -2,8 +2,6 @@ package registry
 
 import (
 	"crypto/rand"
-	"crypto/subtle"
-	"encoding/base64"
 	"errors"
 	"io"
 	"sort"
@@ -13,8 +11,8 @@ import (
 	petname "github.com/dustinkirkland/golang-petname"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/data"
+	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/oklog/ulid"
-	"golang.org/x/crypto/blake2b"
 )
 
 type Registry struct {
@@ -37,8 +35,6 @@ func RandomKey() []byte {
 
 	return key
 }
-
-const KeySize = blake2b.BlockSize
 
 func NewRegistry(key []byte, suffix string, storage *data.Bolt) (*Registry, error) {
 	reg := &Registry{
@@ -69,35 +65,20 @@ const ulidSize = 16
 
 var ErrBadToken = errors.New("bad token detected")
 
-func (r *Registry) verifyToken(L hclog.Logger, token string) (ulid.ULID, error) {
-	L.Debug("verifying token", "token", token)
+func (r *Registry) verifyToken(L hclog.Logger, stoken string) (ulid.ULID, error) {
+	L.Debug("verifying token", "token", stoken)
 
 	var id ulid.ULID
 
-	data, err := base64.RawURLEncoding.DecodeString(token)
+	headers, err := token.CheckTokenHMAC(stoken, r.key)
 	if err != nil {
 		return id, err
 	}
 
-	accId := data[:ulidSize]
+	accId := headers.AccountId()
 	copy(id[:], accId)
 
-	givenSum := data[ulidSize:]
-
 	L.Debug("token account", "id", id.String())
-
-	h, err := blake2b.New256(r.key)
-	if err != nil {
-		return id, err
-	}
-
-	h.Write(accId)
-
-	sum := h.Sum(nil)
-
-	if subtle.ConstantTimeCompare(sum, givenSum) == 0 {
-		return id, ErrBadToken
-	}
 
 	return id, nil
 }
@@ -188,21 +169,17 @@ var (
 )
 
 func (r *Registry) Token(L hclog.Logger, accId ulid.ULID) (string, error) {
-	h, err := blake2b.New256(r.key)
+	var tc token.TokenCreator
+	tc.AccountId = accId[:]
+
+	token, err := tc.EncodeHMAC(r.key)
 	if err != nil {
 		return "", err
 	}
 
-	h.Write(accId[:])
+	L.Debug("created token", "account-id", accId.String())
 
-	sum := h.Sum(nil)
-
-	token := append([]byte(nil), accId[:]...)
-	token = append(token, sum...)
-
-	L.Debug("created token", "account-id", accId.String(), "sum", sum)
-
-	return base64.RawURLEncoding.EncodeToString(token), nil
+	return token, nil
 }
 
 func (r *Registry) FindAccount(L hclog.Logger, token string) (ulid.ULID, error) {
