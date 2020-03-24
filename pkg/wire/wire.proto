@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+package wire;
+
 message Timestamp {
   uint64 sec = 1;
   uint64 nsec  = 2;
