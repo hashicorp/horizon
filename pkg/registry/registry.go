@@ -84,7 +84,7 @@ func (r *Registry) verifyToken(L hclog.Logger, token string) (ulid.ULID, error) 
 
 	givenSum := data[ulidSize:]
 
-	L.Debug("token account", "id", id.String(), "sum", givenSum)
+	L.Debug("token account", "id", id.String())
 
 	h, err := blake2b.New256(r.key)
 	if err != nil {

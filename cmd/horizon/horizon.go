@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
 	"github.com/hashicorp/horizon/pkg/data"
@@ -91,16 +92,14 @@ func runAgent() {
 		g.Labels = append(g.Labels, strings.TrimSpace(label))
 	}
 
-	c, err := net.Dial("tcp", *fHubAddr)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	ctx := context.Background()
 
-	g.Nego(ctx, L, c, *fPeerKey)
-
-	select {}
+	g.Run(ctx, []agent.HubConfig{
+		{
+			Addr:      *fHubAddr,
+			PublicKey: *fPeerKey,
+		},
+	})
 }
 
 func runHub() {
@@ -138,9 +137,25 @@ func runHub() {
 		ioutil.WriteFile("test-token", []byte(token), 0755)
 	}
 
-	dkey, err := noiseconn.GenerateKey()
+	curKey, err := db.GetConfig("hub-key")
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	var dkey noise.DHKey
+
+	if curKey == nil {
+		dkey, err = noiseconn.GenerateKey()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		db.SetConfig("hub-key", []byte(noiseconn.PrivateKey(dkey)))
+	} else {
+		dkey, err = noiseconn.ParsePrivateKey(string(curKey))
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	fmt.Printf("peer-key: %s\n", noiseconn.PublicKey(dkey))

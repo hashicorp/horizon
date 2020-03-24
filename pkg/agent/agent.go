@@ -19,6 +19,8 @@ import (
 )
 
 type Agent struct {
+	L hclog.Logger
+
 	cfg      *yamux.Config
 	localUrl string
 	key      noise.DHKey
@@ -38,21 +40,75 @@ func NewAgent(L hclog.Logger, addr string, key noise.DHKey) (*Agent, error) {
 	cfg.LogOutput = nil
 
 	return &Agent{
+		L:        L,
 		cfg:      cfg,
 		localUrl: "http://" + addr,
 		key:      key,
 	}, nil
 }
 
+type HubConfig struct {
+	Addr      string
+	PublicKey string
+}
+
+type hubStatus struct {
+	cfg       HubConfig
+	connected bool
+	err       error
+}
+
+func (a *Agent) Run(ctx context.Context, initialHubs []HubConfig) error {
+	status := make(chan hubStatus)
+
+	for _, cfg := range initialHubs {
+		go a.connectToHub(ctx, cfg, status)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case stat := <-status:
+			if !stat.connected {
+				a.L.Warn("connection to hub disconnected", "addr", stat.cfg.Addr)
+				time.AfterFunc(10*time.Second, func() {
+					go a.connectToHub(ctx, stat.cfg, status)
+				})
+			} else {
+				a.L.Info("connected to hub", "addr", stat.cfg.Addr)
+			}
+		}
+	}
+}
+
+func (a *Agent) connectToHub(ctx context.Context, hub HubConfig, status chan hubStatus) {
+	a.L.Info("connecting to hub", "addr", hub.Addr)
+
+	conn, err := net.Dial("tcp", hub.Addr)
+	if err != nil {
+		status <- hubStatus{cfg: hub, err: err}
+		return
+	}
+
+	err = a.Nego(ctx, a.L, conn, hub, status)
+	if err != nil {
+		status <- hubStatus{cfg: hub, err: err}
+		return
+	}
+
+	status <- hubStatus{cfg: hub, connected: true}
+}
+
 var ErrProtocolError = errors.New("protocol error detected")
 
-func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, peer string) error {
+func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg HubConfig, status chan hubStatus) error {
 	nconn, err := noiseconn.NewConn(conn)
 	if err != nil {
 		return err
 	}
 
-	err = nconn.Connect(a.key, peer)
+	err = nconn.Connect(a.key, hubCfg.PublicKey)
 	if err != nil {
 		return err
 	}
@@ -117,13 +173,20 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, peer st
 
 	L.Info("connected successfully", "status", wc.Status, "latency", latency, "skew", skew)
 
-	go a.watchSession(ctx, L, session, fr)
+	go a.watchSession(ctx, L, session, fr, hubCfg, status)
 
 	return nil
 }
 
-func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux.Session, fr *wire.FramingReader) {
+func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux.Session, fr *wire.FramingReader, hubCfg HubConfig, status chan hubStatus) {
 	defer fr.Recycle()
+	defer func() {
+		status <- hubStatus{
+			cfg: hubCfg,
+		}
+	}()
+
+	defer session.Close()
 
 	go func() {
 		defer session.Close()

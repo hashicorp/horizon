@@ -157,7 +157,12 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 	for {
 		stream, err := sess.AcceptStream()
 		if err != nil {
-			h.L.Error("error accepting new yamux session", "error", err)
+			if err == io.EOF {
+				h.L.Info("agent disconnected", "session", preamble.SessionId)
+			} else {
+				h.L.Error("error accepting new yamux session", "error", err)
+			}
+
 			return
 		}
 
