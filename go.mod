@@ -12,6 +12,7 @@ require (
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/mr-tron/base58 v1.1.3
 	github.com/oklog/ulid v1.3.1
+	github.com/pierrec/lz4 v2.0.5+incompatible
 	github.com/pkg/errors v0.8.1
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200317142112-1b76d66859c6

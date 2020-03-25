@@ -3,18 +3,22 @@ package noiseconn
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"io"
+	"sync"
 
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/wire"
+	"github.com/pierrec/lz4"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/blake2b"
 	"golang.org/x/crypto/curve25519"
 )
 
 var cipherSuite = noise.NewCipherSuite(noise.DH25519, noise.CipherChaChaPoly, noise.HashBLAKE2b)
+var prologue = []byte("hzn-noise")
 
 var ErrProtocolError = errors.New("protocol error")
 
@@ -63,6 +67,11 @@ type Conn struct {
 	writeBuf []byte
 
 	rest []byte
+
+	rcompbuf []byte
+	wcompbuf []byte
+
+	compTable []int
 }
 
 func NewConn(rwc io.ReadWriteCloser) (*Conn, error) {
@@ -77,19 +86,21 @@ func NewConn(rwc io.ReadWriteCloser) (*Conn, error) {
 	}
 
 	conn := &Conn{
-		L:        hclog.L().Named("noise"),
-		rwc:      rwc,
-		fr:       fr,
-		fw:       fw,
-		writeBuf: make([]byte, noise.MaxMsgLen),
+		L:         hclog.L().Named("noise"),
+		rwc:       rwc,
+		fr:        fr,
+		fw:        fw,
+		writeBuf:  make([]byte, noise.MaxMsgLen),
+		compTable: make([]int, 1<<16), // lz4 specifies this should be 64k
 	}
 
 	return conn, nil
 }
 
 const (
-	setupTag = 1
-	dataTag  = 2
+	setupTag          = 1
+	dataTag           = 2
+	compressedDataTag = 3
 )
 
 func (t *Conn) Accept(key noise.DHKey) error {
@@ -99,6 +110,7 @@ func (t *Conn) Accept(key noise.DHKey) error {
 
 	cfg.Pattern = noise.HandshakeXK
 	cfg.StaticKeypair = key
+	cfg.Prologue = prologue
 
 	hs, err := noise.NewHandshakeState(cfg)
 	if err != nil {
@@ -192,6 +204,7 @@ func (t *Conn) Connect(key noise.DHKey, peer string) error {
 
 	cfg.PeerStatic = pkey
 	cfg.Initiator = true
+	cfg.Prologue = prologue
 
 	hs, err := noise.NewHandshakeState(cfg)
 	if err != nil {
@@ -272,6 +285,12 @@ func (t *Conn) Decrypt(data []byte) ([]byte, error) {
 	return t.readCS.Decrypt(nil, nil, data)
 }
 
+var cryptoBuf = sync.Pool{
+	New: func() interface{} {
+		return make([]byte, MaxMsgLen+128)
+	},
+}
+
 func (t *Conn) Read(buf []byte) (int, error) {
 	if len(t.rest) > 0 {
 		if len(t.rest) <= len(buf) {
@@ -292,21 +311,48 @@ func (t *Conn) Read(buf []byte) (int, error) {
 		return 0, err
 	}
 
-	if tag != dataTag {
+	if tag == dataTag {
+		var (
+			tbuf    []byte
+			copyOut bool
+		)
+
+		if len(buf) >= sz {
+			tbuf = buf[:sz]
+		} else {
+			copyOut = true
+			tbuf = cryptoBuf.Get().([]byte)[:sz]
+			defer cryptoBuf.Put(tbuf[:cap(tbuf)])
+		}
+
+		_, err = io.ReadFull(t.fr, tbuf)
+		if err != nil {
+			t.L.Error("error reading data", "error", err)
+			return sz + 2, err
+		}
+
+		// t.L.Trace("reading uncompressed data", "input-size", len(tbuf))
+
+		data, err := t.readCS.Decrypt(tbuf[:0], nil, tbuf)
+		if err != nil {
+			t.L.Error("error decrypting data", "error", err)
+			return sz + 2, err
+		}
+
+		if copyOut {
+			copy(buf, data)
+			t.rest = data[len(buf):]
+		}
+
+		return len(data), nil
+	}
+
+	if tag != compressedDataTag {
 		return 0, ErrProtocolError
 	}
 
-	var (
-		tbuf    []byte
-		copyOut bool
-	)
-
-	if len(buf) >= sz {
-		tbuf = buf[:sz]
-	} else {
-		copyOut = true
-		tbuf = make([]byte, sz)
-	}
+	tbuf := cryptoBuf.Get().([]byte)[:sz]
+	defer cryptoBuf.Put(tbuf[:cap(tbuf)])
 
 	_, err = io.ReadFull(t.fr, tbuf)
 	if err != nil {
@@ -320,12 +366,27 @@ func (t *Conn) Read(buf []byte) (int, error) {
 		return sz + 2, err
 	}
 
-	if copyOut {
-		copy(buf, data)
-		t.rest = data[len(buf):]
+	dcompSize, used := binary.Varint(data)
+	data = data[used:]
+
+	// t.L.Trace("reading compressed data", "dcomp-size", dcompSize, "input-size", len(data))
+
+	if len(t.rcompbuf) < int(dcompSize) {
+		t.rcompbuf = make([]byte, dcompSize+128)
 	}
 
-	return len(data), nil
+	compBuf := t.rcompbuf[:dcompSize]
+
+	_, err = lz4.UncompressBlock(data, compBuf)
+	if err != nil {
+		return sz + 2, err
+	}
+
+	n := copy(buf, compBuf)
+
+	t.rest = compBuf[n:]
+
+	return n, nil
 }
 
 func (t *Conn) Write(buf []byte) (int, error) {
@@ -342,16 +403,56 @@ func (t *Conn) Write(buf []byte) (int, error) {
 			buf = nil
 		}
 
-		enc := t.writeCS.Encrypt(t.writeBuf[:0], nil, sbuf)
+		min := lz4.CompressBlockBound(len(sbuf))
 
-		err := t.fw.WriteFrame(dataTag, len(enc))
-		if err != nil {
-			return total, err
+		if len(t.wcompbuf) < min {
+			t.wcompbuf = make([]byte, min+128)
 		}
 
-		_, err = t.fw.Write(enc)
+		dataStart := binary.MaxVarintLen64 + 1
+
+		n, err := lz4.CompressBlock(sbuf, t.wcompbuf[dataStart:], t.compTable)
 		if err != nil {
-			return total, err
+			return 0, err
+		}
+
+		if n == 0 || n >= len(sbuf) {
+			enc := t.writeCS.Encrypt(t.writeBuf[:0], nil, sbuf)
+
+			// t.L.Trace("wrote uncompressed data", "size", len(enc), "pt-size", len(sbuf))
+			err := t.fw.WriteFrame(dataTag, len(enc))
+			if err != nil {
+				return total, err
+			}
+
+			_, err = t.fw.Write(enc)
+			if err != nil {
+				return total, err
+			}
+		} else {
+			used := binary.PutVarint(t.wcompbuf, int64(len(sbuf)))
+
+			// shift the bytes to where the encrypted data will start
+			j := dataStart - 1
+			for i := used - 1; i >= 0; i-- {
+				t.wcompbuf[j] = t.wcompbuf[i]
+				j--
+			}
+
+			compData := t.wcompbuf[dataStart-used : dataStart+n]
+
+			enc := t.writeCS.Encrypt(t.writeBuf[:0], nil, compData)
+
+			// t.L.Trace("wrote compressed data", "size", len(enc), "pt-size", len(sbuf))
+			err := t.fw.WriteFrame(compressedDataTag, len(enc))
+			if err != nil {
+				return total, err
+			}
+
+			_, err = t.fw.Write(enc)
+			if err != nil {
+				return total, err
+			}
 		}
 
 		total += len(sbuf)
