@@ -10,6 +10,8 @@ require (
 	github.com/hashicorp/go-hclog v0.12.1
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
 	github.com/kr/pretty v0.2.0 // indirect
+	github.com/mozillazg/go-slugify v0.2.0
+	github.com/mozillazg/go-unidecode v0.1.1 // indirect
 	github.com/mr-tron/base58 v1.1.3
 	github.com/oklog/ulid v1.3.1
 	github.com/pierrec/lz4 v2.0.5+incompatible

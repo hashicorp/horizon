@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package logs;
+
+message Timestamp {
+  uint64 sec = 1;
+  uint32 nsec = 2;
+}
+
+message Attribute {
+  string key = 1;
+  string sval = 2;
+  int64 ival = 3;
+}
+
+message Message {
+  Timestamp timestamp = 1;
+  string mesg = 2;
+  repeated Attribute attrs = 3;
+}

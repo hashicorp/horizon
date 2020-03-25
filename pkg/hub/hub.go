@@ -10,6 +10,7 @@ import (
 
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/pkg/edgeservices"
 	"github.com/hashicorp/horizon/pkg/noiseconn"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
@@ -26,6 +27,8 @@ type Hub struct {
 	key noise.DHKey
 
 	reg Registry
+
+	services edgeservices.Services
 
 	mu     sync.RWMutex
 	active map[string]*yamux.Session
@@ -167,6 +170,8 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		}
 
 		h.L.Trace("accepted yamux session", "id", stream.StreamID())
+
+		go h.handleAgentStream(ctx, stream)
 	}
 }
 

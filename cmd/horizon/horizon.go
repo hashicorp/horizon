@@ -33,6 +33,7 @@ var (
 	fEmail    = flag.String("email", "", "email address to use for generated certs")
 	fDB       = flag.String("db", "horizon.db", "path to store hub data")
 	fPeerKey  = flag.String("peer-key", "", "peer public key")
+	fHubLogs  = flag.String("hub-logs", "", "directory to store logs in")
 )
 
 func main() {
@@ -173,6 +174,11 @@ func runHub() {
 	}
 
 	L.Info("hub started", "hub-addr", *fHubAddr, "http-addr", *fHTTPAddr)
+
+	if *fHubLogs != "" {
+		h.AddLocalLogging(*fHubLogs)
+		L.Info("store logs on filesystem", "path", *fHubLogs)
+	}
 
 	var frontend web.Frontend
 	frontend.Performer = h

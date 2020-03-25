@@ -44,6 +44,8 @@ message Request {
   Auth auth = 6;
   repeated Header headers = 7;
   string remote_addr = 8;
+  string host = 9;
+  bytes agentId = 10;
 }
 
 message Response {
