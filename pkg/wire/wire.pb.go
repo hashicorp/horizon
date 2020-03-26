@@ -51,7 +51,7 @@ var Request_Type_value = map[string]int32{
 }
 
 func (Request_Type) EnumDescriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{5, 0}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{6, 0}
 }
 
 type Timestamp struct {
@@ -105,16 +105,88 @@ func (m *Timestamp) GetNsec() uint64 {
 	return 0
 }
 
+type ServiceInfo struct {
+	// A short identifier for this service instance
+	ServiceId string `protobuf:"bytes,1,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
+	// A type identifier for the kind of service this instance is
+	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	// These labels are used to identify this specific service instance
+	Labels      []string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`
+	Description string   `protobuf:"bytes,4,opt,name=description,proto3" json:"description,omitempty"`
+}
+
+func (m *ServiceInfo) Reset()      { *m = ServiceInfo{} }
+func (*ServiceInfo) ProtoMessage() {}
+func (*ServiceInfo) Descriptor() ([]byte, []int) {
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{1}
+}
+func (m *ServiceInfo) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ServiceInfo) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ServiceInfo.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ServiceInfo) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ServiceInfo.Merge(m, src)
+}
+func (m *ServiceInfo) XXX_Size() int {
+	return m.Size()
+}
+func (m *ServiceInfo) XXX_DiscardUnknown() {
+	xxx_messageInfo_ServiceInfo.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ServiceInfo proto.InternalMessageInfo
+
+func (m *ServiceInfo) GetServiceId() string {
+	if m != nil {
+		return m.ServiceId
+	}
+	return ""
+}
+
+func (m *ServiceInfo) GetType() string {
+	if m != nil {
+		return m.Type
+	}
+	return ""
+}
+
+func (m *ServiceInfo) GetLabels() []string {
+	if m != nil {
+		return m.Labels
+	}
+	return nil
+}
+
+func (m *ServiceInfo) GetDescription() string {
+	if m != nil {
+		return m.Description
+	}
+	return ""
+}
+
 type Preamble struct {
-	SessionId string   `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	Token     string   `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
-	Labels    []string `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`
+	SessionId string `protobuf:"bytes,1,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	Token     string `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`
+	// These are labels that identify the agent. IE location, etc.
+	Labels   []string       `protobuf:"bytes,3,rep,name=labels,proto3" json:"labels,omitempty"`
+	Services []*ServiceInfo `protobuf:"bytes,4,rep,name=services,proto3" json:"services,omitempty"`
 }
 
 func (m *Preamble) Reset()      { *m = Preamble{} }
 func (*Preamble) ProtoMessage() {}
 func (*Preamble) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{1}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{2}
 }
 func (m *Preamble) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -164,6 +236,13 @@ func (m *Preamble) GetLabels() []string {
 	return nil
 }
 
+func (m *Preamble) GetServices() []*ServiceInfo {
+	if m != nil {
+		return m.Services
+	}
+	return nil
+}
+
 type Confirmation struct {
 	Time   *Timestamp `protobuf:"bytes,1,opt,name=time,proto3" json:"time,omitempty"`
 	Status string     `protobuf:"bytes,2,opt,name=status,proto3" json:"status,omitempty"`
@@ -172,7 +251,7 @@ type Confirmation struct {
 func (m *Confirmation) Reset()      { *m = Confirmation{} }
 func (*Confirmation) ProtoMessage() {}
 func (*Confirmation) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{2}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{3}
 }
 func (m *Confirmation) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -223,7 +302,7 @@ type Header struct {
 func (m *Header) Reset()      { *m = Header{} }
 func (*Header) ProtoMessage() {}
 func (*Header) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{3}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{4}
 }
 func (m *Header) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -274,7 +353,7 @@ type Auth struct {
 func (m *Auth) Reset()      { *m = Auth{} }
 func (*Auth) ProtoMessage() {}
 func (*Auth) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{4}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{5}
 }
 func (m *Auth) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -318,22 +397,23 @@ func (m *Auth) GetPassword() string {
 }
 
 type Request struct {
-	Type       Request_Type `protobuf:"varint,1,opt,name=type,proto3,enum=wire.Request_Type" json:"type,omitempty"`
-	Method     string       `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`
-	Path       string       `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
-	Query      string       `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
-	Fragment   string       `protobuf:"bytes,5,opt,name=fragment,proto3" json:"fragment,omitempty"`
-	Auth       *Auth        `protobuf:"bytes,6,opt,name=auth,proto3" json:"auth,omitempty"`
-	Headers    []*Header    `protobuf:"bytes,7,rep,name=headers,proto3" json:"headers,omitempty"`
-	RemoteAddr string       `protobuf:"bytes,8,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`
-	Host       string       `protobuf:"bytes,9,opt,name=host,proto3" json:"host,omitempty"`
-	AgentId    []byte       `protobuf:"bytes,10,opt,name=agentId,proto3" json:"agentId,omitempty"`
+	Type          Request_Type `protobuf:"varint,1,opt,name=type,proto3,enum=wire.Request_Type" json:"type,omitempty"`
+	Method        string       `protobuf:"bytes,2,opt,name=method,proto3" json:"method,omitempty"`
+	Path          string       `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
+	Query         string       `protobuf:"bytes,4,opt,name=query,proto3" json:"query,omitempty"`
+	Fragment      string       `protobuf:"bytes,5,opt,name=fragment,proto3" json:"fragment,omitempty"`
+	Auth          *Auth        `protobuf:"bytes,6,opt,name=auth,proto3" json:"auth,omitempty"`
+	Headers       []*Header    `protobuf:"bytes,7,rep,name=headers,proto3" json:"headers,omitempty"`
+	RemoteAddr    string       `protobuf:"bytes,8,opt,name=remote_addr,json=remoteAddr,proto3" json:"remote_addr,omitempty"`
+	Host          string       `protobuf:"bytes,9,opt,name=host,proto3" json:"host,omitempty"`
+	AgentId       []byte       `protobuf:"bytes,10,opt,name=agentId,proto3" json:"agentId,omitempty"`
+	TargetService string       `protobuf:"bytes,11,opt,name=target_service,json=targetService,proto3" json:"target_service,omitempty"`
 }
 
 func (m *Request) Reset()      { *m = Request{} }
 func (*Request) ProtoMessage() {}
 func (*Request) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{5}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{6}
 }
 func (m *Request) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -432,6 +512,13 @@ func (m *Request) GetAgentId() []byte {
 	return nil
 }
 
+func (m *Request) GetTargetService() string {
+	if m != nil {
+		return m.TargetService
+	}
+	return ""
+}
+
 type Response struct {
 	Error   string    `protobuf:"bytes,1,opt,name=error,proto3" json:"error,omitempty"`
 	Code    int32     `protobuf:"varint,2,opt,name=code,proto3" json:"code,omitempty"`
@@ -441,7 +528,7 @@ type Response struct {
 func (m *Response) Reset()      { *m = Response{} }
 func (*Response) ProtoMessage() {}
 func (*Response) Descriptor() ([]byte, []int) {
-	return fileDescriptor_f2dcdddcdf68d8e0, []int{6}
+	return fileDescriptor_f2dcdddcdf68d8e0, []int{7}
 }
 func (m *Response) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -494,6 +581,7 @@ func (m *Response) GetHeaders() []*Header {
 func init() {
 	proto.RegisterEnum("wire.Request_Type", Request_Type_name, Request_Type_value)
 	proto.RegisterType((*Timestamp)(nil), "wire.Timestamp")
+	proto.RegisterType((*ServiceInfo)(nil), "wire.ServiceInfo")
 	proto.RegisterType((*Preamble)(nil), "wire.Preamble")
 	proto.RegisterType((*Confirmation)(nil), "wire.Confirmation")
 	proto.RegisterType((*Header)(nil), "wire.Header")
@@ -505,41 +593,46 @@ func init() {
 func init() { proto.RegisterFile("wire.proto", fileDescriptor_f2dcdddcdf68d8e0) }
 
 var fileDescriptor_f2dcdddcdf68d8e0 = []byte{
-	// 544 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x53, 0x41, 0x4f, 0xdc, 0x3c,
-	0x10, 0x4d, 0x36, 0x61, 0x77, 0x33, 0xf0, 0x7d, 0x5d, 0x59, 0x55, 0x65, 0x55, 0xaa, 0xbb, 0x4a,
-	0x25, 0xb4, 0x27, 0x24, 0xb6, 0x55, 0xef, 0x40, 0x91, 0x40, 0x1c, 0xba, 0x72, 0xb7, 0xe2, 0x52,
-	0x09, 0x19, 0x32, 0x90, 0xa8, 0x9b, 0x38, 0xd8, 0x4e, 0x11, 0xb7, 0xfe, 0x84, 0xfe, 0x8c, 0xfe,
-	0x94, 0x1e, 0x39, 0xd2, 0x5b, 0x09, 0x97, 0x1e, 0xf9, 0x09, 0x95, 0xed, 0x04, 0xf5, 0xd4, 0xdb,
-	0x7b, 0x33, 0x99, 0x79, 0x6f, 0x9e, 0x15, 0x80, 0xab, 0x42, 0xe1, 0x56, 0xad, 0xa4, 0x91, 0x24,
-	0xb6, 0x38, 0xdd, 0x86, 0x64, 0x59, 0x94, 0xa8, 0x8d, 0x28, 0x6b, 0x32, 0x81, 0x48, 0xe3, 0x19,
-	0x0d, 0xa7, 0xe1, 0x2c, 0xe6, 0x16, 0x12, 0x02, 0x71, 0x65, 0x4b, 0x03, 0x57, 0x72, 0x38, 0x3d,
-	0x86, 0xf1, 0x42, 0xa1, 0x28, 0x4f, 0x57, 0x48, 0x5e, 0x00, 0x68, 0xd4, 0xba, 0x90, 0xd5, 0x49,
-	0x91, 0xb9, 0xc1, 0x84, 0x27, 0x5d, 0xe5, 0x30, 0x23, 0x4f, 0x61, 0xcd, 0xc8, 0xcf, 0x58, 0xb9,
-	0xf9, 0x84, 0x7b, 0x42, 0x9e, 0xc1, 0x70, 0x25, 0x4e, 0x71, 0xa5, 0x69, 0x34, 0x8d, 0x66, 0x09,
-	0xef, 0x58, 0x7a, 0x04, 0x1b, 0x7b, 0xb2, 0x3a, 0x2f, 0x54, 0x29, 0x4c, 0x21, 0x2b, 0xf2, 0x0a,
-	0x62, 0x53, 0x94, 0xe8, 0xd6, 0xae, 0xcf, 0x9f, 0x6c, 0x39, 0xf3, 0x8f, 0x6e, 0xb9, 0x6b, 0xda,
-	0x65, 0xda, 0x08, 0xd3, 0xe8, 0x4e, 0xa3, 0x63, 0xe9, 0x1c, 0x86, 0x07, 0x28, 0x32, 0x54, 0xee,
-	0x06, 0xd1, 0xad, 0x49, 0xb8, 0xc3, 0xd6, 0xd8, 0x17, 0xb1, 0x6a, 0x90, 0x0e, 0x9c, 0x03, 0x4f,
-	0xd2, 0xb7, 0x10, 0xef, 0x34, 0x26, 0xb7, 0x13, 0x8d, 0x46, 0xd5, 0x4f, 0x58, 0x4c, 0x9e, 0xc3,
-	0xb8, 0x16, 0x5a, 0x5f, 0x49, 0x95, 0x75, 0x4a, 0x8f, 0x3c, 0xfd, 0x39, 0x80, 0x11, 0xc7, 0xcb,
-	0x06, 0xb5, 0x21, 0x9b, 0x10, 0x9b, 0xeb, 0xda, 0xab, 0xfd, 0x3f, 0x27, 0xde, 0x74, 0xd7, 0xdc,
-	0x5a, 0x5e, 0xd7, 0xc8, 0x5d, 0xdf, 0xfa, 0x2e, 0xd1, 0xe4, 0xb2, 0xdf, 0xd6, 0x31, 0xab, 0x5d,
-	0x0b, 0x93, 0xd3, 0xc8, 0x6b, 0x5b, 0x6c, 0xdd, 0x5e, 0x36, 0xa8, 0xae, 0x69, 0xec, 0x63, 0x74,
-	0xc4, 0x3a, 0x3a, 0x57, 0xe2, 0xa2, 0xc4, 0xca, 0xd0, 0x35, 0xef, 0xa8, 0xe7, 0x84, 0x41, 0x2c,
-	0x1a, 0x93, 0xd3, 0xa1, 0x8b, 0x0e, 0xbc, 0x0b, 0x7b, 0x1b, 0x77, 0x75, 0xb2, 0x09, 0xa3, 0xdc,
-	0xa5, 0xa3, 0xe9, 0x68, 0x1a, 0xcd, 0xd6, 0xe7, 0x1b, 0xfe, 0x13, 0x1f, 0x19, 0xef, 0x9b, 0xe4,
-	0x25, 0xac, 0x2b, 0x2c, 0xa5, 0xc1, 0x13, 0x91, 0x65, 0x8a, 0x8e, 0x9d, 0x0c, 0xf8, 0xd2, 0x4e,
-	0x96, 0xb9, 0x70, 0x73, 0xa9, 0x0d, 0x4d, 0xbc, 0x5d, 0x8b, 0x09, 0x85, 0x91, 0xb8, 0xc0, 0xca,
-	0x1c, 0x66, 0x14, 0xa6, 0xe1, 0x6c, 0x83, 0xf7, 0x34, 0xdd, 0x86, 0xd8, 0x46, 0x40, 0xc6, 0x10,
-	0x1f, 0x2c, 0x97, 0x8b, 0x49, 0x40, 0xfe, 0x83, 0xe4, 0x78, 0x7f, 0xf7, 0xc3, 0xfb, 0xbd, 0xa3,
-	0xfd, 0xe5, 0x24, 0x24, 0x23, 0x88, 0x96, 0x7b, 0x8b, 0xc9, 0xc0, 0x82, 0x8f, 0xef, 0x16, 0x93,
-	0x28, 0xfd, 0x04, 0x63, 0x8e, 0xba, 0x96, 0x95, 0x76, 0xaf, 0x86, 0x4a, 0xc9, 0xfe, 0x61, 0x3c,
-	0xb1, 0x16, 0xce, 0x64, 0x86, 0x2e, 0xc7, 0x35, 0xee, 0xf0, 0xdf, 0xf7, 0x45, 0xff, 0xb8, 0x6f,
-	0xf7, 0xcd, 0xcd, 0x1d, 0x0b, 0x6e, 0xef, 0x58, 0xf0, 0x70, 0xc7, 0xc2, 0xaf, 0x2d, 0x0b, 0xbf,
-	0xb7, 0x2c, 0xfc, 0xd1, 0xb2, 0xf0, 0xa6, 0x65, 0xe1, 0xaf, 0x96, 0x85, 0xbf, 0x5b, 0x16, 0x3c,
-	0xb4, 0x2c, 0xfc, 0x76, 0xcf, 0x82, 0x9b, 0x7b, 0x16, 0xdc, 0xde, 0xb3, 0xe0, 0x74, 0xe8, 0xfe,
-	0xa0, 0xd7, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0xac, 0x56, 0x08, 0x87, 0x4f, 0x03, 0x00, 0x00,
+	// 624 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x7c, 0x54, 0x4f, 0x4f, 0xdb, 0x4e,
+	0x10, 0xb5, 0xb1, 0x49, 0xe2, 0x09, 0xf0, 0xcb, 0x6f, 0x55, 0x55, 0x56, 0xa5, 0x6e, 0x23, 0x57,
+	0x45, 0xb9, 0x14, 0x89, 0xb4, 0xea, 0x1d, 0x28, 0x12, 0x11, 0x87, 0x46, 0x26, 0x55, 0x2f, 0x95,
+	0xd0, 0x12, 0x0f, 0xc4, 0x6a, 0xec, 0x35, 0xbb, 0x6b, 0x10, 0x3d, 0x71, 0xea, 0xb9, 0x1f, 0xa3,
+	0x1f, 0xa5, 0x47, 0x8e, 0x1c, 0x8b, 0xb9, 0xf4, 0xc8, 0x47, 0xa8, 0xf6, 0x4f, 0x28, 0x3d, 0xb4,
+	0xb7, 0xf7, 0x66, 0x77, 0xe6, 0xbd, 0x7d, 0x93, 0x18, 0xe0, 0x3c, 0x17, 0xb8, 0x51, 0x09, 0xae,
+	0x38, 0x09, 0x35, 0x4e, 0x36, 0x21, 0x9a, 0xe4, 0x05, 0x4a, 0xc5, 0x8a, 0x8a, 0xf4, 0x20, 0x90,
+	0x38, 0x8d, 0xfd, 0xbe, 0x3f, 0x08, 0x53, 0x0d, 0x09, 0x81, 0xb0, 0xd4, 0xa5, 0x25, 0x53, 0x32,
+	0x38, 0xf9, 0x0c, 0xdd, 0x03, 0x14, 0x67, 0xf9, 0x14, 0x47, 0xe5, 0x31, 0x27, 0x4f, 0x01, 0xa4,
+	0xa5, 0x87, 0x79, 0x66, 0x7a, 0xa3, 0x34, 0x72, 0x95, 0x51, 0xa6, 0x27, 0xa8, 0x8b, 0x0a, 0xcd,
+	0x84, 0x28, 0x35, 0x98, 0x3c, 0x86, 0xd6, 0x9c, 0x1d, 0xe1, 0x5c, 0xc6, 0x41, 0x3f, 0x18, 0x44,
+	0xa9, 0x63, 0xa4, 0x0f, 0xdd, 0x0c, 0xe5, 0x54, 0xe4, 0x95, 0xca, 0x79, 0x19, 0x87, 0xa6, 0xe5,
+	0x61, 0x29, 0xf9, 0xe2, 0x43, 0x67, 0x2c, 0x90, 0x15, 0x47, 0x73, 0xb4, 0xca, 0x52, 0xe6, 0xbc,
+	0xfc, 0x43, 0xd9, 0x54, 0x46, 0x19, 0x79, 0x04, 0xcb, 0x8a, 0x7f, 0xc2, 0xd2, 0x49, 0x5b, 0xf2,
+	0x57, 0xed, 0x97, 0xd0, 0x71, 0xa6, 0x65, 0x1c, 0xf6, 0x83, 0x41, 0x77, 0xf8, 0xff, 0x86, 0x49,
+	0xeb, 0xc1, 0x5b, 0xd3, 0xfb, 0x2b, 0xc9, 0x3e, 0xac, 0xec, 0xf0, 0xf2, 0x38, 0x17, 0x05, 0xd3,
+	0xc6, 0xc8, 0x73, 0x08, 0x55, 0x5e, 0xa0, 0x71, 0xd1, 0x1d, 0xfe, 0x67, 0x5b, 0xef, 0x93, 0x4d,
+	0xcd, 0xa1, 0xd6, 0x96, 0x8a, 0xa9, 0x5a, 0x3a, 0x4b, 0x8e, 0x25, 0x43, 0x68, 0xed, 0x21, 0xcb,
+	0x50, 0x98, 0xbc, 0x99, 0x1b, 0x13, 0xa5, 0x06, 0xeb, 0x77, 0x9c, 0xb1, 0x79, 0xad, 0x23, 0xd4,
+	0x86, 0x2d, 0x49, 0xde, 0x40, 0xb8, 0x55, 0xab, 0x99, 0xee, 0xa8, 0x25, 0x8a, 0x45, 0x87, 0xc6,
+	0xe4, 0x09, 0x74, 0x2a, 0x26, 0xe5, 0x39, 0x17, 0x99, 0x53, 0xba, 0xe7, 0xc9, 0x65, 0x00, 0xed,
+	0x14, 0x4f, 0x6b, 0x94, 0x8a, 0xac, 0xbb, 0xdd, 0xe8, 0xde, 0xb5, 0x21, 0xb1, 0xa6, 0xdd, 0xe1,
+	0xc6, 0xe4, 0xa2, 0xc2, 0xdf, 0xfb, 0x2a, 0x50, 0xcd, 0xf8, 0x62, 0x9a, 0x63, 0x5a, 0xbb, 0x62,
+	0x6a, 0x16, 0x07, 0x56, 0x5b, 0x63, 0xed, 0xf6, 0xb4, 0x46, 0x71, 0xe1, 0xb6, 0x67, 0x89, 0x76,
+	0x74, 0x2c, 0xd8, 0x49, 0x81, 0xa5, 0x8a, 0x97, 0xad, 0xa3, 0x05, 0x27, 0x14, 0x42, 0x56, 0xab,
+	0x59, 0xdc, 0x32, 0xd1, 0x81, 0x75, 0xa1, 0xdf, 0x96, 0x9a, 0x3a, 0x59, 0x87, 0xf6, 0xcc, 0xa4,
+	0x23, 0xe3, 0xb6, 0x59, 0xcc, 0x8a, 0xbd, 0x62, 0x23, 0x4b, 0x17, 0x87, 0xe4, 0x19, 0x74, 0x05,
+	0x16, 0x5c, 0xe1, 0x21, 0xcb, 0x32, 0x11, 0x77, 0x8c, 0x0c, 0xd8, 0xd2, 0x56, 0x96, 0x99, 0x70,
+	0x67, 0x5c, 0xaa, 0x38, 0xb2, 0x76, 0x35, 0x26, 0x31, 0xb4, 0xd9, 0x09, 0x96, 0x6a, 0x94, 0xc5,
+	0xd0, 0xf7, 0x07, 0x2b, 0xe9, 0x82, 0x92, 0x17, 0xb0, 0xa6, 0x98, 0x38, 0x41, 0x75, 0xe8, 0x96,
+	0x1e, 0x77, 0x4d, 0xdf, 0xaa, 0xad, 0xba, 0x9f, 0x45, 0xb2, 0x09, 0xa1, 0x4e, 0x8a, 0x74, 0x20,
+	0xdc, 0x9b, 0x4c, 0xc6, 0x3d, 0x8f, 0xac, 0x42, 0xf4, 0x61, 0x77, 0xfb, 0xe0, 0xdd, 0xce, 0xfe,
+	0xee, 0xa4, 0xe7, 0x93, 0x36, 0x04, 0x93, 0x9d, 0x71, 0x6f, 0x49, 0x83, 0xf7, 0x6f, 0xc7, 0xbd,
+	0x20, 0xf9, 0x08, 0x9d, 0x14, 0x65, 0xc5, 0x4b, 0x69, 0x96, 0x8b, 0x42, 0xf0, 0xc5, 0xfe, 0x2c,
+	0xd1, 0x4e, 0xa7, 0x3c, 0xb3, 0x7f, 0x9a, 0xe5, 0xd4, 0xe0, 0x87, 0x31, 0x04, 0xff, 0x88, 0x61,
+	0xfb, 0xf5, 0xd5, 0x0d, 0xf5, 0xae, 0x6f, 0xa8, 0x77, 0x77, 0x43, 0xfd, 0xcb, 0x86, 0xfa, 0xdf,
+	0x1a, 0xea, 0x7f, 0x6f, 0xa8, 0x7f, 0xd5, 0x50, 0xff, 0x47, 0x43, 0xfd, 0x9f, 0x0d, 0xf5, 0xee,
+	0x1a, 0xea, 0x7f, 0xbd, 0xa5, 0xde, 0xd5, 0x2d, 0xf5, 0xae, 0x6f, 0xa9, 0x77, 0xd4, 0x32, 0x1f,
+	0x85, 0x57, 0xbf, 0x02, 0x00, 0x00, 0xff, 0xff, 0xc0, 0x1c, 0xac, 0x2e, 0x22, 0x04, 0x00, 0x00,
 }
 
 func (x Request_Type) String() string {
@@ -576,6 +669,44 @@ func (this *Timestamp) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *ServiceInfo) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ServiceInfo)
+	if !ok {
+		that2, ok := that.(ServiceInfo)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.ServiceId != that1.ServiceId {
+		return false
+	}
+	if this.Type != that1.Type {
+		return false
+	}
+	if len(this.Labels) != len(that1.Labels) {
+		return false
+	}
+	for i := range this.Labels {
+		if this.Labels[i] != that1.Labels[i] {
+			return false
+		}
+	}
+	if this.Description != that1.Description {
+		return false
+	}
+	return true
+}
 func (this *Preamble) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -606,6 +737,14 @@ func (this *Preamble) Equal(that interface{}) bool {
 	}
 	for i := range this.Labels {
 		if this.Labels[i] != that1.Labels[i] {
+			return false
+		}
+	}
+	if len(this.Services) != len(that1.Services) {
+		return false
+	}
+	for i := range this.Services {
+		if !this.Services[i].Equal(that1.Services[i]) {
 			return false
 		}
 	}
@@ -751,6 +890,9 @@ func (this *Request) Equal(that interface{}) bool {
 	if !bytes.Equal(this.AgentId, that1.AgentId) {
 		return false
 	}
+	if this.TargetService != that1.TargetService {
+		return false
+	}
 	return true
 }
 func (this *Response) Equal(that interface{}) bool {
@@ -799,15 +941,31 @@ func (this *Timestamp) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *ServiceInfo) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 8)
+	s = append(s, "&wire.ServiceInfo{")
+	s = append(s, "ServiceId: "+fmt.Sprintf("%#v", this.ServiceId)+",\n")
+	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
+	s = append(s, "Labels: "+fmt.Sprintf("%#v", this.Labels)+",\n")
+	s = append(s, "Description: "+fmt.Sprintf("%#v", this.Description)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func (this *Preamble) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 7)
+	s := make([]string, 0, 8)
 	s = append(s, "&wire.Preamble{")
 	s = append(s, "SessionId: "+fmt.Sprintf("%#v", this.SessionId)+",\n")
 	s = append(s, "Token: "+fmt.Sprintf("%#v", this.Token)+",\n")
 	s = append(s, "Labels: "+fmt.Sprintf("%#v", this.Labels)+",\n")
+	if this.Services != nil {
+		s = append(s, "Services: "+fmt.Sprintf("%#v", this.Services)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -850,7 +1008,7 @@ func (this *Request) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 14)
+	s := make([]string, 0, 15)
 	s = append(s, "&wire.Request{")
 	s = append(s, "Type: "+fmt.Sprintf("%#v", this.Type)+",\n")
 	s = append(s, "Method: "+fmt.Sprintf("%#v", this.Method)+",\n")
@@ -866,6 +1024,7 @@ func (this *Request) GoString() string {
 	s = append(s, "RemoteAddr: "+fmt.Sprintf("%#v", this.RemoteAddr)+",\n")
 	s = append(s, "Host: "+fmt.Sprintf("%#v", this.Host)+",\n")
 	s = append(s, "AgentId: "+fmt.Sprintf("%#v", this.AgentId)+",\n")
+	s = append(s, "TargetService: "+fmt.Sprintf("%#v", this.TargetService)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -924,6 +1083,59 @@ func (m *Timestamp) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ServiceInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ServiceInfo) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ServiceInfo) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Description) > 0 {
+		i -= len(m.Description)
+		copy(dAtA[i:], m.Description)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.Description)))
+		i--
+		dAtA[i] = 0x22
+	}
+	if len(m.Labels) > 0 {
+		for iNdEx := len(m.Labels) - 1; iNdEx >= 0; iNdEx-- {
+			i -= len(m.Labels[iNdEx])
+			copy(dAtA[i:], m.Labels[iNdEx])
+			i = encodeVarintWire(dAtA, i, uint64(len(m.Labels[iNdEx])))
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if len(m.Type) > 0 {
+		i -= len(m.Type)
+		copy(dAtA[i:], m.Type)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.Type)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.ServiceId) > 0 {
+		i -= len(m.ServiceId)
+		copy(dAtA[i:], m.ServiceId)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.ServiceId)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *Preamble) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -944,6 +1156,20 @@ func (m *Preamble) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.Services) > 0 {
+		for iNdEx := len(m.Services) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Services[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintWire(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x22
+		}
+	}
 	if len(m.Labels) > 0 {
 		for iNdEx := len(m.Labels) - 1; iNdEx >= 0; iNdEx-- {
 			i -= len(m.Labels[iNdEx])
@@ -1108,6 +1334,13 @@ func (m *Request) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if len(m.TargetService) > 0 {
+		i -= len(m.TargetService)
+		copy(dAtA[i:], m.TargetService)
+		i = encodeVarintWire(dAtA, i, uint64(len(m.TargetService)))
+		i--
+		dAtA[i] = 0x5a
+	}
 	if len(m.AgentId) > 0 {
 		i -= len(m.AgentId)
 		copy(dAtA[i:], m.AgentId)
@@ -1266,6 +1499,33 @@ func (m *Timestamp) Size() (n int) {
 	return n
 }
 
+func (m *ServiceInfo) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.ServiceId)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	l = len(m.Type)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	if len(m.Labels) > 0 {
+		for _, s := range m.Labels {
+			l = len(s)
+			n += 1 + l + sovWire(uint64(l))
+		}
+	}
+	l = len(m.Description)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
+	return n
+}
+
 func (m *Preamble) Size() (n int) {
 	if m == nil {
 		return 0
@@ -1283,6 +1543,12 @@ func (m *Preamble) Size() (n int) {
 	if len(m.Labels) > 0 {
 		for _, s := range m.Labels {
 			l = len(s)
+			n += 1 + l + sovWire(uint64(l))
+		}
+	}
+	if len(m.Services) > 0 {
+		for _, e := range m.Services {
+			l = e.Size()
 			n += 1 + l + sovWire(uint64(l))
 		}
 	}
@@ -1389,6 +1655,10 @@ func (m *Request) Size() (n int) {
 	if l > 0 {
 		n += 1 + l + sovWire(uint64(l))
 	}
+	l = len(m.TargetService)
+	if l > 0 {
+		n += 1 + l + sovWire(uint64(l))
+	}
 	return n
 }
 
@@ -1431,14 +1701,33 @@ func (this *Timestamp) String() string {
 	}, "")
 	return s
 }
+func (this *ServiceInfo) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&ServiceInfo{`,
+		`ServiceId:` + fmt.Sprintf("%v", this.ServiceId) + `,`,
+		`Type:` + fmt.Sprintf("%v", this.Type) + `,`,
+		`Labels:` + fmt.Sprintf("%v", this.Labels) + `,`,
+		`Description:` + fmt.Sprintf("%v", this.Description) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *Preamble) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForServices := "[]*ServiceInfo{"
+	for _, f := range this.Services {
+		repeatedStringForServices += strings.Replace(f.String(), "ServiceInfo", "ServiceInfo", 1) + ","
+	}
+	repeatedStringForServices += "}"
 	s := strings.Join([]string{`&Preamble{`,
 		`SessionId:` + fmt.Sprintf("%v", this.SessionId) + `,`,
 		`Token:` + fmt.Sprintf("%v", this.Token) + `,`,
 		`Labels:` + fmt.Sprintf("%v", this.Labels) + `,`,
+		`Services:` + repeatedStringForServices + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1496,6 +1785,7 @@ func (this *Request) String() string {
 		`RemoteAddr:` + fmt.Sprintf("%v", this.RemoteAddr) + `,`,
 		`Host:` + fmt.Sprintf("%v", this.Host) + `,`,
 		`AgentId:` + fmt.Sprintf("%v", this.AgentId) + `,`,
+		`TargetService:` + fmt.Sprintf("%v", this.TargetService) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -1592,6 +1882,187 @@ func (m *Timestamp) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipWire(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthWire
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthWire
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ServiceInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowWire
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ServiceInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ServiceInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceId", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ServiceId = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Type", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Type = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Labels", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Labels = append(m.Labels, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Description", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Description = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
 			skippy, err := skipWire(dAtA[iNdEx:])
@@ -1740,6 +2211,40 @@ func (m *Preamble) Unmarshal(dAtA []byte) error {
 				return io.ErrUnexpectedEOF
 			}
 			m.Labels = append(m.Labels, string(dAtA[iNdEx:postIndex]))
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Services", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Services = append(m.Services, &ServiceInfo{})
+			if err := m.Services[len(m.Services)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -2463,6 +2968,38 @@ func (m *Request) Unmarshal(dAtA []byte) error {
 			if m.AgentId == nil {
 				m.AgentId = []byte{}
 			}
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TargetService", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowWire
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthWire
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthWire
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TargetService = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex

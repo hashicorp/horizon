@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/flynn/noise"
@@ -19,6 +21,18 @@ import (
 	"github.com/oklog/ulid"
 )
 
+type ServiceHandler interface {
+	HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *logTransmitter) error
+}
+
+type Service struct {
+	Id          string
+	Type        string
+	Labels      []string
+	Description string
+	Handler     ServiceHandler
+}
+
 type Agent struct {
 	L hclog.Logger
 
@@ -29,6 +43,9 @@ type Agent struct {
 	LocalAddr string
 	Token     string
 	Labels    []string
+
+	mu       sync.RWMutex
+	services map[string]*Service
 }
 
 func NewAgent(L hclog.Logger, addr string, key noise.DHKey) (*Agent, error) {
@@ -45,7 +62,25 @@ func NewAgent(L hclog.Logger, addr string, key noise.DHKey) (*Agent, error) {
 		cfg:      cfg,
 		localUrl: "http://" + addr,
 		key:      key,
+		services: make(map[string]*Service),
 	}, nil
+}
+
+var mread = ulid.Monotonic(rand.Reader, 1)
+
+func (a *Agent) AddService(serv *Service) (string, error) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	id, err := ulid.New(ulid.Now(), mread)
+	if err != nil {
+		return "", err
+	}
+
+	serv.Id = id.String()
+
+	a.services[serv.Id] = serv
+	return serv.Id, nil
 }
 
 type HubConfig struct {
@@ -114,7 +149,7 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 		return err
 	}
 
-	id, err := ulid.New(ulid.Now(), ulid.Monotonic(rand.Reader, 1))
+	id, err := ulid.New(ulid.Now(), mread)
 	if err != nil {
 		return err
 	}
@@ -135,6 +170,15 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 	preamble.Token = a.Token
 	preamble.SessionId = id.String()
 	preamble.Labels = a.Labels
+
+	for _, serv := range a.services {
+		preamble.Services = append(preamble.Services, &wire.ServiceInfo{
+			ServiceId:   serv.Id,
+			Type:        serv.Type,
+			Description: serv.Description,
+			Labels:      serv.Labels,
+		})
+	}
 
 	_, err = fw.WriteMarshal(1, &preamble)
 	if err != nil {
@@ -249,17 +293,17 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		return
 	}
 
-	switch req.Type {
-	case wire.HTTP:
-		err = a.handleHTTP(ctx, L, stream, fr, fw, &req, ltrans)
-		if err != nil {
-			L.Error("error processing http request", "error", err)
-		}
-	default:
-		L.Error("unknown request type detected", "type", req.Type)
+	a.mu.RLock()
+
+	serv, ok := a.services[req.TargetService]
+
+	a.mu.RUnlock()
+
+	if !ok {
+		L.Error("request received for unknown service", "service", req.TargetService)
 
 		var resp wire.Response
-		resp.Error = "unknown type"
+		resp.Error = fmt.Sprintf("unknown service: %s", req.TargetService)
 
 		_, err = fw.WriteMarshal(1, &resp)
 		if err != nil {
@@ -267,6 +311,23 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 			return
 		}
 	}
+
+	err = serv.Handler.HandleRequest(ctx, L, stream, fr, fw, &req, ltrans)
+	if err != nil {
+		L.Error("error in service handler", "error", err)
+	}
+
+	/*
+		switch req.Type {
+		case wire.HTTP:
+			err = a.handleHTTP(ctx, L, stream, fr, fw, &req, ltrans)
+			if err != nil {
+				L.Error("error processing http request", "error", err)
+			}
+		default:
+			L.Error("unknown request type detected", "type", req.Type)
+
+		}*/
 }
 
 func (a *Agent) handleHTTP(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *logTransmitter) error {

@@ -2,6 +2,7 @@ package data
 
 import (
 	"io"
+	"strings"
 
 	"go.etcd.io/bbolt"
 )
@@ -117,6 +118,56 @@ func (b *Bolt) LabelsForTarget(target string) (string, string, error) {
 	}
 
 	return accId, labelKey, nil
+}
+
+func (b *Bolt) AddService(accId, labelKey, serviceId, serviceType string) error {
+	return b.db.Update(func(tx *bbolt.Tx) error {
+		ar, err := tx.CreateBucketIfNotExists([]byte("account-services"))
+		if err != nil {
+			return err
+		}
+
+		buk, err := ar.CreateBucketIfNotExists([]byte(accId))
+		if err != nil {
+			return err
+		}
+
+		id := serviceType + ":" + serviceId
+
+		return buk.Put([]byte(labelKey), []byte(id))
+	})
+}
+
+func (b *Bolt) LookupService(accId, labelKey string) (string, string, error) {
+	var id string
+
+	err := b.db.View(func(tx *bbolt.Tx) error {
+		ar, err := tx.CreateBucketIfNotExists([]byte("account-services"))
+		if err != nil {
+			return err
+		}
+
+		buk, err := ar.CreateBucketIfNotExists([]byte(accId))
+		if err != nil {
+			return err
+		}
+
+		id = string(buk.Get([]byte(labelKey)))
+		return nil
+	})
+
+	if err != nil {
+		return "", "", err
+	}
+
+	if id != "" {
+		colon := strings.IndexByte(id, ':')
+		if colon != -1 {
+			return id[:colon], id[colon+1:], nil
+		}
+	}
+
+	return "", "", nil
 }
 
 func (b *Bolt) CreateDefaultRoute(accId, labelKey string) (bool, error) {

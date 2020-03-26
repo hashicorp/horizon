@@ -10,7 +10,7 @@ import (
 )
 
 type Performer interface {
-	PerformRequest(req *wire.Request, body io.Reader, target string) (*wire.Response, io.Reader, error)
+	PerformRequest(req *wire.Request, body io.Reader, target, serviceType string) (*wire.Response, io.Reader, error)
 }
 
 type Frontend struct {
@@ -51,7 +51,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		"content-length", req.ContentLength,
 	)
 
-	wresp, body, err := f.Performer.PerformRequest(&wreq, req.Body, target)
+	wresp, body, err := f.Performer.PerformRequest(&wreq, req.Body, target, "http")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

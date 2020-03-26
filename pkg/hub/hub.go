@@ -2,7 +2,6 @@ package hub
 
 import (
 	"context"
-	"errors"
 	"io"
 	"net"
 	"sync"
@@ -12,13 +11,15 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/edgeservices"
 	"github.com/hashicorp/horizon/pkg/noiseconn"
+	"github.com/hashicorp/horizon/pkg/registry"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
+	"github.com/pkg/errors"
 )
 
 type Registry interface {
-	AuthAgent(L hclog.Logger, token string, labels []string) (string, func(), error)
-	ResolveAgent(L hclog.Logger, target string) (string, error)
+	AuthAgent(L hclog.Logger, token string, labels []string, services []*wire.ServiceInfo) (string, func(), error)
+	ResolveAgent(L hclog.Logger, target string) (registry.ResolvedService, error)
 }
 
 type Hub struct {
@@ -101,7 +102,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	agentKey, remove, err := h.reg.AuthAgent(h.L, preamble.Token, preamble.Labels)
+	agentKey, remove, err := h.reg.AuthAgent(h.L, preamble.Token, preamble.Labels, preamble.Services)
 	if err != nil {
 		h.L.Error("error authenticating agent", "error", err)
 		return
@@ -175,30 +176,39 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 	}
 }
 
-func (h *Hub) findSession(target string) (*yamux.Session, error) {
-	agentKey, err := h.reg.ResolveAgent(h.L, target)
+func (h *Hub) findSession(target string) (*yamux.Session, registry.ResolvedService, error) {
+	rs, err := h.reg.ResolveAgent(h.L, target)
 	if err != nil {
-		return nil, err
+		return nil, rs, err
 	}
 
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
-	sess, ok := h.active[agentKey]
+	sess, ok := h.active[rs.Agent]
 	if !ok {
-		return nil, io.EOF
+		return nil, rs, io.EOF
 	}
 
-	return sess, nil
+	return sess, rs, nil
 }
 
-var ErrProtocolError = errors.New("protocol error")
+var (
+	ErrProtocolError = errors.New("protocol error")
+	ErrWrongService  = errors.New("wrong service")
+)
 
-func (h *Hub) PerformRequest(req *wire.Request, body io.Reader, target string) (*wire.Response, io.Reader, error) {
-	session, err := h.findSession(target)
+func (h *Hub) PerformRequest(req *wire.Request, body io.Reader, target, serviceType string) (*wire.Response, io.Reader, error) {
+	session, rs, err := h.findSession(target)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	if rs.ServiceType != serviceType {
+		return nil, nil, errors.Wrapf(ErrWrongService, "incorrect service type (%s != %s)", serviceType, rs.ServiceType)
+	}
+
+	req.TargetService = rs.ServiceId
 
 	stream, err := session.OpenStream()
 	if err != nil {

@@ -7,10 +7,26 @@ message Timestamp {
   uint64 nsec  = 2;
 }
 
+message ServiceInfo {
+  // A short identifier for this service instance
+  string service_id = 1;
+
+  // A type identifier for the kind of service this instance is
+  string type = 2;
+
+  // These labels are used to identify this specific service instance
+  repeated string labels = 3;
+
+  string description = 4;
+}
+
 message Preamble {
   string session_id = 1;
   string token = 2;
+
+  // These are labels that identify the agent. IE location, etc.
   repeated string labels = 3;
+  repeated ServiceInfo services = 4;
 }
 
 message Confirmation {
@@ -46,6 +62,7 @@ message Request {
   string remote_addr = 8;
   string host = 9;
   bytes agentId = 10;
+  string target_service = 11;
 }
 
 message Response {

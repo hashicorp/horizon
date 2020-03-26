@@ -88,6 +88,23 @@ func runAgent() {
 		log.Fatal(err)
 	}
 
+	serv := &agent.Service{
+		Type:        "http",
+		Description: "basic agent http service",
+		Handler:     agent.HTTPHandler(*fAgent),
+	}
+
+	for _, label := range strings.Split(*fLabels, ",") {
+		serv.Labels = append(serv.Labels, strings.TrimSpace(label))
+	}
+
+	id, err := g.AddService(serv)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	L.Info("registered http service", "id", id)
+
 	g.Token = *fToken
 	for _, label := range strings.Split(*fLabels, ",") {
 		g.Labels = append(g.Labels, strings.TrimSpace(label))

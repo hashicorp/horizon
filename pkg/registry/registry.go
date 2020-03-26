@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"io"
+	mathrand "math/rand"
 	"sort"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/data"
 	"github.com/hashicorp/horizon/pkg/token"
+	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/oklog/ulid"
 )
 
@@ -20,7 +22,7 @@ type Registry struct {
 	suffix string
 	mu     sync.RWMutex
 
-	sessions map[string]map[string]map[string]struct{}
+	sessions map[string]map[string]map[string][]*wire.ServiceInfo
 
 	storage *data.Bolt
 }
@@ -40,7 +42,7 @@ func NewRegistry(key []byte, suffix string, storage *data.Bolt) (*Registry, erro
 	reg := &Registry{
 		suffix:   suffix,
 		storage:  storage,
-		sessions: make(map[string]map[string]map[string]struct{}),
+		sessions: make(map[string]map[string]map[string][]*wire.ServiceInfo),
 	}
 
 	petname.NonDeterministicMode()
@@ -109,7 +111,9 @@ func compressLabels(v []string) string {
 	return strings.ToLower(strings.Join(v, ", "))
 }
 
-func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string) (string, func(), error) {
+const HTTPType = "http"
+
+func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string, services []*wire.ServiceInfo) (string, func(), error) {
 	accId, err := r.FindAccount(L, token)
 	if err != nil {
 		return "", nil, err
@@ -131,29 +135,49 @@ func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string) (str
 
 	account := r.sessions[accId.String()]
 	if account == nil {
-		account = make(map[string]map[string]struct{})
+		account = make(map[string]map[string][]*wire.ServiceInfo)
 		r.sessions[accId.String()] = account
 	}
 
-	sessions := account[labelKey]
-	if sessions == nil {
-		sessions = make(map[string]struct{})
-		account[labelKey] = sessions
-	}
+	for _, serv := range services {
+		servLabels := compressLabels(serv.Labels)
 
-	sessions[agentKey] = struct{}{}
+		sessions := account[servLabels]
+		if sessions == nil {
+			sessions = make(map[string][]*wire.ServiceInfo)
+			account[servLabels] = sessions
+		}
+
+		sessions[agentKey] = append(sessions[agentKey], serv)
+	}
 
 	remove := func() {
 		r.mu.Lock()
 		defer r.mu.Unlock()
-		delete(sessions, agentKey)
+
+		for _, serv := range services {
+			servLabels := compressLabels(serv.Labels)
+
+			sessions := account[servLabels]
+			delete(sessions, agentKey)
+		}
 	}
 
 	// Create a default route and tag it with the given labels
 
-	created, err := r.storage.CreateDefaultRoute(accId.String(), labelKey)
-	if err != nil {
-		return "", nil, err
+	var created bool
+
+	for _, serv := range services {
+		if serv.Type == HTTPType {
+			created, err = r.storage.CreateDefaultRoute(accId.String(), compressLabels(serv.Labels))
+			if err != nil {
+				return "", nil, err
+			}
+
+			if created {
+				break
+			}
+		}
 	}
 
 	if created {
@@ -166,6 +190,7 @@ func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string) (str
 var (
 	ErrNoAccount = errors.New("no account found")
 	ErrNoRoute   = errors.New("no route found")
+	ErrNoService = errors.New("no service found")
 )
 
 func (r *Registry) Token(L hclog.Logger, accId ulid.ULID) (string, error) {
@@ -195,36 +220,59 @@ func (r *Registry) FindAccount(L hclog.Logger, token string) (ulid.ULID, error) 
 	return accId, nil
 }
 
-func (r *Registry) ResolveAgent(L hclog.Logger, target string) (string, error) {
+type ResolvedService struct {
+	Agent       string
+	ServiceId   string
+	ServiceType string
+}
+
+func (r *Registry) ResolveAgent(L hclog.Logger, target string) (ResolvedService, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
+	var rs ResolvedService
+
 	accId, labelKey, err := r.storage.LabelsForTarget(target)
 	if err != nil {
-		return "", err
+		return rs, err
 	}
 
 	if accId == "" || labelKey == "" {
-		return "", ErrNoAccount
+		return rs, ErrNoAccount
 	}
 
 	account, ok := r.sessions[accId]
 	if !ok {
 		L.Error("account missing", "id", accId)
-		return "", ErrNoAccount
+		return rs, ErrNoAccount
 	}
 
 	sessions, ok := account[labelKey]
 	if !ok {
-		return "", ErrNoRoute
+		return rs, ErrNoRoute
 	}
 
-	var agentKey string
+	pick := mathrand.Intn(len(sessions))
 
-	for k, _ := range sessions {
-		agentKey = k
+	i := 0
+	for k, services := range sessions {
+		if i != pick {
+			i++
+			continue
+		}
+
+		rs.Agent = k
+
+		service := services[mathrand.Intn(len(services))]
+
+		rs.ServiceId = service.ServiceId
+		rs.ServiceType = service.Type
 		break
 	}
 
-	return agentKey, nil
+	if rs.Agent == "" {
+		return rs, ErrNoService
+	}
+
+	return rs, nil
 }
