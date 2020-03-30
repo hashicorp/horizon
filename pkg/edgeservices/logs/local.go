@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/edgeservices"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/mozillazg/go-slugify"
 	"github.com/pkg/errors"
@@ -31,7 +30,7 @@ func (l *LocalService) logPath(reqPath string) string {
 	return filepath.Join(l.Dir, slugify.Slugify(reqPath))
 }
 
-func (l *LocalService) HandleRequest(ctx context.Context, L hclog.Logger, ca edgeservices.FrameAccessor, req *wire.Request) error {
+func (l *LocalService) HandleRequest(ctx context.Context, L hclog.Logger, wctx wire.Context, req *wire.Request) error {
 
 	path := l.logPath(req.Path)
 
@@ -48,12 +47,12 @@ func (l *LocalService) HandleRequest(ctx context.Context, L hclog.Logger, ca edg
 	for {
 		var msg Message
 
-		tag, sz, err := ca.ReadMarshal(&msg)
+		tag, err := wctx.ReadRequest(&msg)
 		if err != nil {
 			return err
 		}
 
-		L.Trace("ingested log", "tag", tag, "size", sz)
+		L.Trace("ingested log", "tag", tag)
 
 		if tag == 0 {
 			return nil

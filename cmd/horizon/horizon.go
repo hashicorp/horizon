@@ -83,7 +83,7 @@ func runAgent() {
 		log.Fatal(err)
 	}
 
-	g, err := agent.NewAgent(L, *fAgent, key)
+	g, err := agent.NewAgent(L, key)
 	if err != nil {
 		log.Fatal(err)
 	}

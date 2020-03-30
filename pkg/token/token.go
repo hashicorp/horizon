@@ -1,11 +1,15 @@
 package token
 
-func (h *Headers) AccountId() []byte {
+import "github.com/oklog/ulid"
+
+func (h *Headers) AccountId() ulid.ULID {
 	for _, hdr := range h.Headers {
 		if hdr.Ikey == LabelAccountId {
-			return hdr.Bval
+			var id ulid.ULID
+			copy(id[:], hdr.Bval)
+			return id
 		}
 	}
 
-	return nil
+	return ulid.ULID{}
 }

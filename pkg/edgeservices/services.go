@@ -16,10 +16,11 @@ type FrameAccessor interface {
 	WriteFrame(tag byte, sz int) error
 	WriteResponse(resp *wire.Response) error
 	ReadMarshal(v wire.Unmarshaller) (byte, int, error)
+	WriteMarshal(v wire.Marshaller) (int, error)
 }
 
 type ServiceHandler interface {
-	HandleRequest(ctx context.Context, L hclog.Logger, ca FrameAccessor, req *wire.Request) error
+	HandleRequest(ctx context.Context, L hclog.Logger, wctx wire.Context, req *wire.Request) error
 }
 
 type Service struct {

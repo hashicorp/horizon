@@ -5,16 +5,12 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
-	"net/url"
 	"sync"
 	"time"
 
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
 	"github.com/hashicorp/horizon/pkg/noiseconn"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
@@ -36,9 +32,8 @@ type Service struct {
 type Agent struct {
 	L hclog.Logger
 
-	cfg      *yamux.Config
-	localUrl string
-	key      noise.DHKey
+	cfg *yamux.Config
+	key noise.DHKey
 
 	LocalAddr string
 	Token     string
@@ -46,9 +41,12 @@ type Agent struct {
 
 	mu       sync.RWMutex
 	services map[string]*Service
+	sessions []*yamux.Session
+
+	statuses chan hubStatus
 }
 
-func NewAgent(L hclog.Logger, addr string, key noise.DHKey) (*Agent, error) {
+func NewAgent(L hclog.Logger, key noise.DHKey) (*Agent, error) {
 	cfg := yamux.DefaultConfig()
 	cfg.EnableKeepAlive = true
 	cfg.KeepAliveInterval = 30 * time.Second
@@ -57,13 +55,15 @@ func NewAgent(L hclog.Logger, addr string, key noise.DHKey) (*Agent, error) {
 	})
 	cfg.LogOutput = nil
 
-	return &Agent{
+	agent := &Agent{
 		L:        L,
 		cfg:      cfg,
-		localUrl: "http://" + addr,
 		key:      key,
 		services: make(map[string]*Service),
-	}, nil
+		statuses: make(chan hubStatus),
+	}
+
+	return agent, nil
 }
 
 var mread = ulid.Monotonic(rand.Reader, 1)
@@ -95,21 +95,43 @@ type hubStatus struct {
 }
 
 func (a *Agent) Run(ctx context.Context, initialHubs []HubConfig) error {
-	status := make(chan hubStatus)
+	err := a.Start(ctx, initialHubs)
+	if err != nil {
+		return err
+	}
 
+	return a.Wait(ctx)
+}
+
+func (a *Agent) Start(ctx context.Context, initialHubs []HubConfig) error {
 	for _, cfg := range initialHubs {
-		go a.connectToHub(ctx, cfg, status)
+		go a.connectToHub(ctx, cfg, a.statuses)
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case stat := <-status:
+		case stat := <-a.statuses:
+			// Wait for one to connect, then return
+			if stat.connected {
+				a.L.Info("connected to hub", "addr", stat.cfg.Addr)
+				return nil
+			}
+		}
+	}
+}
+
+func (a *Agent) Wait(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case stat := <-a.statuses:
 			if !stat.connected {
 				a.L.Warn("connection to hub disconnected", "addr", stat.cfg.Addr)
 				time.AfterFunc(10*time.Second, func() {
-					go a.connectToHub(ctx, stat.cfg, status)
+					go a.connectToHub(ctx, stat.cfg, a.statuses)
 				})
 			} else {
 				a.L.Info("connected to hub", "addr", stat.cfg.Addr)
@@ -216,6 +238,11 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 		return err
 	}
 
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.sessions = append(a.sessions, session)
+
 	L.Info("connected successfully", "status", wc.Status, "latency", latency, "skew", skew)
 
 	go a.watchSession(ctx, L, session, fr, hubCfg, status)
@@ -228,6 +255,16 @@ func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux
 	defer func() {
 		status <- hubStatus{
 			cfg: hubCfg,
+		}
+
+		a.mu.Lock()
+		defer a.mu.Unlock()
+
+		for i, sess := range a.sessions {
+			if sess == session {
+				a.sessions = append(a.sessions[:i], a.sessions[i+1:]...)
+				return
+			}
 		}
 	}()
 
@@ -316,80 +353,4 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 	if err != nil {
 		L.Error("error in service handler", "error", err)
 	}
-
-	/*
-		switch req.Type {
-		case wire.HTTP:
-			err = a.handleHTTP(ctx, L, stream, fr, fw, &req, ltrans)
-			if err != nil {
-				L.Error("error processing http request", "error", err)
-			}
-		default:
-			L.Error("unknown request type detected", "type", req.Type)
-
-		}*/
-}
-
-func (a *Agent) handleHTTP(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *logTransmitter) error {
-	L.Info("request started", "method", req.Method, "path", req.Path)
-
-	hreq, err := http.NewRequestWithContext(ctx, req.Method, a.localUrl+req.Path, fr.ReadAdapter())
-	if err != nil {
-		return err
-	}
-	hreq.URL.RawQuery = req.Query
-	hreq.URL.Fragment = req.Fragment
-	if req.Auth != nil {
-		hreq.URL.User = url.UserPassword(req.Auth.User, req.Auth.Password)
-	}
-
-	hresp, err := http.DefaultClient.Do(hreq)
-	if err != nil {
-		return err
-	}
-
-	defer hresp.Body.Close()
-
-	var resp wire.Response
-	resp.Code = int32(hresp.StatusCode)
-
-	for k, v := range hresp.Header {
-		resp.Headers = append(resp.Headers, &wire.Header{
-			Name:  k,
-			Value: v,
-		})
-	}
-
-	_, err = fw.WriteMarshal(1, &resp)
-	if err != nil {
-		return err
-	}
-
-	n, _ := io.Copy(stream, hresp.Body)
-
-	L.Info("request ended", "size", n)
-
-	var lm logs.Message
-	lm.Timestamp = logs.Now()
-	lm.Mesg = "performed request"
-	lm.Attrs = []*logs.Attribute{
-		{
-			Key:  "method",
-			Sval: req.Method,
-		},
-		{
-			Key:  "path",
-			Sval: req.Path,
-		},
-		{
-			Key:  "response-code",
-			Ival: int64(hresp.StatusCode),
-		},
-		{
-			Key:  "body-size",
-			Ival: int64(n),
-		},
-	}
-
-	return ltrans.transmit(&lm)
 }

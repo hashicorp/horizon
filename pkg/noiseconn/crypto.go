@@ -103,6 +103,15 @@ const (
 	compressedDataTag = 3
 )
 
+func (t *Conn) PeerStatic() string {
+	key := t.hs.PeerStatic()
+	if key == nil {
+		return ""
+	}
+
+	return base64.RawURLEncoding.EncodeToString(key)
+}
+
 func (t *Conn) Accept(key noise.DHKey) error {
 	var cfg noise.Config
 

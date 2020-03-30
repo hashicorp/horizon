@@ -50,6 +50,7 @@ message Request {
     WEBSOCKET = 1;
     TCP = 2;
     UDP = 3;
+    RPC = 4;
   }
 
   Type type = 1;

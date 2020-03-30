@@ -9,32 +9,16 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
-func (h *Hub) handleAgentStream(ctx context.Context, stream *yamux.Stream) {
+func (h *Hub) handleAgentStream(ctx context.Context, stream *yamux.Stream, wctx wire.Context) {
 	defer stream.Close()
 
 	L := h.L
 
 	L.Trace("stream accepted", "id", stream.StreamID())
 
-	fr, err := wire.NewFramingReader(stream)
-	if err != nil {
-		L.Error("error creating frame reader", "error", err)
-		return
-	}
-
-	defer fr.Recycle()
-
-	fw, err := wire.NewFramingWriter(stream)
-	if err != nil {
-		L.Error("error creating framing writer", "error", err)
-		return
-	}
-
-	defer fw.Recycle()
-
 	var req wire.Request
 
-	tag, _, err := fr.ReadMarshal(&req)
+	tag, err := wctx.ReadRequest(&req)
 	if err != nil {
 		L.Error("error decoding request", "error", err)
 		return
@@ -45,23 +29,9 @@ func (h *Hub) handleAgentStream(ctx context.Context, stream *yamux.Stream) {
 		return
 	}
 
-	switch req.Type {
-	case wire.HTTP:
-		err = h.handleHTTP(ctx, L, stream, fr, fw, &req)
-		if err != nil {
-			L.Error("error processing http request", "error", err)
-		}
-	default:
-		L.Error("unknown request type detected", "type", req.Type)
-
-		var resp wire.Response
-		resp.Error = "unknown type"
-
-		_, err = fw.WriteMarshal(1, &resp)
-		if err != nil {
-			L.Error("error marshaling response", "error", err)
-			return
-		}
+	err = h.handleRequest(ctx, L, stream, wctx, &req)
+	if err != nil {
+		L.Error("error handling request", "error", err)
 	}
 }
 
@@ -75,7 +45,7 @@ func (fa *frameAccessor) WriteResponse(resp *wire.Response) error {
 	return err
 }
 
-func (h *Hub) handleHTTP(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request) error {
+func (h *Hub) handleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, wctx wire.Context, req *wire.Request) error {
 	L.Info("request started", "method", req.Method, "path", req.Path)
 
 	serv, ok := h.services.Lookup(req.Host)
@@ -88,49 +58,9 @@ func (h *Hub) handleHTTP(ctx context.Context, L hclog.Logger, stream *yamux.Stre
 			Value: []string{fmt.Sprintf("no known edge service: %s", req.Host)},
 		})
 
-		_, err := fw.WriteMarshal(1, &resp)
+		err := wctx.WriteResponse(1, &resp)
 		return err
 	}
 
-	return serv.Handler.HandleRequest(ctx, L, &frameAccessor{fr, fw}, req)
-
-	/*
-		hreq, err := http.NewRequestWithContext(ctx, req.Method, h.localUrl+req.Path, fr.ReadAdapter())
-		if err != nil {
-			return err
-		}
-		hreq.URL.RawQuery = req.Query
-		hreq.URL.Fragment = req.Fragment
-		if req.Auth != nil {
-			hreq.URL.User = url.UserPassword(req.Auth.User, req.Auth.Password)
-		}
-
-		hresp, err := http.DefaultClient.Do(hreq)
-		if err != nil {
-			return err
-		}
-
-		defer hresp.Body.Close()
-
-		var resp wire.Response
-		resp.Code = int32(hresp.StatusCode)
-
-		for k, v := range hresp.Header {
-			resp.Headers = append(resp.Headers, &wire.Header{
-				Name:  k,
-				Value: v,
-			})
-		}
-
-		_, err = fw.WriteMarshal(1, &resp)
-		if err != nil {
-			return err
-		}
-
-		n, _ := io.Copy(stream, hresp.Body)
-
-		L.Info("request ended", "size", n)
-
-		return nil
-	*/
+	return serv.Handler.HandleRequest(ctx, L, wctx, req)
 }

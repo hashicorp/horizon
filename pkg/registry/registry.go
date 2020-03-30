@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/oklog/ulid"
+	"github.com/y0ssar1an/q"
 )
 
 type Registry struct {
@@ -22,7 +23,8 @@ type Registry struct {
 	suffix string
 	mu     sync.RWMutex
 
-	sessions map[string]map[string]map[string][]*wire.ServiceInfo
+	sessions  map[string]map[string]map[string][]*wire.ServiceInfo
+	agentKeys map[string]string
 
 	storage *data.Bolt
 }
@@ -40,9 +42,10 @@ func RandomKey() []byte {
 
 func NewRegistry(key []byte, suffix string, storage *data.Bolt) (*Registry, error) {
 	reg := &Registry{
-		suffix:   suffix,
-		storage:  storage,
-		sessions: make(map[string]map[string]map[string][]*wire.ServiceInfo),
+		suffix:    suffix,
+		storage:   storage,
+		sessions:  make(map[string]map[string]map[string][]*wire.ServiceInfo),
+		agentKeys: make(map[string]string),
 	}
 
 	petname.NonDeterministicMode()
@@ -67,22 +70,19 @@ const ulidSize = 16
 
 var ErrBadToken = errors.New("bad token detected")
 
-func (r *Registry) verifyToken(L hclog.Logger, stoken string) (ulid.ULID, error) {
+func (r *Registry) verifyToken(L hclog.Logger, stoken string) (ulid.ULID, *token.Headers, error) {
 	L.Debug("verifying token", "token", stoken)
-
-	var id ulid.ULID
 
 	headers, err := token.CheckTokenHMAC(stoken, r.key)
 	if err != nil {
-		return id, err
+		return ulid.ULID{}, nil, err
 	}
 
-	accId := headers.AccountId()
-	copy(id[:], accId)
+	id := headers.AccountId()
 
 	L.Debug("token account", "id", id.String())
 
-	return id, nil
+	return id, headers, nil
 }
 
 var mrand = ulid.Monotonic(rand.Reader, 1)
@@ -113,15 +113,15 @@ func compressLabels(v []string) string {
 
 const HTTPType = "http"
 
-func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string, services []*wire.ServiceInfo) (string, func(), error) {
-	accId, err := r.FindAccount(L, token)
+func (r *Registry) AuthAgent(L hclog.Logger, stoken, pubKey string, labels []string, services []*wire.ServiceInfo) (string, *token.Headers, func(), error) {
+	accId, headers, err := r.FindAccount(L, stoken)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	id, err := ulid.New(ulid.Now(), mrand)
 	if err != nil {
-		return "", nil, err
+		return "", nil, nil, err
 	}
 
 	agentKey := id.String()
@@ -132,6 +132,8 @@ func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string, serv
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+
+	r.agentKeys[agentKey] = pubKey
 
 	account := r.sessions[accId.String()]
 	if account == nil {
@@ -171,7 +173,7 @@ func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string, serv
 		if serv.Type == HTTPType {
 			created, err = r.storage.CreateDefaultRoute(accId.String(), compressLabels(serv.Labels))
 			if err != nil {
-				return "", nil, err
+				return "", nil, nil, err
 			}
 
 			if created {
@@ -184,7 +186,7 @@ func (r *Registry) AuthAgent(L hclog.Logger, token string, labels []string, serv
 		L.Info("created default route", "account", accId.String(), "label-key", labelKey)
 	}
 
-	return agentKey, remove, nil
+	return agentKey, headers, remove, nil
 }
 
 var (
@@ -207,21 +209,22 @@ func (r *Registry) Token(L hclog.Logger, accId ulid.ULID) (string, error) {
 	return token, nil
 }
 
-func (r *Registry) FindAccount(L hclog.Logger, token string) (ulid.ULID, error) {
-	accId, err := r.verifyToken(L, token)
+func (r *Registry) FindAccount(L hclog.Logger, token string) (ulid.ULID, *token.Headers, error) {
+	accId, headers, err := r.verifyToken(L, token)
 	if err != nil {
-		return ulid.ULID{}, err
+		return ulid.ULID{}, nil, err
 	}
 
 	if !r.storage.CheckAccount(accId.String()) {
-		return ulid.ULID{}, ErrNoAccount
+		return ulid.ULID{}, nil, ErrNoAccount
 	}
 
-	return accId, nil
+	return accId, headers, nil
 }
 
 type ResolvedService struct {
 	Agent       string
+	AgentKey    string
 	ServiceId   string
 	ServiceType string
 }
@@ -262,6 +265,7 @@ func (r *Registry) ResolveAgent(L hclog.Logger, target string) (ResolvedService,
 		}
 
 		rs.Agent = k
+		rs.AgentKey = r.agentKeys[k]
 
 		service := services[mathrand.Intn(len(services))]
 
@@ -275,4 +279,40 @@ func (r *Registry) ResolveAgent(L hclog.Logger, target string) (ResolvedService,
 	}
 
 	return rs, nil
+}
+
+func (r *Registry) MatchServices(accId string, labels []string) ([]ResolvedService, error) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	account, ok := r.sessions[accId]
+	if !ok {
+		return nil, ErrNoAccount
+	}
+
+	labelKey := compressLabels(labels)
+
+	sessions, ok := account[labelKey]
+	if !ok {
+		return nil, ErrNoRoute
+	}
+
+	q.Q(sessions)
+
+	var rss []ResolvedService
+
+	for k, services := range sessions {
+		for _, serv := range services {
+			var rs ResolvedService
+
+			rs.Agent = k
+			rs.AgentKey = r.agentKeys[k]
+			rs.ServiceId = serv.ServiceId
+			rs.ServiceType = serv.Type
+
+			rss = append(rss, rs)
+		}
+	}
+
+	return rss, nil
 }

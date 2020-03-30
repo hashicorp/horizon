@@ -18,7 +18,7 @@ import (
 )
 
 type Registry interface {
-	AuthAgent(L hclog.Logger, token string, labels []string, services []*wire.ServiceInfo) (string, func(), error)
+	AuthAgent(L hclog.Logger, token, pubKey string, labels []string, services []*wire.ServiceInfo) (string, func(), error)
 	ResolveAgent(L hclog.Logger, target string) (registry.ResolvedService, error)
 }
 
@@ -27,7 +27,7 @@ type Hub struct {
 	cfg *yamux.Config
 	key noise.DHKey
 
-	reg Registry
+	reg *registry.Registry
 
 	services edgeservices.Services
 
@@ -35,7 +35,7 @@ type Hub struct {
 	active map[string]*yamux.Session
 }
 
-func NewHub(L hclog.Logger, r Registry, key noise.DHKey) (*Hub, error) {
+func NewHub(L hclog.Logger, r *registry.Registry, key noise.DHKey) (*Hub, error) {
 	cfg := yamux.DefaultConfig()
 	cfg.EnableKeepAlive = true
 	cfg.KeepAliveInterval = 30 * time.Second
@@ -102,7 +102,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	agentKey, remove, err := h.reg.AuthAgent(h.L, preamble.Token, preamble.Labels, preamble.Services)
+	agentKey, headers, remove, err := h.reg.AuthAgent(h.L, preamble.Token, nconn.PeerStatic(), preamble.Labels, preamble.Services)
 	if err != nil {
 		h.L.Error("error authenticating agent", "error", err)
 		return
@@ -170,9 +170,29 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 			return
 		}
 
+		h.L.Trace("stream accepted", "id", stream.StreamID())
+
+		fr, err := wire.NewFramingReader(stream)
+		if err != nil {
+			h.L.Error("error creating frame reader", "error", err)
+			continue
+		}
+
+		defer fr.Recycle()
+
+		fw, err := wire.NewFramingWriter(stream)
+		if err != nil {
+			h.L.Error("error creating framing writer", "error", err)
+			continue
+		}
+
+		defer fw.Recycle()
+
+		wctx := wire.NewContext(headers.AccountId().String(), fr, fw)
+
 		h.L.Trace("accepted yamux session", "id", stream.StreamID())
 
-		go h.handleAgentStream(ctx, stream)
+		go h.handleAgentStream(ctx, stream, wctx)
 	}
 }
 
