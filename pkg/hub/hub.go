@@ -269,3 +269,37 @@ func (h *Hub) PerformRequest(req *wire.Request, body io.Reader, target, serviceT
 
 	return &resp, fr.RecylableBufReader(), nil
 }
+
+func (h *Hub) ConnectToService(req *wire.Request, accid string, rs registry.ResolvedService) (wire.Context, error) {
+	h.mu.RLock()
+	session, ok := h.active[rs.Agent]
+	h.mu.RUnlock()
+
+	if !ok {
+		return nil, io.EOF
+	}
+
+	req.TargetService = rs.ServiceId
+
+	stream, err := session.OpenStream()
+	if err != nil {
+		return nil, err
+	}
+
+	fw, err := wire.NewFramingWriter(stream)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = fw.WriteMarshal(1, req)
+	if err != nil {
+		return nil, err
+	}
+
+	fr, err := wire.NewFramingReader(stream)
+	if err != nil {
+		return nil, err
+	}
+
+	return wire.NewContext(accid, fr, fw), nil
+}

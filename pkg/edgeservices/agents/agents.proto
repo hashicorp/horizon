@@ -17,3 +17,7 @@ message Service {
 message QueryResponse {
   repeated Service services = 1;
 }
+
+message ConnectRequest {
+  Service target = 1;
+}

@@ -1,22 +1,32 @@
 package wire
 
+import (
+	"io"
+	"sync"
+
+	"github.com/pkg/errors"
+)
+
 type Context interface {
 	AccountId() string
-	ReadRequest(v Unmarshaller) (byte, error)
-	WriteResponse(tag byte, v Marshaller) error
+	ReadMarshal(v Unmarshaller) (byte, error)
+	WriteMarshal(tag byte, v Marshaller) error
+
+	// Forwards any data between the 2 contexts
+	BridgeTo(other Context) error
 }
 
 type ctx struct {
 	accountId string
-	rm        ReadMarshaler
-	wm        WriteMarshaler
+	fr        *FramingReader
+	fw        *FramingWriter
 }
 
-func NewContext(accountId string, rm ReadMarshaler, wm WriteMarshaler) Context {
+func NewContext(accountId string, fr *FramingReader, fw *FramingWriter) Context {
 	return &ctx{
 		accountId: accountId,
-		rm:        rm,
-		wm:        wm,
+		fr:        fr,
+		fw:        fw,
 	}
 }
 
@@ -24,8 +34,8 @@ func (c *ctx) AccountId() string {
 	return c.accountId
 }
 
-func (c *ctx) ReadRequest(v Unmarshaller) (byte, error) {
-	tag, _, err := c.rm.ReadMarshal(v)
+func (c *ctx) ReadMarshal(v Unmarshaller) (byte, error) {
+	tag, _, err := c.fr.ReadMarshal(v)
 	if err != nil {
 		return 0, err
 	}
@@ -33,7 +43,51 @@ func (c *ctx) ReadRequest(v Unmarshaller) (byte, error) {
 	return tag, nil
 }
 
-func (c *ctx) WriteResponse(tag byte, v Marshaller) error {
-	_, err := c.wm.WriteMarshal(tag, v)
+func (c *ctx) WriteMarshal(tag byte, v Marshaller) error {
+	_, err := c.fw.WriteMarshal(tag, v)
 	return err
+}
+
+var ErrInvalidContext = errors.New("invalid context type")
+
+func (c *ctx) copyTo(octx *ctx) error {
+	buf := make([]byte, 32*1024)
+
+	for {
+		tag, sz, err := c.fr.Next()
+		if err != nil {
+			return err
+		}
+
+		err = octx.fw.WriteFrame(tag, sz)
+		if err != nil {
+			return err
+		}
+
+		_, err = io.CopyBuffer(octx.fw, c.fr, buf)
+		if err != nil {
+			return err
+		}
+	}
+}
+
+func (c *ctx) BridgeTo(other Context) error {
+	octx, ok := other.(*ctx)
+	if !ok {
+		return ErrInvalidContext
+	}
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		c.copyTo(octx)
+	}()
+
+	octx.copyTo(c)
+
+	wg.Wait()
+
+	return nil
 }

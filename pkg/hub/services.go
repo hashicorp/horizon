@@ -9,7 +9,7 @@ import (
 func (h *Hub) AddDefaultServices() {
 	h.services.Register(edgeservices.Service{
 		Host:    "agents.edge",
-		Handler: agents.NewService(h.reg),
+		Handler: agents.NewService(h.reg, h),
 	})
 }
 

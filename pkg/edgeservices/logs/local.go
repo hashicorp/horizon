@@ -47,7 +47,7 @@ func (l *LocalService) HandleRequest(ctx context.Context, L hclog.Logger, wctx w
 	for {
 		var msg Message
 
-		tag, err := wctx.ReadRequest(&msg)
+		tag, err := wctx.ReadMarshal(&msg)
 		if err != nil {
 			return err
 		}

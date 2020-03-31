@@ -15,6 +15,40 @@ type RPCClient struct {
 
 const rpcTag = 20
 
+func (r *RPCClient) Begin(host, path string, req Marshaller) (RPCContext, error) {
+	var wreq Request
+	wreq.Type = RPC
+	wreq.Path = path
+	wreq.Host = host
+
+	fw, err := NewFramingWriter(r.stream)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = fw.WriteMarshal(1, &wreq)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = fw.WriteMarshal(rpcTag, req)
+	if err != nil {
+		return nil, err
+	}
+
+	fr, err := NewFramingReader(r.stream)
+	if err != nil {
+		return nil, err
+	}
+
+	return &rpcCtx{
+		Context: &ctx{
+			fr: fr,
+			fw: fw,
+		},
+	}, nil
+}
+
 func (r *RPCClient) Call(host, path string, req Marshaller, resp Unmarshaller) error {
 	var wreq Request
 	wreq.Type = RPC
@@ -64,7 +98,7 @@ func NewRPCClient(stream *yamux.Stream) *RPCClient {
 }
 
 type RPCContext interface {
-	AccountId() string
+	Context
 	ReadRequest(v Unmarshaller) error
 	WriteResponse(v Marshaller) error
 }
@@ -104,7 +138,7 @@ type rpcCtx struct {
 }
 
 func (r *rpcCtx) ReadRequest(v Unmarshaller) error {
-	tag, err := r.Context.ReadRequest(v)
+	tag, err := r.Context.ReadMarshal(v)
 	if err != nil {
 		return err
 	}
@@ -117,7 +151,7 @@ func (r *rpcCtx) ReadRequest(v Unmarshaller) error {
 }
 
 func (r *rpcCtx) WriteResponse(v Marshaller) error {
-	return r.Context.WriteResponse(rpcTag, v)
+	return r.Context.WriteMarshal(rpcTag, v)
 }
 
 func (r *RPCServer) HandleRequest(ctx context.Context, L hclog.Logger, wctx Context, wreq *Request) error {

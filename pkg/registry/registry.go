@@ -15,7 +15,6 @@ import (
 	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/oklog/ulid"
-	"github.com/y0ssar1an/q"
 )
 
 type Registry struct {
@@ -296,8 +295,6 @@ func (r *Registry) MatchServices(accId string, labels []string) ([]ResolvedServi
 	if !ok {
 		return nil, ErrNoRoute
 	}
-
-	q.Q(sessions)
 
 	var rss []ResolvedService
 

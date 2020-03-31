@@ -16,6 +16,7 @@ require (
 	github.com/oklog/ulid v1.3.1
 	github.com/pierrec/lz4 v2.0.5+incompatible
 	github.com/pkg/errors v0.8.1
+	github.com/sqs/goreturns v0.0.0-20181028201513-538ac6014518 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/y0ssar1an/q v1.0.10
 	go.etcd.io/bbolt v1.3.3

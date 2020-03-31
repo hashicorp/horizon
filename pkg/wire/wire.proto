@@ -51,6 +51,7 @@ message Request {
     TCP = 2;
     UDP = 3;
     RPC = 4;
+    AGENT_CONNECT = 5;
   }
 
   Type type = 1;

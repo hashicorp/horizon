@@ -3,7 +3,6 @@ package agent
 import (
 	"github.com/hashicorp/horizon/pkg/edgeservices/agents"
 	"github.com/hashicorp/horizon/pkg/wire"
-	"github.com/y0ssar1an/q"
 )
 
 func (a *Agent) RPCClient() (*wire.RPCClient, error) {
@@ -36,7 +35,22 @@ func (a *Agent) QueryPeerService(labels []string) ([]*agents.Service, error) {
 		return nil, err
 	}
 
-	q.Q(resp)
-
 	return resp.Services, nil
+}
+
+func (a *Agent) ConnectToPeer(serv *agents.Service) (wire.Context, error) {
+	rpc, err := a.RPCClient()
+	if err != nil {
+		return nil, err
+	}
+
+	var req agents.ConnectRequest
+	req.Target = serv
+
+	wctx, err := rpc.Begin("agents.edge", "/connect/peer", &req)
+	if err != nil {
+		return nil, err
+	}
+
+	return wctx, nil
 }

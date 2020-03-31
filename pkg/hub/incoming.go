@@ -18,7 +18,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, stream *yamux.Stream, wctx 
 
 	var req wire.Request
 
-	tag, err := wctx.ReadRequest(&req)
+	tag, err := wctx.ReadMarshal(&req)
 	if err != nil {
 		L.Error("error decoding request", "error", err)
 		return
@@ -58,7 +58,7 @@ func (h *Hub) handleRequest(ctx context.Context, L hclog.Logger, stream *yamux.S
 			Value: []string{fmt.Sprintf("no known edge service: %s", req.Host)},
 		})
 
-		err := wctx.WriteResponse(1, &resp)
+		err := wctx.WriteMarshal(1, &resp)
 		return err
 	}
 
