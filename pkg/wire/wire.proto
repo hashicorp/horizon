@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "defs/gogo.proto";
+
 package wire;
 
 message Timestamp {
@@ -9,7 +11,7 @@ message Timestamp {
 
 message ServiceInfo {
   // A short identifier for this service instance
-  string service_id = 1;
+  bytes service_id = 1 [(gogoproto.customtype) = "ULID", (gogoproto.nullable) = false];
 
   // A type identifier for the kind of service this instance is
   string type = 2;

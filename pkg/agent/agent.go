@@ -22,7 +22,7 @@ type ServiceHandler interface {
 }
 
 type Service struct {
-	Id          string
+	Id          wire.ULID
 	Type        string
 	Labels      []string
 	Description string
@@ -77,10 +77,10 @@ func (a *Agent) AddService(serv *Service) (string, error) {
 		return "", err
 	}
 
-	serv.Id = id.String()
+	serv.Id.ULID = id
 
-	a.services[serv.Id] = serv
-	return serv.Id, nil
+	a.services[serv.Id.String()] = serv
+	return serv.Id.String(), nil
 }
 
 type HubConfig struct {

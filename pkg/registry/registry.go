@@ -268,7 +268,7 @@ func (r *Registry) ResolveAgent(L hclog.Logger, target string) (ResolvedService,
 
 		service := services[mathrand.Intn(len(services))]
 
-		rs.ServiceId = service.ServiceId
+		rs.ServiceId = service.ServiceId.String()
 		rs.ServiceType = service.Type
 		break
 	}
@@ -304,7 +304,7 @@ func (r *Registry) MatchServices(accId string, labels []string) ([]ResolvedServi
 
 			rs.Agent = k
 			rs.AgentKey = r.agentKeys[k]
-			rs.ServiceId = serv.ServiceId
+			rs.ServiceId = serv.ServiceId.String()
 			rs.ServiceType = serv.Type
 
 			rss = append(rss, rs)

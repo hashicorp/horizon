@@ -1,6 +1,8 @@
 package wire
 
-import "time"
+import (
+	"time"
+)
 
 func Now() *Timestamp {
 	t := time.Now()
