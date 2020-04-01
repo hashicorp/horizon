@@ -3,6 +3,7 @@ package postgres
 import (
 	"time"
 
+	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
@@ -49,7 +50,12 @@ func (r *Router) RegisterService(agent ulid.ULID, serv *wire.ServiceInfo) error 
 	var ao Agent
 	ao.SessionId.ULID = agent
 
-	r.db.Set("gorm:insert_option", "ON CONFLICT DO NOTHING").Create(&ao)
+	de := r.db.Set("gorm:insert_option", "ON CONFLICT DO NOTHING").Create(&ao)
+
+	err := dbx.Check(de)
+	if err != nil {
+		return err
+	}
 
 	var so Service
 
@@ -59,7 +65,7 @@ func (r *Router) RegisterService(agent ulid.ULID, serv *wire.ServiceInfo) error 
 	so.Description = serv.Description
 	so.Labels = serv.Labels
 
-	return r.db.Create(&so).Error
+	return dbx.Check(r.db.Create(&so))
 }
 
 type ServiceLocation struct {

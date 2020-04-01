@@ -10,6 +10,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang-migrate/migrate/v4 v4.10.0
 	github.com/hashicorp/go-hclog v0.12.1
+	github.com/hashicorp/go-multierror v1.0.0
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
 	github.com/jinzhu/gorm v1.9.12
 	github.com/lib/pq v1.3.0
