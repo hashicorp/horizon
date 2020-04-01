@@ -1,6 +1,8 @@
 package postgres
 
 import (
+	"time"
+
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
@@ -14,13 +16,16 @@ type Router struct {
 }
 
 type Agent struct {
-	gorm.Model
+	ID        uint `gorm:"primary_key"`
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	SessionId wire.ULID
 }
 
 type Service struct {
-	gorm.Model
+	CreatedAt time.Time
+	UpdatedAt time.Time
 
 	Agent   *Agent
 	AgentID uint
@@ -28,7 +33,7 @@ type Service struct {
 	ServiceId   wire.ULID
 	Type        string
 	Description string
-	Labels      pq.StringArray `gorm:"type:text[]"`
+	Labels      pq.StringArray
 }
 
 func NewRouter(dbtype, connDetails string) (*Router, error) {
@@ -36,8 +41,6 @@ func NewRouter(dbtype, connDetails string) (*Router, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	db.AutoMigrate(&Agent{}, &Service{})
 
 	return &Router{db: db}, nil
 }
