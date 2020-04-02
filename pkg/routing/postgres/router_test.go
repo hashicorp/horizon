@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/DATA-DOG/go-txdb"
+	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/jinzhu/gorm"
 	"github.com/oklog/ulid"
@@ -26,6 +27,9 @@ func TestRouter(t *testing.T) {
 
 	gorm.RegisterDialect("pgtest", dialect)
 
+	accId, err := ulid.New(ulid.Now(), rand.Reader)
+	require.NoError(t, err)
+
 	t.Run("register a service", func(t *testing.T) {
 		router, err := NewRouter("pgtest", "servtest")
 		require.NoError(t, err)
@@ -44,7 +48,7 @@ func TestRouter(t *testing.T) {
 		ua, err := ulid.New(ulid.Now(), rand.Reader)
 		require.NoError(t, err)
 
-		err = router.RegisterService(ua, &serv)
+		err = router.RegisterService(accId, ua, &serv)
 		require.NoError(t, err)
 
 		var (
@@ -52,33 +56,18 @@ func TestRouter(t *testing.T) {
 			sos []*Service
 		)
 
-		router.db.Where("session_id = ?", ua).First(&ao)
+		err = dbx.Check(router.db.Where("id = ?", ua).Where("account_id = ?", accId).First(&ao))
+		require.NoError(t, err)
 
-		router.db.Where("agent_id = ?", ao.ID).Find(&sos)
+		err = dbx.Check(router.db.Where("agent_id = ?", ao.ID).Find(&sos))
+		require.NoError(t, err)
 
 		require.Equal(t, 1, len(sos))
 
-		// rows, err := router.db.Query("SELECT a.session_id,s.service_id,s.type,s.description,s.labels FROM services s, agents a WHERE a.session_id = $1 AND a.id = s.agent_id", ua)
-		require.NoError(t, err)
-
-		// assert.True(t, rows.Next())
-
-		/*
-			var (
-				agent            ulid.ULID
-				service          wire.ULID
-				typ, description string
-				labels           []string
-			)
-		*/
-
-		// err = rows.Scan(&agent, &service, &typ, &description, pq.Array(&labels))
-		// require.NoError(t, err)
-
 		so := sos[0]
 
-		assert.Equal(t, ua, ao.SessionId.ULID)
-		assert.Equal(t, serv.ServiceId, so.ServiceId)
+		assert.Equal(t, ua, ao.ID.ULID)
+		assert.Equal(t, serv.ServiceId, so.ID)
 		assert.Equal(t, serv.Type, so.Type)
 		assert.Equal(t, serv.Description, so.Description)
 		assert.Equal(t, serv.Labels[0], so.Labels[0])
@@ -102,7 +91,7 @@ func TestRouter(t *testing.T) {
 		ua, err := ulid.New(ulid.Now(), rand.Reader)
 		require.NoError(t, err)
 
-		err = router.RegisterService(ua, &serv)
+		err = router.RegisterService(accId, ua, &serv)
 		require.NoError(t, err)
 
 		services, err := router.LookupService([]string{"env=test"})

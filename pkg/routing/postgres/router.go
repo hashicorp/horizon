@@ -16,25 +16,35 @@ type Router struct {
 	db *gorm.DB
 }
 
-type Agent struct {
-	ID        uint `gorm:"primary_key"`
+type Account struct {
+	ID wire.ULID `gorm:"primary_key"`
+
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
 
-	SessionId wire.ULID
+type Agent struct {
+	ID wire.ULID `gorm:"primary_key"`
+
+	Account   *Account
+	AccountID wire.ULID
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 type Service struct {
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID wire.ULID `gorm:"primary_key"`
 
 	Agent   *Agent
-	AgentID uint
+	AgentID wire.ULID
 
-	ServiceId   wire.ULID
 	Type        string
 	Description string
 	Labels      pq.StringArray
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
 }
 
 func NewRouter(dbtype, connDetails string) (*Router, error) {
@@ -46,9 +56,10 @@ func NewRouter(dbtype, connDetails string) (*Router, error) {
 	return &Router{db: db}, nil
 }
 
-func (r *Router) RegisterService(agent ulid.ULID, serv *wire.ServiceInfo) error {
+func (r *Router) RegisterService(account, agent ulid.ULID, serv *wire.ServiceInfo) error {
 	var ao Agent
-	ao.SessionId.ULID = agent
+	ao.ID.ULID = agent
+	ao.AccountID.ULID = account
 
 	de := r.db.Set("gorm:insert_option", "ON CONFLICT DO NOTHING").Create(&ao)
 
@@ -60,7 +71,7 @@ func (r *Router) RegisterService(agent ulid.ULID, serv *wire.ServiceInfo) error 
 	var so Service
 
 	so.AgentID = ao.ID
-	so.ServiceId = serv.ServiceId
+	so.ID = serv.ServiceId
 	so.Type = serv.Type
 	so.Description = serv.Description
 	so.Labels = serv.Labels
@@ -74,7 +85,6 @@ type ServiceLocation struct {
 }
 
 func (r *Router) LookupService(labels []string) ([]*ServiceLocation, error) {
-
 	var dbserv []Service
 
 	r.db.Where("labels = ?", pq.StringArray(labels)).Find(&dbserv)
@@ -87,9 +97,9 @@ func (r *Router) LookupService(labels []string) ([]*ServiceLocation, error) {
 		r.db.Model(s).Related(&dbagent)
 
 		services = append(services, &ServiceLocation{
-			Agent: dbagent.SessionId.ULID,
+			Agent: dbagent.ID.ULID,
 			Service: &wire.ServiceInfo{
-				ServiceId:   s.ServiceId,
+				ServiceId:   s.ID,
 				Type:        s.Type,
 				Description: s.Description,
 				Labels:      s.Labels,

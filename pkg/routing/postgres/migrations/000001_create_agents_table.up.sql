@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS agents (
-  id bigserial PRIMARY KEY,
+  id bytea PRIMARY KEY,
+  account_id bytea NOT NULL,
   created_at timestamp NOT NULL DEFAULT now(),
-  updated_at timestamp NOT NULL DEFAULT now(),
-  session_id bytea NOT NULL
+  updated_at timestamp NOT NULL DEFAULT now()
 );
