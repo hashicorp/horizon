@@ -10,6 +10,8 @@ import (
 type TokenCreator struct {
 	Issuer    string
 	AccountId []byte
+
+	Metadata map[string]string
 }
 
 const (
@@ -39,6 +41,13 @@ func (c *TokenCreator) EncodeHMAC(key []byte) (string, error) {
 				Ival: ValueHMAC,
 			},
 		},
+	}
+
+	for k, v := range c.Metadata {
+		t.Unprotected.Headers = append(t.Unprotected.Headers, &Header{
+			Key:  k,
+			Sval: v,
+		})
 	}
 
 	data, err := c.protected()
@@ -84,6 +93,13 @@ func (c *TokenCreator) EncodeED25519(key ed25519.PrivateKey) ([]byte, error) {
 				Ival: ValueED25519,
 			},
 		},
+	}
+
+	for k, v := range c.Metadata {
+		t.Unprotected.Headers = append(t.Unprotected.Headers, &Header{
+			Key:  k,
+			Sval: v,
+		})
 	}
 
 	data, err := c.protected()

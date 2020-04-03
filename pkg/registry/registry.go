@@ -208,6 +208,21 @@ func (r *Registry) Token(L hclog.Logger, accId ulid.ULID) (string, error) {
 	return token, nil
 }
 
+func (r *Registry) TokenWithMetadata(L hclog.Logger, accId ulid.ULID, hdrs map[string]string) (string, error) {
+	var tc token.TokenCreator
+	tc.AccountId = accId[:]
+	tc.Metadata = hdrs
+
+	token, err := tc.EncodeHMAC(r.key)
+	if err != nil {
+		return "", err
+	}
+
+	L.Debug("created token", "account-id", accId.String())
+
+	return token, nil
+}
+
 func (r *Registry) FindAccount(L hclog.Logger, token string) (ulid.ULID, *token.Headers, error) {
 	accId, headers, err := r.verifyToken(L, token)
 	if err != nil {
