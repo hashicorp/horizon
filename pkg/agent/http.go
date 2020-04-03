@@ -25,7 +25,7 @@ func HTTPHandler(url string) ServiceHandler {
 	return &httpHandler{url}
 }
 
-func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *logTransmitter) error {
+func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *LogTransmitter) error {
 	L.Info("request started", "method", req.Method, "path", req.Path)
 
 	hreq, err := http.NewRequestWithContext(ctx, req.Method, h.url+req.Path, fr.ReadAdapter())
@@ -86,5 +86,5 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream 
 		},
 	}
 
-	return ltrans.transmit(&lm)
+	return ltrans.Transmit(&lm)
 }

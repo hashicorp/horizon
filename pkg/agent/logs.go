@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
@@ -8,17 +9,30 @@ import (
 	"github.com/hashicorp/yamux"
 )
 
-type logTransmitter struct {
-	mu      sync.Mutex
-	path    string
+type LogTransmitter struct {
+	mu     sync.Mutex
+	path   string
+	stream *yamux.Stream
+	fw     *wire.FramingWriter
+
 	session *yamux.Session
-	stream  *yamux.Stream
-	fw      *wire.FramingWriter
+	agent   *Agent
 }
 
-func (l *logTransmitter) transmit(msg *logs.Message) error {
+func (l *LogTransmitter) Transmit(msg *logs.Message) error {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	if l.session == nil {
+		l.agent.mu.RLock()
+
+		l.session = l.agent.sessions[0]
+		if l.session == nil {
+			return fmt.Errorf("no connected sessions")
+		}
+
+		l.agent.mu.RUnlock()
+	}
 
 	var wreq wire.Request
 	wreq.Method = "POST"

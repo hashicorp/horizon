@@ -1,12 +1,17 @@
 package horizon
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
+	"os"
+	"strings"
 
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
+	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
 	"github.com/hashicorp/horizon/pkg/noiseconn"
 	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/pkg/errors"
@@ -155,12 +160,53 @@ func (em *EmbeddedAgent) AddHTTPService(labels []string, url, description string
 	return err
 }
 
-// Run the agent by connecting to the hub and processing requests
-func (em *EmbeddedAgent) Run(ctx context.Context) error {
+// Create a new log writer that will transmit each individual line as a log message. The
+// +key+ argument should identify the logs being emitted, be them per agent, per service,
+// or otherwise.
+func (em *EmbeddedAgent) LogWriter(key string) (io.Writer, error) {
+	lt, err := em.agent.OpenLogTransmitter(key)
+	if err != nil {
+		return nil, err
+	}
+
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		defer pr.Close()
+
+		br := bufio.NewReader(pr)
+
+		for {
+			line, err := br.ReadString('\n')
+			if err != nil {
+				return
+			}
+
+			lt.Transmit(&logs.Message{
+				Timestamp: logs.Now(),
+				Mesg:      strings.TrimRight(line, " \t\n"),
+			})
+		}
+	}()
+
+	return pw, nil
+
+}
+
+// Start the agent by connecting to the hub and processing requests
+func (em *EmbeddedAgent) Start(ctx context.Context) error {
 	return em.agent.Start(ctx, []agent.HubConfig{
 		{
 			Addr:      em.cfg.HubAddress,
 			PublicKey: em.cfg.HubPublicKey,
 		},
 	})
+}
+
+// Wait for the agent to finish all work
+func (em *EmbeddedAgent) Wait(ctx context.Context) error {
+	return em.agent.Wait(ctx)
 }

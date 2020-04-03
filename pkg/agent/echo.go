@@ -11,7 +11,7 @@ import (
 
 type echoHandler struct{}
 
-func (_ *echoHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *logTransmitter) error {
+func (_ *echoHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *LogTransmitter) error {
 
 	for {
 		tag, sz, err := fr.Next()

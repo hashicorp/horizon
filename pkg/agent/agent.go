@@ -18,7 +18,7 @@ import (
 )
 
 type ServiceHandler interface {
-	HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *logTransmitter) error
+	HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *LogTransmitter) error
 }
 
 type Service struct {
@@ -281,7 +281,7 @@ func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux
 		}
 	}()
 
-	var ltrans logTransmitter
+	var ltrans LogTransmitter
 	ltrans.path = "foo-bar"
 	ltrans.session = session
 
@@ -296,7 +296,18 @@ func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux
 	}
 }
 
-func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux.Session, stream *yamux.Stream, ltrans *logTransmitter) {
+func (a *Agent) OpenLogTransmitter(path string) (*LogTransmitter, error) {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+
+	var ltrans LogTransmitter
+	ltrans.path = path
+	ltrans.agent = a
+
+	return &ltrans, nil
+}
+
+func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux.Session, stream *yamux.Stream, ltrans *LogTransmitter) {
 	defer stream.Close()
 
 	L.Trace("stream accepted", "id", stream.StreamID())
