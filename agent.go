@@ -18,7 +18,7 @@ import (
 )
 
 // A horizon agent designed to be embedded within another application
-type EmbeddedAgent struct {
+type Agent struct {
 	cfg   AgentConfig
 	agent *agent.Agent
 }
@@ -41,7 +41,7 @@ type AgentConfig struct {
 	Logger hclog.Logger
 
 	// Labels to add to all registered services
-	DefaultLabels []string
+	DefaultLabels []agent.Label
 
 	dhKey noise.DHKey
 }
@@ -107,7 +107,7 @@ func GenerateKey() (string, error) {
 }
 
 // Create a new agent using the given configuration
-func NewEmbeddedAgent(cfg AgentConfig) (*EmbeddedAgent, error) {
+func NewEmbeddedAgent(cfg AgentConfig) (*Agent, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return nil, err
@@ -120,20 +120,15 @@ func NewEmbeddedAgent(cfg AgentConfig) (*EmbeddedAgent, error) {
 
 	agent.Token = cfg.Token
 
-	return &EmbeddedAgent{
+	return &Agent{
 		cfg:   cfg,
 		agent: agent,
 	}, nil
 
 }
 
-type (
-	Service        = agent.Service
-	ServiceHandler = agent.ServiceHandler
-)
-
 // Add a service that will be advertised by this agent
-func (em *EmbeddedAgent) AddService(serv *Service) error {
+func (em *Agent) AddService(serv *agent.Service) error {
 	if len(em.cfg.DefaultLabels) > 0 {
 		serv.Labels = CombineLabels(serv.Labels, em.cfg.DefaultLabels)
 	}
@@ -144,8 +139,8 @@ func (em *EmbeddedAgent) AddService(serv *Service) error {
 
 // Add an HTTP service to be advertised by this agent. HTTP requests are sent to the
 // HTTP server located at +url+.
-func (em *EmbeddedAgent) AddHTTPService(labels []string, url, description string) error {
-	var serv Service
+func (em *Agent) AddHTTPService(labels []agent.Label, url, description string) error {
+	var serv agent.Service
 
 	serv.Type = "http"
 	serv.Labels = labels
@@ -163,7 +158,7 @@ func (em *EmbeddedAgent) AddHTTPService(labels []string, url, description string
 // Create a new log writer that will transmit each individual line as a log message. The
 // +key+ argument should identify the logs being emitted, be them per agent, per service,
 // or otherwise.
-func (em *EmbeddedAgent) LogWriter(key string) (io.Writer, error) {
+func (em *Agent) LogWriter(key string) (io.Writer, error) {
 	lt, err := em.agent.OpenLogTransmitter(key)
 	if err != nil {
 		return nil, err
@@ -197,7 +192,7 @@ func (em *EmbeddedAgent) LogWriter(key string) (io.Writer, error) {
 }
 
 // Start the agent by connecting to the hub and processing requests
-func (em *EmbeddedAgent) Start(ctx context.Context) error {
+func (em *Agent) Start(ctx context.Context) error {
 	return em.agent.Start(ctx, []agent.HubConfig{
 		{
 			Addr:      em.cfg.HubAddress,
@@ -207,6 +202,6 @@ func (em *EmbeddedAgent) Start(ctx context.Context) error {
 }
 
 // Wait for the agent to finish all work
-func (em *EmbeddedAgent) Wait(ctx context.Context) error {
+func (em *Agent) Wait(ctx context.Context) error {
 	return em.agent.Wait(ctx)
 }

@@ -10,7 +10,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
 	"github.com/hashicorp/horizon/pkg/wire"
-	"github.com/hashicorp/yamux"
 )
 
 type httpHandler struct {
@@ -25,10 +24,12 @@ func HTTPHandler(url string) ServiceHandler {
 	return &httpHandler{url}
 }
 
-func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *LogTransmitter) error {
+func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx ServiceContext) error {
+	req := sctx.Request()
+
 	L.Info("request started", "method", req.Method, "path", req.Path)
 
-	hreq, err := http.NewRequestWithContext(ctx, req.Method, h.url+req.Path, fr.ReadAdapter())
+	hreq, err := http.NewRequestWithContext(ctx, req.Method, h.url+req.Path, sctx.BodyReader())
 	if err != nil {
 		return err
 	}
@@ -55,12 +56,12 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream 
 		})
 	}
 
-	_, err = fw.WriteMarshal(1, &resp)
+	err = sctx.WriteMarshal(1, &resp)
 	if err != nil {
 		return err
 	}
 
-	n, _ := io.Copy(stream, hresp.Body)
+	n, _ := io.Copy(sctx.BodyWriter(), hresp.Body)
 
 	L.Info("request ended", "size", n)
 
@@ -86,5 +87,5 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, stream 
 		},
 	}
 
-	return ltrans.Transmit(&lm)
+	return sctx.Log(&lm)
 }

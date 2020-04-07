@@ -95,7 +95,7 @@ func runAgent() {
 	}
 
 	for _, label := range strings.Split(*fLabels, ",") {
-		serv.Labels = append(serv.Labels, strings.TrimSpace(label))
+		serv.Labels = append(serv.Labels, agent.ParseLabel(strings.TrimSpace(label)))
 	}
 
 	id, err := g.AddService(serv)

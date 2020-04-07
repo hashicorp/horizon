@@ -5,28 +5,122 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"sync"
 	"time"
 
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
 	"github.com/hashicorp/horizon/pkg/noiseconn"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/oklog/ulid"
 )
 
-type ServiceHandler interface {
-	HandleRequest(ctx context.Context, L hclog.Logger, stream *yamux.Stream, fr *wire.FramingReader, fw *wire.FramingWriter, req *wire.Request, ltrans *LogTransmitter) error
+type ServiceContext interface {
+	wire.Context
+
+	// Returns the request initially sent to trigger the service handling. The
+	// service is free to use all fields however they would like.
+	Request() *wire.Request
+
+	// Returns a reader that reads data on the connection
+	BodyReader() io.Reader
+
+	// Returns a writer than writes data on the connection
+	BodyWriter() io.Writer
+
+	// Transmit a log message related to this request
+	Log(msg *logs.Message) error
 }
 
+// The implementation of a service. req is the request sent initially. fr and fw are
+// used to read and write data from the client.
+type ServiceHandler interface {
+	HandleRequest(ctx context.Context, L hclog.Logger, sctx ServiceContext) error
+}
+
+type serviceContext struct {
+	wire.Context
+
+	req    *wire.Request
+	fr     *wire.FramingReader
+	stream *yamux.Stream
+	logs   *LogTransmitter
+
+	readHijack  bool
+	writeHijack bool
+}
+
+func (s *serviceContext) AccountId() string {
+	return s.Context.AccountId()
+}
+
+var (
+	ErrReadHijacked  = errors.New("read hijacked, structured access not available")
+	ErrWriteHijacked = errors.New("write hijacked, structured access not available")
+)
+
+func (s *serviceContext) ReadMarshal(v wire.Unmarshaller) (byte, error) {
+	if s.readHijack {
+		return 0, ErrReadHijacked
+	}
+
+	return s.Context.ReadMarshal(v)
+}
+
+func (s *serviceContext) WriteMarshal(tag byte, v wire.Marshaller) error {
+	if s.writeHijack {
+		return ErrReadHijacked
+	}
+
+	return s.Context.WriteMarshal(tag, v)
+}
+
+// Returns the request initially sent to trigger the service handling. The
+// service is free to use all fields however they would like.
+func (s *serviceContext) Request() *wire.Request {
+	return s.req
+}
+
+// Returns a reader that reads data on the connection
+func (s *serviceContext) BodyReader() io.Reader {
+	s.readHijack = true
+	return s.fr.ReadAdapter()
+}
+
+// Returns a writer than writes data on the connection
+func (s *serviceContext) BodyWriter() io.Writer {
+	s.writeHijack = true
+	return s.stream
+}
+
+// Transmit a log message related to this request
+func (s *serviceContext) Log(msg *logs.Message) error {
+	return s.logs.Transmit(msg)
+}
+
+// Describes a service that an agent is advertising. When a client connects to the
+// service, the Handler will be invoked.
 type Service struct {
-	Id          wire.ULID
-	Type        string
-	Labels      []string
+	// The identifier for the service, populated when the service is added.
+	Id wire.ULID
+
+	// The type identifer for the service. These identifiers are used by other
+	// agents and hubs to find services of a particular type.
+	Type string
+
+	// The unique identifiers for the service. The labels can be anything and are
+	// used by agents and hubs to locate services.
+	Labels []Label
+
+	// A description for the service used to help identify it in a catalog
 	Description string
-	Handler     ServiceHandler
+
+	// The handler to invoke when the service is called.
+	Handler ServiceHandler
 }
 
 type Agent struct {
@@ -194,11 +288,18 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 	preamble.Labels = a.Labels
 
 	for _, serv := range a.services {
+
+		var labels []string
+
+		for _, lbl := range serv.Labels {
+			labels = append(labels, lbl.String())
+		}
+
 		preamble.Services = append(preamble.Services, &wire.ServiceInfo{
 			ServiceId:   serv.Id,
 			Type:        serv.Type,
 			Description: serv.Description,
-			Labels:      serv.Labels,
+			Labels:      labels,
 		})
 	}
 
@@ -360,7 +461,15 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		}
 	}
 
-	err = serv.Handler.HandleRequest(ctx, L, stream, fr, fw, &req, ltrans)
+	sctx := &serviceContext{
+		Context: wire.NewContext("", fr, fw),
+		fr:      fr,
+		req:     &req,
+		stream:  stream,
+		logs:    ltrans,
+	}
+
+	err = serv.Handler.HandleRequest(ctx, L, sctx)
 	if err != nil {
 		L.Error("error in service handler", "error", err)
 	}

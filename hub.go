@@ -19,7 +19,7 @@ import (
 
 // Type which contains a horizon hub instance configured to be embedded within
 // another application as a simple, single server configuration.
-type EmbeddedHub struct {
+type Hub struct {
 	cfg HubConfig
 
 	h   *hub.Hub
@@ -89,7 +89,7 @@ func (c HubConfig) Validate() error {
 }
 
 // Create a new Hub instance for use embedded in another program.
-func NewEmbeddedHub(cfg HubConfig) (*EmbeddedHub, error) {
+func NewEmbeddedHub(cfg HubConfig) (*Hub, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return nil, err
@@ -167,7 +167,7 @@ func NewEmbeddedHub(cfg HubConfig) (*EmbeddedHub, error) {
 
 	h.AddLocalLogging(cfg.LogPath)
 
-	em := &EmbeddedHub{
+	em := &Hub{
 		cfg: cfg,
 
 		h:   h,
@@ -182,7 +182,7 @@ func NewEmbeddedHub(cfg HubConfig) (*EmbeddedHub, error) {
 }
 
 // Generate a new token to access this hub
-func (em *EmbeddedHub) GenerateToken() (string, error) {
+func (em *Hub) GenerateToken() (string, error) {
 	metadata := map[string]string{
 		"emhub-key": noiseconn.PublicKey(em.dhkey),
 	}
@@ -192,7 +192,7 @@ func (em *EmbeddedHub) GenerateToken() (string, error) {
 
 // Generate a new token to access this hub with the address of the hub embedded
 // in the token. This allows just the token to be given to the agents to make a connection.
-func (em *EmbeddedHub) GenerateTokenWithAddress(addr string) (string, error) {
+func (em *Hub) GenerateTokenWithAddress(addr string) (string, error) {
 	metadata := map[string]string{
 		"emhub-key":   noiseconn.PublicKey(em.dhkey),
 		"hub-address": addr,
@@ -202,6 +202,6 @@ func (em *EmbeddedHub) GenerateTokenWithAddress(addr string) (string, error) {
 }
 
 // Begin listened for connections
-func (em *EmbeddedHub) Serve(ctx context.Context) error {
+func (em *Hub) Serve(ctx context.Context) error {
 	return em.h.Serve(ctx, em.l)
 }

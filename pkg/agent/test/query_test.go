@@ -67,7 +67,7 @@ func TestQuery(t *testing.T) {
 
 	sid, err := g1.AddService(&agent.Service{
 		Type:        "echo",
-		Labels:      []string{"env=test1"},
+		Labels:      []agent.Label{{Name: "env", Value: "test1"}},
 		Description: "a test echo service",
 		Handler:     agent.EchoHandler(),
 	})
