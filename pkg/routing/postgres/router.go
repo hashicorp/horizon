@@ -47,6 +47,31 @@ type Service struct {
 	UpdatedAt time.Time
 }
 
+type LabelLink struct {
+	ID int `gorm:"primary_key"`
+
+	Account   *Account
+	AccountID wire.ULID
+
+	Labels pq.StringArray
+	Target pq.StringArray
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+type Hostname struct {
+	ID int `gorm:"primary_key"`
+
+	Account   *Account
+	AccountID wire.ULID
+
+	Name string
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
 func NewRouter(dbtype, connDetails string) (*Router, error) {
 	db, err := gorm.Open(dbtype, connDetails)
 	if err != nil {
@@ -79,6 +104,10 @@ func (r *Router) RegisterService(account, agent ulid.ULID, serv *wire.ServiceInf
 	return dbx.Check(r.db.Create(&so))
 }
 
+func (r *Router) DeregisterService(agent, serviceId ulid.ULID) error {
+	return dbx.Check(r.db.Where("agent_id = ?", agent).Where("id = ?", serviceId).Delete(Service{}))
+}
+
 type ServiceLocation struct {
 	Agent   ulid.ULID
 	Service *wire.ServiceInfo
@@ -108,6 +137,58 @@ func (r *Router) LookupService(labels []string) ([]*ServiceLocation, error) {
 	}
 
 	return services, nil
+}
+
+func (r *Router) RegisterLabelLink(accId ulid.ULID, labels, target []string) error {
+	var ll LabelLink
+
+	ll.AccountID.ULID = accId
+	ll.Labels = pq.StringArray(labels)
+	ll.Target = pq.StringArray(target)
+
+	return dbx.Check(r.db.Create(&ll))
+}
+
+func (r *Router) DeregisterLabelLink(accId ulid.ULID, labels []string) error {
+	return dbx.Check(
+		r.db.
+			Where("account_id = ?", accId).
+			Where("labels = ?", pq.StringArray(labels)).
+			Delete(&LabelLink{}),
+	)
+}
+
+func (r *Router) FindLabelLink(accId ulid.ULID, labels []string) ([]string, error) {
+	var ll LabelLink
+
+	err := dbx.Check(
+		r.db.
+			Where("account_id = ?", accId).
+			Where("labels = ?", pq.StringArray(labels)).
+			First(&ll))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return []string(ll.Target), nil
+}
+
+func (r *Router) CreateHostname(accId ulid.ULID, name string) error {
+	var h Hostname
+	h.AccountID.ULID = accId
+	h.Name = name
+
+	return dbx.Check(r.db.Create(&h))
+}
+
+func (r *Router) DeleteHostname(accId ulid.ULID, name string) error {
+	return dbx.Check(
+		r.db.
+			Where("account_id = ?", accId).
+			Where("name = ?", name).
+			Delete(&Hostname{}),
+	)
 }
 
 func (r *Router) KnownTarget(target string) bool {

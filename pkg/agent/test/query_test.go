@@ -36,7 +36,7 @@ func TestQuery(t *testing.T) {
 	L := hclog.L()
 	reg, err := registry.NewRegistry(registry.RandomKey(), ".localhost", db)
 
-	acc, err := reg.AddAccount(L)
+	acc, _, err := reg.AddAccount(L)
 	require.NoError(t, err)
 
 	token, err := reg.Token(L, acc)

@@ -89,7 +89,7 @@ func (c HubConfig) Validate() error {
 }
 
 // Create a new Hub instance for use embedded in another program.
-func NewEmbeddedHub(cfg HubConfig) (*Hub, error) {
+func NewHub(cfg HubConfig) (*Hub, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return nil, err
@@ -129,7 +129,7 @@ func NewEmbeddedHub(cfg HubConfig) (*Hub, error) {
 	if bytes != nil {
 		copy(acc[:], bytes)
 	} else {
-		acc, err = reg.AddAccount(cfg.Logger)
+		acc, _, err = reg.AddAccount(cfg.Logger)
 		if err != nil {
 			return nil, err
 		}

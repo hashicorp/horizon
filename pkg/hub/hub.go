@@ -3,6 +3,7 @@ package hub
 import (
 	"context"
 	"io"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -22,6 +23,17 @@ type Registry interface {
 	ResolveAgent(L hclog.Logger, target string) (registry.ResolvedService, error)
 }
 
+type ServiceSorter interface {
+	NextService(services []registry.ResolvedService) registry.ResolvedService
+}
+
+type randomSorter struct{}
+
+func (_ randomSorter) NextService(services []registry.ResolvedService) registry.ResolvedService {
+	pick := rand.Intn(len(services))
+	return services[pick]
+}
+
 type Hub struct {
 	L   hclog.Logger
 	cfg *yamux.Config
@@ -33,6 +45,8 @@ type Hub struct {
 
 	mu     sync.RWMutex
 	active map[string]*yamux.Session
+
+	ServiceSorter ServiceSorter
 }
 
 func NewHub(L hclog.Logger, r *registry.Registry, key noise.DHKey) (*Hub, error) {
@@ -50,6 +64,8 @@ func NewHub(L hclog.Logger, r *registry.Registry, key noise.DHKey) (*Hub, error)
 		reg:    r,
 		active: make(map[string]*yamux.Session),
 		key:    key,
+
+		ServiceSorter: randomSorter{},
 	}
 
 	return h, nil
@@ -217,58 +233,6 @@ var (
 	ErrProtocolError = errors.New("protocol error")
 	ErrWrongService  = errors.New("wrong service")
 )
-
-func (h *Hub) PerformRequest(req *wire.Request, body io.Reader, target, serviceType string) (*wire.Response, io.Reader, error) {
-	session, rs, err := h.findSession(target)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if rs.ServiceType != serviceType {
-		return nil, nil, errors.Wrapf(ErrWrongService, "incorrect service type (%s != %s)", serviceType, rs.ServiceType)
-	}
-
-	req.TargetService = rs.ServiceId
-
-	stream, err := session.OpenStream()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	fw, err := wire.NewFramingWriter(stream)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	defer fw.Recycle()
-
-	_, err = fw.WriteMarshal(1, req)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	adapter := fw.WriteAdapter()
-	io.Copy(adapter, body)
-	adapter.Close()
-
-	fr, err := wire.NewFramingReader(stream)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	var resp wire.Response
-
-	tag, _, err := fr.ReadMarshal(&resp)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if tag != 1 {
-		return nil, nil, ErrProtocolError
-	}
-
-	return &resp, fr.RecylableBufReader(), nil
-}
 
 func (h *Hub) ConnectToService(req *wire.Request, accid string, rs registry.ResolvedService) (wire.Context, error) {
 	h.mu.RLock()

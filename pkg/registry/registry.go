@@ -86,7 +86,7 @@ func (r *Registry) verifyToken(L hclog.Logger, stoken string) (ulid.ULID, *token
 
 var mrand = ulid.Monotonic(rand.Reader, 1)
 
-func (r *Registry) AddAccount(L hclog.Logger) (ulid.ULID, error) {
+func (r *Registry) AddAccount(L hclog.Logger) (ulid.ULID, string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -94,14 +94,14 @@ func (r *Registry) AddAccount(L hclog.Logger) (ulid.ULID, error) {
 
 	id, err := ulid.New(ulid.Now(), mrand)
 	if err != nil {
-		return ulid.ULID{}, err
+		return ulid.ULID{}, "", err
 	}
 
 	r.storage.AddAccount(id.String(), defTarget)
 
 	L.Info("created account", "id", id.String(), "def-target", defTarget)
 
-	return id, nil
+	return id, defTarget, nil
 }
 
 func compressLabels(v []string) string {
@@ -234,6 +234,18 @@ func (r *Registry) FindAccount(L hclog.Logger, token string) (ulid.ULID, *token.
 	}
 
 	return accId, headers, nil
+}
+
+func (r *Registry) HandlingHostname(name string) bool {
+	return r.storage.HandlingHostname(name)
+}
+
+func (r *Registry) FindLabelLink(labels []string) (string, []string, error) {
+	return r.storage.FindLabelLink(labels)
+}
+
+func (r *Registry) AddLabelLink(account string, labels, target []string) error {
+	return r.storage.AddLabelLink(account, labels, target)
 }
 
 type ResolvedService struct {

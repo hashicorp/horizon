@@ -1,21 +1,34 @@
 package web
 
 import (
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/pkg/registry"
 	"github.com/hashicorp/horizon/pkg/wire"
 )
 
-type Performer interface {
-	PerformRequest(req *wire.Request, body io.Reader, target, serviceType string) (*wire.Response, io.Reader, error)
+type HostnameChecker interface {
+	HandlingHostname(name string) bool
+}
+
+type LabelResolver interface {
+	FindLabelLink(labels []string) (string, []string, error)
+	MatchServices(accid string, labels []string) ([]registry.ResolvedService, error)
+}
+
+type Connector interface {
+	ConnectToService(req *wire.Request, accid string, rs registry.ResolvedService) (wire.Context, error)
 }
 
 type Frontend struct {
-	L         hclog.Logger
-	Performer Performer
+	L             hclog.Logger
+	LabelResolver LabelResolver
+	Connector     Connector
+	Checker       HostnameChecker
 }
 
 func (f *Frontend) Serve(l net.Listener) error {
@@ -23,6 +36,12 @@ func (f *Frontend) Serve(l net.Listener) error {
 }
 
 func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Fail as fast as possible if we're not handling this host
+	if !f.Checker.HandlingHostname(req.Host) {
+		http.Error(w, fmt.Sprintf("no registered application for hostname: %s", req.Host), http.StatusInternalServerError)
+		return
+	}
+
 	var wreq wire.Request
 	wreq.Method = req.Method
 	wreq.Path = req.URL.EscapedPath()
@@ -42,17 +61,57 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		})
 	}
 
-	target := req.Host
-
 	f.L.Info("request",
-		"target", target,
+		"target", req.Host,
 		"method", req.Method,
 		"path", req.URL.Path,
 		"content-length", req.ContentLength,
 	)
 
-	wresp, body, err := f.Performer.PerformRequest(&wreq, req.Body, target, "http")
+	labels := []string{":hostname=" + req.Host}
+
+	account, target, err := f.LabelResolver.FindLabelLink(labels)
 	if err != nil {
+		f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(target) == 0 {
+		http.Error(w, fmt.Sprintf("no registered application for hostname: %s", req.Host), http.StatusNotFound)
+		return
+	}
+
+	services, err := f.LabelResolver.MatchServices(account, target)
+	if err != nil {
+		f.L.Error("error resolving labels to services", "error", err, "labels", target)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	rs := services[0]
+
+	if rs.ServiceType != "http" {
+		f.L.Error("service was not type http", "type", rs.ServiceType)
+		http.Error(w, "no http services available", http.StatusNotFound)
+		return
+	}
+
+	wctx, err := f.Connector.ConnectToService(&wreq, account, rs)
+	if err != nil {
+		f.L.Error("error connecting to service", "error", err, "labels", target)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	adapter := wctx.Writer()
+	io.Copy(adapter, req.Body)
+	adapter.Close()
+
+	var wresp wire.Response
+
+	tag, err := wctx.ReadMarshal(&wresp)
+	if err != nil || tag != 1 {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -67,5 +126,5 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	w.WriteHeader(int(wresp.Code))
 
-	io.Copy(w, body)
+	io.Copy(w, wctx.Reader())
 }

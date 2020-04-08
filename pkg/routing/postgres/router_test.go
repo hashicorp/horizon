@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/jinzhu/gorm"
+	"github.com/lib/pq"
 	"github.com/oklog/ulid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,7 @@ func TestRouter(t *testing.T) {
 	accId, err := ulid.New(ulid.Now(), rand.Reader)
 	require.NoError(t, err)
 
-	t.Run("register a service", func(t *testing.T) {
+	t.Run("register and deregister a service", func(t *testing.T) {
 		router, err := NewRouter("pgtest", "servtest")
 		require.NoError(t, err)
 
@@ -71,6 +72,16 @@ func TestRouter(t *testing.T) {
 		assert.Equal(t, serv.Type, so.Type)
 		assert.Equal(t, serv.Description, so.Description)
 		assert.Equal(t, serv.Labels[0], so.Labels[0])
+
+		err = router.DeregisterService(ua, serv.ServiceId.ULID)
+		require.NoError(t, err)
+
+		sos = nil
+
+		err = dbx.Check(router.db.Where("agent_id = ?", ao.ID).Find(&sos))
+		require.NoError(t, err)
+
+		require.Equal(t, 0, len(sos))
 	})
 
 	t.Run("lookup a service by label", func(t *testing.T) {
@@ -103,5 +114,73 @@ func TestRouter(t *testing.T) {
 
 		assert.Equal(t, ua, si.Agent)
 		assert.Equal(t, &serv, si.Service)
+	})
+
+	t.Run("registers, finds, and deregisters a label link", func(t *testing.T) {
+		router, err := NewRouter("pgtest", "lookuptest")
+		require.NoError(t, err)
+
+		defer router.db.Close()
+
+		var (
+			target = []string{":target=blah.com"}
+			dest   = []string{"env=prod"}
+		)
+
+		ua, err := ulid.New(ulid.Now(), rand.Reader)
+		require.NoError(t, err)
+
+		err = router.RegisterLabelLink(ua, target, dest)
+		require.NoError(t, err)
+
+		var link LabelLink
+
+		err = dbx.Check(router.db.Where("account_id = ?", ua).Where("labels = ?", pq.StringArray(target)).First(&link))
+		require.NoError(t, err)
+
+		assert.Equal(t, dest, []string(link.Target))
+
+		labels, err := router.FindLabelLink(ua, target)
+		require.NoError(t, err)
+
+		assert.Equal(t, dest, labels)
+
+		err = router.DeregisterLabelLink(ua, target)
+		require.NoError(t, err)
+
+		link.Target = nil
+
+		err = dbx.Check(router.db.Where("account_id = ?", ua).Where("labels = ?", pq.StringArray(target)).First(&link))
+		require.Error(t, err)
+
+		assert.Nil(t, link.Target)
+	})
+
+	t.Run("tracks all hostnames that the cluster is handling", func(t *testing.T) {
+		router, err := NewRouter("pgtest", "lookuptest")
+		require.NoError(t, err)
+
+		defer router.db.Close()
+
+		name := "blah.com"
+
+		ua, err := ulid.New(ulid.Now(), rand.Reader)
+		require.NoError(t, err)
+
+		err = router.CreateHostname(ua, name)
+		require.NoError(t, err)
+
+		var dom Hostname
+
+		err = dbx.Check(router.db.Where("account_id = ?", ua).Where("name = ?", name).First(&dom))
+		require.NoError(t, err)
+
+		assert.Equal(t, name, dom.Name)
+
+		err = router.DeleteHostname(ua, name)
+		require.NoError(t, err)
+
+		err = dbx.Check(router.db.Where("account_id = ?", ua).Where("name = ?", name).First(&dom))
+		require.Error(t, err)
 	})
 }

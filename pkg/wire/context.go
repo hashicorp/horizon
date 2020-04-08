@@ -14,6 +14,12 @@ type Context interface {
 
 	// Forwards any data between the 2 contexts
 	BridgeTo(other Context) error
+
+	// Returns a writer that will send traffic as framed messages
+	Writer() io.WriteCloser
+
+	// Returns a reader that recieves traffic as framed messages
+	Reader() io.Reader
 }
 
 type ctx struct {
@@ -46,6 +52,14 @@ func (c *ctx) ReadMarshal(v Unmarshaller) (byte, error) {
 func (c *ctx) WriteMarshal(tag byte, v Marshaller) error {
 	_, err := c.fw.WriteMarshal(tag, v)
 	return err
+}
+
+func (c *ctx) Writer() io.WriteCloser {
+	return c.fw.WriteAdapter()
+}
+
+func (c *ctx) Reader() io.Reader {
+	return c.fr.ReadAdapter()
 }
 
 var ErrInvalidContext = errors.New("invalid context type")

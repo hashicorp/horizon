@@ -1,9 +1,11 @@
 package data
 
 import (
+	"encoding/json"
 	"io"
 	"strings"
 
+	"github.com/hashicorp/horizon/pkg/labels"
 	"go.etcd.io/bbolt"
 )
 
@@ -17,6 +19,69 @@ func (b *Bolt) Empty() bool {
 	})
 
 	return empty
+}
+
+func (b *Bolt) HandlingHostname(name string) bool {
+	var ok bool
+
+	b.db.View(func(tx *bbolt.Tx) error {
+		targets := tx.Bucket([]byte("account-targets"))
+		if targets == nil {
+			return nil
+		}
+
+		ok = targets.Get([]byte(name)) != nil
+		return nil
+	})
+
+	return ok
+}
+
+type labelLink struct {
+	Account string
+	Target  []string
+}
+
+func (b *Bolt) FindLabelLink(source []string) (string, []string, error) {
+	labelKey := labels.CompressLabels(source)
+
+	var ll labelLink
+
+	b.db.View(func(tx *bbolt.Tx) error {
+		buk := tx.Bucket([]byte("global-labels"))
+		if buk == nil {
+			return nil
+		}
+
+		data := buk.Get([]byte(labelKey))
+		if data == nil {
+			return nil
+		}
+
+		return json.Unmarshal(data, &ll)
+	})
+
+	return ll.Account, ll.Target, nil
+}
+
+func (b *Bolt) AddLabelLink(account string, source, target []string) error {
+	return b.db.Update(func(tx *bbolt.Tx) error {
+		buk, err := tx.CreateBucketIfNotExists([]byte("global-labels"))
+		if err != nil {
+			return err
+		}
+
+		data, err := json.Marshal(labelLink{
+			Account: account,
+			Target:  target,
+		})
+
+		if err != nil {
+			return err
+		}
+
+		return buk.Put([]byte(labels.CompressLabels(source)), data)
+	})
 }
 
 func (b *Bolt) AddAccount(id, target string) error {

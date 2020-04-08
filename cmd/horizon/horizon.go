@@ -140,7 +140,7 @@ func runHub() {
 	log.SetOutput(L.StandardWriter(&hclog.StandardLoggerOptions{InferLevels: true}))
 
 	if db.Empty() {
-		acc, err := reg.AddAccount(L)
+		acc, _, err := reg.AddAccount(L)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -198,7 +198,9 @@ func runHub() {
 	}
 
 	var frontend web.Frontend
-	frontend.Performer = h
+	frontend.Connector = h
+	frontend.Checker = reg
+	frontend.LabelResolver = reg
 	frontend.L = L.Named("web")
 
 	go http.ListenAndServe(*fHTTPAddr, &frontend)
