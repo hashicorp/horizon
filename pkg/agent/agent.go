@@ -114,7 +114,7 @@ type Service struct {
 
 	// The unique identifiers for the service. The labels can be anything and are
 	// used by agents and hubs to locate services.
-	Labels []Label
+	Labels [][]Label
 
 	// A description for the service used to help identify it in a catalog
 	Description string
@@ -289,17 +289,23 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 
 	for _, serv := range a.services {
 
-		var labels []string
+		var set []*wire.Labels
 
-		for _, lbl := range serv.Labels {
-			labels = append(labels, lbl.String())
+		for _, labels := range serv.Labels {
+			var s []string
+
+			for _, lbl := range labels {
+				s = append(s, lbl.String())
+			}
+
+			set = append(set, &wire.Labels{Label: s})
 		}
 
 		preamble.Services = append(preamble.Services, &wire.ServiceInfo{
 			ServiceId:   serv.Id,
 			Type:        serv.Type,
 			Description: serv.Description,
-			Labels:      labels,
+			Labels:      set,
 		})
 	}
 
