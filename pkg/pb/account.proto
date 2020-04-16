@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "ulid.proto";
+
+package pb;
+
+message Account {
+  string namespace = 1;
+  ULID account_id = 2;
+}
+

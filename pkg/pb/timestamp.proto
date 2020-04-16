@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package pb;
+
+message Timestamp {
+  uint64 sec = 1;
+  uint64 nsec  = 2;
+}

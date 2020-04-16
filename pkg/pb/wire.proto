@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+import "timestamp.proto";
+import "kv.proto";
+import "ulid.proto";
+import "account.proto";
+
+package pb;
+
+message Labels {
+  // These labels are used to identify this specific service instance
+  repeated string label = 1;
+}
+
+message ServiceInfo {
+  // A short identifier for this service instance
+  ULID service_id = 1;
+
+  // A type identifier for the kind of service this instance is
+  string type = 2;
+
+  // These labels are used to identify this specific service instance
+  repeated Labels labels = 3;
+
+  repeated KVPair metadata = 4; 
+}
+
+message Preamble {
+  string session_id = 1;
+  string token = 2;
+
+  // These are labels that identify the agent. IE location, etc.
+  repeated string labels = 3;
+  repeated ServiceInfo services = 4;
+}
+
+message Confirmation {
+  Timestamp time = 1;
+  string status = 2;
+}
+
+message Header {
+  string name = 1;
+  repeated string value = 2;
+}
+
+message Auth {
+  string user = 1;
+  string password = 2;
+}
+
+message Request {
+  enum Type {
+    HTTP = 0;
+    WEBSOCKET = 1;
+    TCP = 2;
+    UDP = 3;
+    RPC = 4;
+    AGENT_CONNECT = 5;
+  }
+
+  Type type = 1;
+  string method = 2;
+  string path = 3;
+  string query = 4;
+  string fragment = 5;
+  Auth auth = 6;
+  repeated Header headers = 7;
+  string remote_addr = 8;
+  string host = 9;
+  bytes agentId = 10;
+  string target_service = 11;
+  Account pivot_account = 12;
+}
+
+message Response {
+  string error = 1;
+  int32 code = 2;
+  repeated Header headers = 3;
+}

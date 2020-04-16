@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+import "defs/gogo.proto";
+import "timestamp.proto";
+import "kv.proto";
+import "ulid.proto";
+import "account.proto";
+
+package pb;
+
+message Headers {
+  repeated KVPair headers = 1;
+}
+
+message Signature {
+  enum SigType {
+    BLAKE2HMAC = 0;
+    ED25519 = 1;
+    EXTERNAL = 2;
+  }
+
+  bytes signature = 1;
+  SigType sig_type = 2;
+  string key_id = 3;
+  Headers headers = 4;
+}
+
+enum Capability {
+  CONNECT = 0;
+  SERVE = 1;
+  ACCESS = 2;
+  MGMT = 3;
+  CONFIG = 4;
+}
+
+message TokenCapability {
+  Capability capability = 1;
+  string value = 2;
+}
+
+message Token {
+  message Body {
+    ULID id = 1;
+    Account account = 2;
+    Timestamp valid_until = 3;
+    repeated TokenCapability capabilities = 4 [(gogoproto.nullable) = false];
+
+    Headers additional = 10;
+  }
+
+  bytes body = 1;
+  Headers metadata = 2;
+  repeated Signature signatures = 3;
+}

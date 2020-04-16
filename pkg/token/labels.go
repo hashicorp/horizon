@@ -1,8 +1,10 @@
 package token
 
 const (
-	LabelAlgo      = 1
-	LabelAccountId = 100
+	KeyAlgo             = 1
+	KeyAccountId        = 100
+	KeyAccountNamespace = 101
+	KeyCapabilities     = 110
 )
 
 const (

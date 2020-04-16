@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package pb;
+
+message Label {
+  string name = 1;
+  string value = 2;
+}
+
+message LabelSet {
+  repeated Label labels = 1;
+}

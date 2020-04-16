@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package pb;
+
+message KVPair {
+  string key = 1;
+  int64 ikey = 2;
+
+  string value = 3;
+  int64 ivalue = 4;
+  bytes bvalue = 5;
+}

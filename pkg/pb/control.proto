@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+import "defs/gogo.proto";
+import "kv.proto";
+import "label.proto";
+import "account.proto";
+import "ulid.proto";
+import "token.proto";
+import "timestamp.proto";
+
+package pb;
+
+message ServiceRequest {
+  Account account = 1;
+  ULID hub = 2;
+  ULID id = 3;
+  string type = 4;
+  repeated LabelSet label_sets = 5;
+  repeated KVPair metadata = 6;
+}
+
+message ServiceResponse {}
+
+message LabelLink {
+  Account account = 1;
+  LabelSet labels = 2;
+  LabelSet target = 3;
+}
+
+message LabelLinks {
+  repeated LabelLink label_links = 1;
+}
+
+message ServiceRoute {
+  ULID hub = 1;
+  ULID id = 2;
+  string type = 3;
+  repeated LabelSet label_sets = 4;
+}
+
+message AccountServices {
+  Account account = 1;
+  repeated ServiceRoute services = 2;
+}
+
+service ControlServices {
+  rpc AddService(ServiceRequest) returns (ServiceResponse) {}
+  rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
+}
+
+message AddLabelLinkRequest {
+  LabelSet labels = 1;
+  Account account = 2;
+  LabelSet target = 3;
+}
+
+message Noop {}
+
+message RemoveLabelLinkRequest {
+  LabelSet labels = 1;
+  Account account = 2;
+}
+
+message CreateTokenRequest {
+  Account account = 1;
+  repeated TokenCapability capabilities = 2 [(gogoproto.nullable) = false];
+  Timestamp valid_duration = 3;
+}
+
+message CreateTokenResponse {
+  string token = 1;
+}
+
+message ControlRegister {
+  string namespace = 1;
+}
+
+message ControlToken {
+  string token = 1;
+}
+
+service ControlManagement {
+  rpc Register(ControlRegister) returns (ControlToken) {}
+  rpc AddLabelLink(AddLabelLinkRequest) returns (Noop) {}
+  rpc RemoveLabelLink(RemoveLabelLinkRequest) returns (Noop) {}
+  rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse) {}
+}
