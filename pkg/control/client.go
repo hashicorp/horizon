@@ -61,7 +61,7 @@ type Client struct {
 	client pb.ControlServicesClient
 	gcc    *grpc.ClientConn
 
-	localServices map[string]map[string]*pb.ServiceRequest
+	localServices map[string]*pb.ServiceRequest
 
 	labelMu      sync.RWMutex
 	lastLabelMD5 string
@@ -130,7 +130,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		client:          gClient,
 		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
-		localServices:   make(map[string]map[string]*pb.ServiceRequest),
+		localServices:   make(map[string]*pb.ServiceRequest),
 		s3api:           s3.New(cfg.Session),
 		workDir:         cfg.WorkDir,
 		bucket:          cfg.S3Bucket,
@@ -176,15 +176,7 @@ func (c *Client) AddService(ctx context.Context, serv *pb.ServiceRequest) error 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for _, labelset := range dup.LabelSets {
-		cur := c.localServices[labelset.SpecString()]
-		if cur == nil {
-			cur = make(map[string]*pb.ServiceRequest)
-			c.localServices[labelset.SpecString()] = cur
-		}
-
-		cur[dup.Id.SpecString()] = &dup
-	}
+	c.localServices[dup.Id.SpecString()] = &dup
 
 	return err
 }
@@ -193,12 +185,7 @@ func (c *Client) RemoveService(ctx context.Context, serv *pb.ServiceRequest) err
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	for _, labelset := range serv.LabelSets {
-		cur := c.localServices[labelset.SpecString()]
-		if cur != nil {
-			delete(cur, serv.Id.SpecString())
-		}
-	}
+	delete(c.localServices, serv.Id.SpecString())
 
 	_, err := c.client.RemoveService(ctx, serv)
 	return err
@@ -210,16 +197,13 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 
 	var out []*pb.ServiceRoute
 
-	lblSpec := labels.SpecString()
-
-	services, ok := c.localServices[lblSpec]
-	if ok {
-		for _, servreq := range services {
+	for _, reg := range c.localServices {
+		if labels.Matches(reg.Labels) {
 			out = append(out, &pb.ServiceRoute{
-				Id:        servreq.Id,
-				Hub:       servreq.Hub,
-				Type:      servreq.Type,
-				LabelSets: servreq.LabelSets,
+				Id:     reg.Id,
+				Hub:    reg.Hub,
+				Type:   reg.Type,
+				Labels: reg.Labels,
 			})
 		}
 	}
@@ -248,10 +232,8 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 				continue
 			}
 
-			for _, ls := range service.LabelSets {
-				if ls.SpecString() == lblSpec {
-					out = append(out, service)
-				}
+			if labels.Matches(service.Labels) {
+				out = append(out, service)
 			}
 		}
 	}

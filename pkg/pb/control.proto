@@ -15,7 +15,7 @@ message ServiceRequest {
   ULID hub = 2;
   ULID id = 3;
   string type = 4;
-  repeated LabelSet label_sets = 5;
+  LabelSet labels = 5;
   repeated KVPair metadata = 6;
 }
 
@@ -35,7 +35,7 @@ message ServiceRoute {
   ULID hub = 1;
   ULID id = 2;
   string type = 3;
-  repeated LabelSet label_sets = 4;
+  LabelSet labels = 4;
 }
 
 message AccountServices {

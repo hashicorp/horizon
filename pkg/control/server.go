@@ -100,7 +100,7 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 	so.HubId = service.Hub.Bytes()
 	so.ServiceId = service.Id.Bytes()
 	so.Type = service.Type
-	so.Labels = FlattenLabelSets(service.LabelSets)
+	so.Labels = service.Labels.AsStringArray()
 
 	err = dbx.Check(s.db.Create(&so))
 	if err != nil {

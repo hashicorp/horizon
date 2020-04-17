@@ -153,9 +153,9 @@ func TestClient(t *testing.T) {
 				Namespace: "/",
 				AccountId: accountId,
 			},
-			Id:        serviceId,
-			Type:      "test",
-			LabelSets: []*pb.LabelSet{labels},
+			Id:     serviceId,
+			Type:   "test",
+			Labels: labels,
 			Metadata: []*pb.KVPair{
 				{
 					Key:   "version",
@@ -173,19 +173,16 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
 
-		local, ok := client.localServices[labels.SpecString()]
+		ls, ok := client.localServices[serviceId.SpecString()]
 		require.True(t, ok)
-
-		require.Equal(t, 1, len(local))
-
-		ls := local[serviceId.SpecString()]
 
 		assert.Equal(t, serviceId, ls.Id)
 
 		err = client.RemoveService(ctx, servReq)
 		require.NoError(t, err)
 
-		require.Equal(t, 0, len(local))
+		_, ok = client.localServices[serviceId.SpecString()]
+		require.False(t, ok)
 
 		err = dbx.Check(db.First(&so))
 		assert.Error(t, err)
@@ -283,16 +280,16 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		serviceId := pb.NewULID()
-		labels := pb.ParseLabelSet("service=www,env=prod")
+		labels := pb.ParseLabelSet("service=www,env=prod,instance=xyz")
 
 		servReq := &pb.ServiceRequest{
 			Account: &pb.Account{
 				Namespace: "/",
 				AccountId: accountId,
 			},
-			Id:        serviceId,
-			Type:      "test",
-			LabelSets: []*pb.LabelSet{labels},
+			Id:     serviceId,
+			Type:   "test",
+			Labels: labels,
 			Metadata: []*pb.KVPair{
 				{
 					Key:   "version",
@@ -310,16 +307,12 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
 
-		local, ok := client.localServices[labels.SpecString()]
+		ls, ok := client.localServices[serviceId.SpecString()]
 		require.True(t, ok)
-
-		require.Equal(t, 1, len(local))
-
-		ls := local[serviceId.SpecString()]
 
 		assert.Equal(t, serviceId, ls.Id)
 
-		services, err := client.LookupService(ctx, accountId, labels)
+		services, err := client.LookupService(ctx, accountId, pb.ParseLabelSet("service=www,env=prod"))
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, len(services))
@@ -345,10 +338,10 @@ func TestClient(t *testing.T) {
 					Namespace: "/",
 					AccountId: accountId,
 				},
-				Hub:       hubId2,
-				Id:        serviceId2,
-				Type:      "test",
-				LabelSets: []*pb.LabelSet{labels},
+				Hub:    hubId2,
+				Id:     serviceId2,
+				Type:   "test",
+				Labels: labels,
 				Metadata: []*pb.KVPair{
 					{
 						Key:   "version",
@@ -360,7 +353,7 @@ func TestClient(t *testing.T) {
 
 		require.NoError(t, err)
 
-		services, err = client.LookupService(ctx, accountId, labels)
+		services, err = client.LookupService(ctx, accountId, pb.ParseLabelSet("service=www,env=prod"))
 		require.NoError(t, err)
 
 		require.Equal(t, 2, len(services))
@@ -488,10 +481,10 @@ func TestClient(t *testing.T) {
 				Namespace: "/",
 				AccountId: accountId,
 			},
-			Id:        serviceId,
-			Hub:       pb.NewULID(),
-			Type:      "test",
-			LabelSets: []*pb.LabelSet{labels},
+			Id:     serviceId,
+			Hub:    pb.NewULID(),
+			Type:   "test",
+			Labels: labels,
 			Metadata: []*pb.KVPair{
 				{
 					Key:   "version",

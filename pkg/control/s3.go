@@ -55,11 +55,18 @@ func (s *Server) calculateAccountRouting(ctx context.Context, account []byte) ([
 		}
 
 		for _, serv := range services {
+			var ls pb.LabelSet
+
+			err = ls.Scan(serv.Labels)
+			if err != nil {
+				return nil, err
+			}
+
 			accountServices.Services = append(accountServices.Services, &pb.ServiceRoute{
-				Hub:       pb.ULIDFromBytes(serv.HubId),
-				Id:        pb.ULIDFromBytes(serv.ServiceId),
-				Type:      serv.Type,
-				LabelSets: ExplodeLabelSetss(serv.Labels),
+				Hub:    pb.ULIDFromBytes(serv.HubId),
+				Id:     pb.ULIDFromBytes(serv.ServiceId),
+				Type:   serv.Type,
+				Labels: &ls,
 			})
 		}
 

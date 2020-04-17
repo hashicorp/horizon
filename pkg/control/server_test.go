@@ -563,10 +563,10 @@ func TestServer(t *testing.T) {
 					Namespace: "/",
 					AccountId: accountId,
 				},
-				Hub:       hubId,
-				Id:        serviceId,
-				Type:      "test",
-				LabelSets: []*pb.LabelSet{labels},
+				Hub:    hubId,
+				Id:     serviceId,
+				Type:   "test",
+				Labels: labels,
 				Metadata: []*pb.KVPair{
 					{
 						Key:   "version",
@@ -605,8 +605,7 @@ func TestServer(t *testing.T) {
 
 		assert.Equal(t, hubId, sr.Hub)
 		assert.Equal(t, serviceId, sr.Id)
-		require.Equal(t, 1, len(sr.LabelSets))
-		assert.Equal(t, labels, sr.LabelSets[0])
+		assert.Equal(t, labels, sr.Labels)
 		assert.Equal(t, "test", sr.Type)
 
 		_, err = s.RemoveService(
