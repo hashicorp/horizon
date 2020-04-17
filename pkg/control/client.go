@@ -14,11 +14,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/serf/serf"
+	"google.golang.org/grpc"
 )
 
 type Peer struct {
@@ -43,6 +43,8 @@ type Client struct {
 
 	cfg ClientConfig
 
+	cancel func()
+
 	events chan serf.Event
 	s      *serf.Serf
 
@@ -52,12 +54,12 @@ type Client struct {
 	accountServices map[string]*accountInfo
 
 	bucket string
-	dl     *s3manager.Downloader
 	s3api  *s3.S3
 
 	workDir string
 
 	client pb.ControlServicesClient
+	gcc    *grpc.ClientConn
 
 	localServices map[string]map[string]*pb.ServiceRequest
 
@@ -69,16 +71,17 @@ type Client struct {
 type ClientConfig struct {
 	Logger   hclog.Logger
 	Id       *pb.ULID
-	Token    string
-	Version  string
 	Client   pb.ControlServicesClient
+	Token    string
+	Addr     string
+	Version  string
 	BindPort int
 	S3Bucket string
 	Session  *session.Session
 	WorkDir  string
 }
 
-func NewClient(cfg ClientConfig) (*Client, error) {
+func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	events := make(chan serf.Event, 10)
 
 	if cfg.Logger == nil {
@@ -105,24 +108,50 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 		return nil, err
 	}
 
+	var gcc *grpc.ClientConn
+
+	gClient := cfg.Client
+	if gClient == nil && cfg.Addr != "" {
+		gcc, err = grpc.Dial(cfg.Addr, grpc.WithPerRPCCredentials(Token(cfg.Token)))
+		if err != nil {
+			return nil, err
+		}
+
+		gClient = pb.NewControlServicesClient(gcc)
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+
 	client := &Client{
 		L:               cfg.Logger,
 		cfg:             cfg,
 		events:          events,
 		s:               s,
-		client:          cfg.Client,
+		client:          gClient,
+		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
 		localServices:   make(map[string]map[string]*pb.ServiceRequest),
 		s3api:           s3.New(cfg.Session),
 		workDir:         cfg.WorkDir,
 		bucket:          cfg.S3Bucket,
+		cancel:          cancel,
 	}
-
-	ctx := context.Background()
 
 	go client.keepLabelLinksUpdated(ctx, cfg.Logger)
 
 	return client, nil
+}
+
+func (c *Client) Close() error {
+	c.cancel()
+
+	if c.gcc != nil {
+		c.gcc.Close()
+	}
+
+	c.s.Leave()
+
+	return c.s.Shutdown()
 }
 
 func (c *Client) AddService(ctx context.Context, serv *pb.ServiceRequest) error {
@@ -228,21 +257,6 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 	}
 
 	return out, nil
-}
-
-func (c *Client) idleAccount(info *accountInfo) bool {
-	info.Mu.Lock()
-	defer info.Mu.Unlock()
-
-	if time.Since(info.LastUse) < accountIdleExpire {
-		return false
-	}
-
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	delete(c.accountServices, info.MapKey)
-	return true
 }
 
 func (c *Client) refreshAcconut(L hclog.Logger, info *accountInfo) {

@@ -132,7 +132,7 @@ func TestClient(t *testing.T) {
 
 		id := pb.NewULID()
 
-		client, err := NewClient(ClientConfig{
+		client, err := NewClient(ctx, ClientConfig{
 			Id:       id,
 			Token:    ctr.Token,
 			Version:  "test",
@@ -267,7 +267,7 @@ func TestClient(t *testing.T) {
 
 		defer os.RemoveAll(dir)
 
-		client, err := NewClient(ClientConfig{
+		client, err := NewClient(ctx, ClientConfig{
 			Id:       id,
 			Token:    ctr.Token,
 			Version:  "test",
@@ -445,7 +445,7 @@ func TestClient(t *testing.T) {
 
 		defer os.RemoveAll(dir)
 
-		client, err := NewClient(ClientConfig{
+		client, err := NewClient(ctx, ClientConfig{
 			Id:       id,
 			Token:    ctr.Token,
 			Version:  "test",
@@ -594,7 +594,7 @@ func TestClient(t *testing.T) {
 
 		defer os.RemoveAll(dir)
 
-		client, err := NewClient(ClientConfig{
+		client, err := NewClient(ctx, ClientConfig{
 			Id:       id,
 			Token:    hubtoken.Token,
 			Version:  "test",
