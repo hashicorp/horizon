@@ -38,12 +38,19 @@ message TokenCapability {
   string value = 2;
 }
 
+enum TokenRole {
+  AGENT = 0;
+  HUB = 1;
+  MANAGE = 2;
+}
+
 message Token {
   message Body {
-    ULID id = 1;
-    Account account = 2;
-    Timestamp valid_until = 3;
-    repeated TokenCapability capabilities = 4 [(gogoproto.nullable) = false];
+    TokenRole role = 1;
+    ULID id = 2;
+    Account account = 3;
+    Timestamp valid_until = 4;
+    repeated TokenCapability capabilities = 5 [(gogoproto.nullable) = false];
 
     Headers additional = 10;
   }

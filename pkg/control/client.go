@@ -2,22 +2,23 @@ package control
 
 import (
 	context "context"
-	"encoding/base64"
 	io "io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
+	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/serf/serf"
-	"github.com/oklog/ulid"
 )
 
 type Peer struct {
@@ -38,6 +39,10 @@ type accountInfo struct {
 }
 
 type Client struct {
+	L hclog.Logger
+
+	cfg ClientConfig
+
 	events chan serf.Event
 	s      *serf.Serf
 
@@ -51,29 +56,178 @@ type Client struct {
 	s3api  *s3.S3
 
 	workDir string
+
+	client pb.ControlServicesClient
+
+	localServices map[string]map[string]*pb.ServiceRequest
+
+	labelMu      sync.RWMutex
+	lastLabelMD5 string
+	labelLinks   *pb.LabelLinks
 }
 
-func NewClient(id, pubKey []byte) (*Client, error) {
+type ClientConfig struct {
+	Logger   hclog.Logger
+	Id       *pb.ULID
+	Token    string
+	Version  string
+	Client   pb.ControlServicesClient
+	BindPort int
+	S3Bucket string
+	Session  *session.Session
+	WorkDir  string
+}
+
+func NewClient(cfg ClientConfig) (*Client, error) {
 	events := make(chan serf.Event, 10)
 
-	s, err := serf.Create(&serf.Config{
-		NodeName: base64.RawURLEncoding.EncodeToString(id),
-		EventCh:  events,
-		Tags: map[string]string{
-			"public-key": base64.StdEncoding.EncodeToString(pubKey),
-		},
+	if cfg.Logger == nil {
+		cfg.Logger = hclog.L()
+	}
+
+	scfg := serf.DefaultConfig()
+	scfg.NodeName = cfg.Id.SpecString()
+	scfg.EventCh = events
+	scfg.Tags = map[string]string{
+		"version": cfg.Version,
+	}
+
+	if cfg.BindPort > 0 {
+		scfg.MemberlistConfig.BindPort = cfg.BindPort
+	}
+
+	scfg.Logger = cfg.Logger.StandardLogger(&hclog.StandardLoggerOptions{
+		InferLevels: true,
 	})
 
+	s, err := serf.Create(scfg)
 	if err != nil {
 		return nil, err
 	}
 
 	client := &Client{
-		events: events,
-		s:      s,
+		L:               cfg.Logger,
+		cfg:             cfg,
+		events:          events,
+		s:               s,
+		client:          cfg.Client,
+		accountServices: make(map[string]*accountInfo),
+		localServices:   make(map[string]map[string]*pb.ServiceRequest),
+		s3api:           s3.New(cfg.Session),
+		workDir:         cfg.WorkDir,
+		bucket:          cfg.S3Bucket,
 	}
 
+	ctx := context.Background()
+
+	go client.keepLabelLinksUpdated(ctx, cfg.Logger)
+
 	return client, nil
+}
+
+func (c *Client) AddService(ctx context.Context, serv *pb.ServiceRequest) error {
+	serv.Hub = c.cfg.Id
+	_, err := c.client.AddService(ctx, serv)
+	if err != nil {
+		return err
+	}
+
+	// quick dup
+	data, err := serv.Marshal()
+	if err != nil {
+		return err
+	}
+
+	var dup pb.ServiceRequest
+	err = dup.Unmarshal(data)
+	if err != nil {
+		return err
+	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, labelset := range dup.LabelSets {
+		cur := c.localServices[labelset.SpecString()]
+		if cur == nil {
+			cur = make(map[string]*pb.ServiceRequest)
+			c.localServices[labelset.SpecString()] = cur
+		}
+
+		cur[dup.Id.SpecString()] = &dup
+	}
+
+	return err
+}
+
+func (c *Client) RemoveService(ctx context.Context, serv *pb.ServiceRequest) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	for _, labelset := range serv.LabelSets {
+		cur := c.localServices[labelset.SpecString()]
+		if cur != nil {
+			delete(cur, serv.Id.SpecString())
+		}
+	}
+
+	_, err := c.client.RemoveService(ctx, serv)
+	return err
+}
+
+func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *pb.LabelSet) ([]*pb.ServiceRoute, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	var out []*pb.ServiceRoute
+
+	lblSpec := labels.SpecString()
+
+	services, ok := c.localServices[lblSpec]
+	if ok {
+		for _, servreq := range services {
+			out = append(out, &pb.ServiceRoute{
+				Id:        servreq.Id,
+				Hub:       servreq.Hub,
+				Type:      servreq.Type,
+				LabelSets: servreq.LabelSets,
+			})
+		}
+	}
+
+	accStr := accountId.SpecString()
+
+	info, ok := c.accountServices[accStr]
+	if !ok {
+		info = &accountInfo{
+			MapKey:   accStr,
+			S3Key:    "account_services/" + accStr,
+			LastUse:  time.Now(),
+			FileName: accStr,
+			Process:  make(chan struct{}),
+		}
+
+		c.accountServices[accStr] = info
+
+		c.refreshAcconut(ctxlog.L(ctx), info)
+	}
+
+	if info.Services != nil {
+		for _, service := range info.Services.Services {
+			// Skip yourself, you already got those.
+			if service.Hub.Equal(c.cfg.Id) {
+				continue
+			}
+
+			for _, ls := range service.LabelSets {
+				if ls.SpecString() == lblSpec {
+					out = append(out, service)
+				}
+			}
+		}
+	}
+
+	return out, nil
 }
 
 func (c *Client) idleAccount(info *accountInfo) bool {
@@ -139,9 +293,15 @@ func (c *Client) refreshAcconut(L hclog.Logger, info *accountInfo) {
 		return
 	}
 
-	data, err := ioutil.ReadAll(tmp)
+	compressedData, err := ioutil.ReadAll(tmp)
 	if err != nil {
 		L.Error("error reading account data", "error", err)
+		return
+	}
+
+	data, err := zstd.Decompress(nil, compressedData)
+	if err != nil {
+		L.Error("error uncompressing data", "error", err)
 		return
 	}
 
@@ -160,31 +320,15 @@ func (c *Client) refreshAcconut(L hclog.Logger, info *accountInfo) {
 	info.Services = &ac
 }
 
-func (c *Client) managerAccount(ctx context.Context, account []byte, info *accountInfo) {
-	L := ctxlog.L(ctx)
+func (c *Client) checkAccounts(L hclog.Logger) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
-	timer := time.NewTimer(time.Minute)
-	defer timer.Stop()
+	threshold := time.Now().Add(-time.Minute)
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
-			if c.idleAccount(info) {
-				return
-			}
-
-			c.refreshAcconut(L, info)
-			timer.Reset(time.Minute)
-		case <-info.Process:
-			// The docs say we have to do this to be able to reset it properly
-			if timer.Stop() {
-				<-timer.C
-			}
-
-			c.refreshAcconut(L, info)
-			timer.Reset(time.Minute)
+	for _, info := range c.accountServices {
+		if info.LastUse.Before(threshold) {
+			go c.refreshAcconut(L, info)
 		}
 	}
 }
@@ -192,36 +336,38 @@ func (c *Client) managerAccount(ctx context.Context, account []byte, info *accou
 func (c *Client) Run(ctx context.Context) error {
 	L := ctxlog.L(ctx)
 
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-ticker.C:
+			c.checkAccounts(L)
 		case ev := <-c.events:
 			switch sev := ev.(type) {
 			case serf.UserEvent:
-				err := c.processUserEvent(sev)
+				err := c.processUserEvent(L, sev)
 				if err != nil {
 					L.Error("error processing user event", "error", err)
-				}
-			case serf.MemberEvent:
-				err := c.processMemberEvent(sev)
-				if err != nil {
-					L.Error("error procesing member event", "error", err)
 				}
 			}
 		}
 	}
 }
 
-func (c *Client) processUserEvent(ev serf.UserEvent) error {
+func (c *Client) processUserEvent(L hclog.Logger, ev serf.UserEvent) error {
 	switch ev.Name {
 	case "account-updated":
-		var u ulid.ULID
-		copy(u[:], ev.Payload)
+		u := pb.ULIDFromBytes(ev.Payload)
 
-		c.mu.Lock()
-		info, ok := c.accountServices[u.String()]
-		c.mu.Unlock()
+		c.mu.RLock()
+		info, ok := c.accountServices[u.SpecString()]
+		if ok {
+			info.LastUse = time.Now()
+		}
+		c.mu.RUnlock()
 
 		// We weren't tracking this account, bail
 		if !ok {
@@ -229,31 +375,118 @@ func (c *Client) processUserEvent(ev serf.UserEvent) error {
 		}
 
 		// Kick over the processing goroutine
-		info.Process <- struct{}{}
+		go c.refreshAcconut(L, info)
 	}
 
 	return nil
 }
 
-func (c *Client) processMemberEvent(ev serf.MemberEvent) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+func (c *Client) keepLabelLinksUpdated(ctx context.Context, L hclog.Logger) {
+	err := c.updateLabelLinks(ctx, L)
+	if err != nil {
+		L.Error("error updating label links", "error", err)
+	}
 
-	switch ev.Type {
-	case serf.EventMemberJoin, serf.EventMemberUpdate:
-		for _, member := range ev.Members {
-			pubkey, err := base64.StdEncoding.DecodeString(member.Tags["public-key"])
-			if err == nil {
-				c.peers[member.Name] = &Peer{
-					PublicKey: pubkey,
-				}
+	ticker := time.NewTicker(time.Minute)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			err := c.updateLabelLinks(ctx, L)
+			if err != nil {
+				L.Error("error updating label links", "error", err)
 			}
 		}
-	case serf.EventMemberLeave, serf.EventMemberFailed, serf.EventMemberReap:
-		for _, member := range ev.Members {
-			delete(c.peers, member.Name)
+	}
+}
+
+func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
+	tmp, err := ioutil.TempFile(c.workDir, "label-links")
+	if err != nil {
+		return err
+	}
+
+	defer os.Remove(tmp.Name())
+
+	obj := &s3.GetObjectInput{
+		Bucket: aws.String(c.bucket),
+		Key:    aws.String("label_links"),
+	}
+
+	if c.lastLabelMD5 != "" {
+		obj.IfNoneMatch = aws.String(c.lastLabelMD5)
+	}
+
+	resp, err := c.s3api.GetObjectWithContext(ctx, obj)
+	if err != nil {
+		// Until we can figure out how to detect it, assume that an error here means
+		// we got a 304 and the file isn't updated.
+		L.Info("error downloading account data - benign due to 304s", "error", err)
+		return nil
+	}
+
+	defer resp.Body.Close()
+
+	n, err := io.Copy(tmp, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	L.Debug("downloaded label links data", "size", n)
+
+	err = os.Rename(tmp.Name(), filepath.Join(c.workDir, "label-links"))
+	if err != nil {
+		return err
+	}
+
+	_, err = tmp.Seek(0, os.SEEK_SET)
+	if err != nil {
+		return err
+	}
+
+	compressedData, err := ioutil.ReadAll(tmp)
+	if err != nil {
+		return err
+	}
+
+	data, err := zstd.Decompress(nil, compressedData)
+	if err != nil {
+		return err
+	}
+
+	var lls pb.LabelLinks
+	err = lls.Unmarshal(data)
+	if err != nil {
+		return err
+	}
+
+	c.lastLabelMD5 = *resp.ETag
+
+	c.labelMu.Lock()
+	defer c.labelMu.Unlock()
+
+	c.labelLinks = &lls
+
+	return err
+}
+
+func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.ULID, *pb.LabelSet, error) {
+	c.labelMu.RLock()
+	defer c.labelMu.RUnlock()
+
+	sort.Sort(label)
+
+	if c.labelLinks == nil {
+		return nil, nil, nil
+	}
+
+	for _, ll := range c.labelLinks.LabelLinks {
+		if ll.Labels.Equal(label) {
+			return ll.Account.AccountId, ll.Target, nil
 		}
 	}
 
-	return nil
+	return nil, nil, nil
 }

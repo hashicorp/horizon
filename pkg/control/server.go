@@ -65,7 +65,7 @@ type Service struct {
 	UpdatedAt time.Time
 }
 
-func (s *Server) checkServeAllowed(ctx context.Context) (*token.ValidToken, error) {
+func (s *Server) checkFromHub(ctx context.Context) (*token.ValidToken, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, ErrBadAuthentication
@@ -82,22 +82,17 @@ func (s *Server) checkServeAllowed(ctx context.Context) (*token.ValidToken, erro
 		return nil, err
 	}
 
-	ok, _ = token.HasCapability("hzn:serve")
-	if !ok {
-		return nil, ErrBadAuthentication
+	if token.Body.Role != pb.HUB {
+		return nil, errors.Wrapf(ErrBadAuthentication, "role was: %s", token.Body.Role)
 	}
 
 	return token, nil
 }
 
 func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*pb.ServiceResponse, error) {
-	ht, err := s.checkServeAllowed(ctx)
+	_, err := s.checkFromHub(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	if !ht.AccountId().Equal(service.Account.AccountId) {
-		return nil, errors.Wrapf(ErrBadAuthentication, "service does not match token")
 	}
 
 	var so Service
@@ -121,13 +116,9 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 }
 
 func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) (*pb.ServiceResponse, error) {
-	ht, err := s.checkServeAllowed(ctx)
+	_, err := s.checkFromHub(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	if !ht.AccountId().Equal(service.Account.AccountId) {
-		return nil, errors.Wrapf(ErrBadAuthentication, "service does not match token")
 	}
 
 	err = dbx.Check(s.db.Where("service_id = ?", service.Id.Bytes()).Delete(Service{}))
@@ -140,7 +131,7 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 		return nil, err
 	}
 
-	return &pb.ServiceResponse{}, err
+	return &pb.ServiceResponse{}, nil
 }
 
 type ManagementClient struct {
@@ -186,8 +177,8 @@ func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.Con
 	}
 
 	var tc token.TokenCreator
+	tc.Role = pb.MANAGE
 	tc.Capabilities = map[string]string{
-		token.CapaMgmt:   "",
 		token.CapaAccess: rec.Namespace,
 	}
 
@@ -197,6 +188,33 @@ func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.Con
 	}
 
 	return &pb.ControlToken{Token: token}, nil
+}
+
+func (s *Server) IssueHubToken(ctx context.Context, _ *pb.Noop) (*pb.CreateTokenResponse, error) {
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return nil, ErrBadAuthentication
+	}
+
+	auth := md["authorization"]
+
+	if len(auth) < 1 {
+		return nil, ErrBadAuthentication
+	}
+
+	if auth[0] != s.registerToken {
+		return nil, ErrBadAuthentication
+	}
+
+	var tc token.TokenCreator
+	tc.Role = pb.HUB
+
+	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.CreateTokenResponse{Token: token}, nil
 }
 
 func (s *Server) checkMgmtAllowed(ctx context.Context) (*token.ValidToken, error) {
@@ -216,8 +234,7 @@ func (s *Server) checkMgmtAllowed(ctx context.Context) (*token.ValidToken, error
 		return nil, err
 	}
 
-	ok, _ = token.HasCapability("hzn:mgmt")
-	if !ok {
+	if token.Body.Role != pb.MANAGE {
 		return nil, ErrBadAuthentication
 	}
 
@@ -260,8 +277,8 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 
 	var llr LabelLink
 	llr.AccountID = req.Account.AccountId.Bytes()
-	llr.Labels = FlattenLabels(req.Labels.Labels)
-	llr.Target = FlattenLabels(req.Target.Labels)
+	llr.Labels = FlattenLabels(req.Labels)
+	llr.Target = FlattenLabels(req.Target)
 
 	err = dbx.Check(s.db.Create(&llr))
 	if err != nil {
@@ -288,11 +305,11 @@ func (s *Server) RemoveLabelLink(ctx context.Context, req *pb.RemoveLabelLinkReq
 
 	var llr LabelLink
 	llr.AccountID = req.Account.AccountId.Bytes()
-	llr.Labels = FlattenLabels(req.Labels.Labels)
+	llr.Labels = FlattenLabels(req.Labels)
 
 	err = dbx.Check(s.db.
 		Where("account_id = ?", llr.AccountID).
-		Where("labels = ?", FlattenLabels(req.Labels.Labels)).
+		Where("labels = ?", FlattenLabels(req.Labels)).
 		Delete(&LabelLink{}),
 	)
 

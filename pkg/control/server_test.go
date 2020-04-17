@@ -26,6 +26,15 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+func init() {
+	db := os.Getenv("DATABASE_URL")
+	if db != "" {
+		txdb.Register("pgtest", "postgres", db)
+		dialect, _ := gorm.GetDialect("postgres")
+		gorm.RegisterDialect("pgtest", dialect)
+	}
+}
+
 func TestServer(t *testing.T) {
 	vt := os.Getenv("VAULT_TOKEN")
 	if vt == "" {
@@ -48,16 +57,18 @@ func TestServer(t *testing.T) {
 	)
 
 	bucket := "hzntest"
+	s3.New(sess).DeleteBucket(&s3.DeleteBucketInput{
+		Bucket: aws.String(bucket),
+	})
 	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	})
 
-	txdb.Register("pgtest", "postgres", db)
-
-	dialect, ok := gorm.GetDialect("postgres")
-	require.True(t, ok)
-
-	gorm.RegisterDialect("pgtest", dialect)
+	serfcfg := serf.DefaultConfig()
+	serfcfg.NodeName = pb.NewULID().SpecString()
+	serfObj, err := serf.Create(serfcfg)
+	require.NoError(t, err)
+	defer serfObj.Shutdown()
 
 	t.Run("can register a new management client", func(t *testing.T) {
 		db, err := gorm.Open("pgtest", "server")
@@ -91,8 +102,7 @@ func TestServer(t *testing.T) {
 		ht, err := token.CheckTokenED25519(ct.Token, pub)
 		require.NoError(t, err)
 
-		ok, _ := ht.HasCapability(token.CapaMgmt)
-		require.True(t, ok)
+		assert.Equal(t, pb.MANAGE, ht.Body.Role)
 	})
 
 	t.Run("rejects register requests with the wrong register token", func(t *testing.T) {
@@ -353,11 +363,6 @@ func TestServer(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	serfcfg := serf.DefaultConfig()
-	serfcfg.NodeName = pb.NewULID().SpecString()
-	serfObj, err := serf.Create(serfcfg)
-	require.NoError(t, err)
-
 	t.Run("can create and remove a labellink for an account", func(t *testing.T) {
 		bucket := os.Getenv("TEST_BUCKET")
 		endpoint := os.Getenv("S3_ENDPOINT")
@@ -540,21 +545,7 @@ func TestServer(t *testing.T) {
 
 		accountId := pb.NewULID()
 
-		ctr, err := s.CreateToken(
-			metadata.NewIncomingContext(top, md2),
-			&pb.CreateTokenRequest{
-				Account: &pb.Account{
-					Namespace: "/",
-					AccountId: accountId,
-				},
-				Capabilities: []pb.TokenCapability{
-					{
-						Capability: pb.SERVE,
-					},
-				},
-				ValidDuration: pb.TimestampFromDuration(6 * time.Hour),
-			},
-		)
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
 
 		md3 := make(metadata.MD)

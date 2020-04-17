@@ -84,4 +84,5 @@ service ControlManagement {
   rpc AddLabelLink(AddLabelLinkRequest) returns (Noop) {}
   rpc RemoveLabelLink(RemoveLabelLinkRequest) returns (Noop) {}
   rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse) {}
+  rpc IssueHubToken(Noop) returns (CreateTokenResponse) {}
 }

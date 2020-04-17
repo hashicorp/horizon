@@ -265,20 +265,5 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 		return fmt.Errorf("corruption detected, wrong etag: %s / %s", hex.EncodeToString(sum), outet)
 	}
 
-	/*
-		uploader := s3manager.NewUploader(s.awsSess)
-		_, err = uploader.UploadWithContext(ctx, &s3manager.UploadInput{
-			ACL:                  aws.String("private"),
-			Body:                 bytes.NewReader(outData),
-			ContentMD5:           aws.String(base64.StdEncoding.EncodeToString(sum)),
-			ContentType:          aws.String("application/horizon"),
-			Bucket:               &s.bucket,
-			Key:                  aws.String("label-links"),
-			SSEKMSKeyId:          aws.String(s.kmsKeyId),
-			ServerSideEncryption: aws.String("aws:kms"),
-			Tagging:              aws.String("usage=horizon"),
-		})
-	*/
-
 	return s.s.UserEvent("label-link-updated", nil, true)
 }

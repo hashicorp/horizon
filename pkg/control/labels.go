@@ -2,15 +2,18 @@ package control
 
 import (
 	fmt "fmt"
+	"sort"
 	"strings"
 
 	"github.com/hashicorp/horizon/pkg/pb"
 )
 
-func FlattenLabels(labels []*pb.Label) string {
+func FlattenLabels(labels *pb.LabelSet) string {
+	sort.Sort(labels)
+
 	var out []string
 
-	for _, lbl := range labels {
+	for _, lbl := range labels.Labels {
 		out = append(out, fmt.Sprintf("%s=%s", lbl.Name, lbl.Value))
 	}
 
@@ -21,7 +24,7 @@ func FlattenLabelSets(sets []*pb.LabelSet) []string {
 	var out []string
 
 	for _, set := range sets {
-		out = append(out, FlattenLabels(set.Labels))
+		out = append(out, FlattenLabels(set))
 	}
 
 	return out

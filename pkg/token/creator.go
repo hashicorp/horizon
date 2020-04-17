@@ -14,6 +14,7 @@ import (
 )
 
 type TokenCreator struct {
+	Role            pb.TokenRole
 	Issuer          string
 	AccountId       *pb.ULID
 	AccuntNamespace string
@@ -44,7 +45,8 @@ func (c *TokenCreator) body() ([]byte, error) {
 	}
 
 	body := &pb.Token_Body{
-		Id: pb.NewULID(),
+		Role: c.Role,
+		Id:   pb.NewULID(),
 		Account: &pb.Account{
 			Namespace: c.AccuntNamespace,
 			AccountId: c.AccountId,
