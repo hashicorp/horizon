@@ -27,9 +27,11 @@ require (
 	github.com/dustinkirkland/golang-petname v0.0.0-20191129215211-8e5a1ed0cff0
 	github.com/elazarl/go-bindata-assetfs v1.0.0 // indirect
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6
+	github.com/go-acme/lego v2.7.2+incompatible
+	github.com/go-acme/lego/v3 v3.5.0
 	github.com/gocql/gocql v0.0.0-20200410100145-b454769479c6 // indirect
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.3.4
 	github.com/hashicorp/go-hclog v0.12.1
 	github.com/hashicorp/go-memdb v1.2.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0
@@ -61,9 +63,9 @@ require (
 	github.com/y0ssar1an/q v1.0.10
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200317142112-1b76d66859c6
-	google.golang.org/grpc v1.21.1
+	google.golang.org/grpc v1.27.1
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
-	gotest.tools v2.2.0+incompatible // indirect
+	gotest.tools v2.2.0+incompatible
 )
 
 replace (
