@@ -43,9 +43,22 @@ message AccountServices {
   repeated ServiceRoute services = 2;
 }
 
+message ConfigRequest {
+  ULID hub = 1;
+  string public_ip = 2;
+  string private_ip = 3;
+}
+
+message ConfigResponse {
+  bytes tls_key = 1;
+  bytes tls_cert = 2;
+  bytes serf_key = 3;
+}
+
 service ControlServices {
   rpc AddService(ServiceRequest) returns (ServiceResponse) {}
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
+  rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
 }
 
 message AddLabelLinkRequest {

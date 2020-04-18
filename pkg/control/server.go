@@ -8,6 +8,7 @@ import (
 
 	"cirello.io/dynamolock"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
@@ -37,6 +38,9 @@ type Server struct {
 	vaultClient *api.Client
 	vaultPath   string
 	keyId       string
+
+	hubCert []byte
+	hubKey  []byte
 }
 
 type Account struct {
@@ -132,6 +136,17 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 	}
 
 	return &pb.ServiceResponse{}, nil
+}
+
+func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.ConfigResponse, error) {
+	ctxlog.L(ctx).Info("fetching configuration", "hub", req.Hub.SpecString())
+
+	resp := &pb.ConfigResponse{
+		TlsKey:  s.hubKey,
+		TlsCert: s.hubCert,
+	}
+
+	return resp, nil
 }
 
 type ManagementClient struct {

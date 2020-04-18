@@ -4,6 +4,7 @@
 package pb
 
 import (
+	bytes "bytes"
 	context "context"
 	fmt "fmt"
 	_ "github.com/gogo/protobuf/gogoproto"
@@ -367,6 +368,124 @@ func (m *AccountServices) GetServices() []*ServiceRoute {
 	return nil
 }
 
+type ConfigRequest struct {
+	Hub       *ULID  `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
+	PublicIp  string `protobuf:"bytes,2,opt,name=public_ip,json=publicIp,proto3" json:"public_ip,omitempty"`
+	PrivateIp string `protobuf:"bytes,3,opt,name=private_ip,json=privateIp,proto3" json:"private_ip,omitempty"`
+}
+
+func (m *ConfigRequest) Reset()      { *m = ConfigRequest{} }
+func (*ConfigRequest) ProtoMessage() {}
+func (*ConfigRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{6}
+}
+func (m *ConfigRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConfigRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConfigRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConfigRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigRequest.Merge(m, src)
+}
+func (m *ConfigRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConfigRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigRequest proto.InternalMessageInfo
+
+func (m *ConfigRequest) GetHub() *ULID {
+	if m != nil {
+		return m.Hub
+	}
+	return nil
+}
+
+func (m *ConfigRequest) GetPublicIp() string {
+	if m != nil {
+		return m.PublicIp
+	}
+	return ""
+}
+
+func (m *ConfigRequest) GetPrivateIp() string {
+	if m != nil {
+		return m.PrivateIp
+	}
+	return ""
+}
+
+type ConfigResponse struct {
+	TlsKey  []byte `protobuf:"bytes,1,opt,name=tls_key,json=tlsKey,proto3" json:"tls_key,omitempty"`
+	TlsCert []byte `protobuf:"bytes,2,opt,name=tls_cert,json=tlsCert,proto3" json:"tls_cert,omitempty"`
+	SerfKey []byte `protobuf:"bytes,3,opt,name=serf_key,json=serfKey,proto3" json:"serf_key,omitempty"`
+}
+
+func (m *ConfigResponse) Reset()      { *m = ConfigResponse{} }
+func (*ConfigResponse) ProtoMessage() {}
+func (*ConfigResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{7}
+}
+func (m *ConfigResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ConfigResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ConfigResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ConfigResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ConfigResponse.Merge(m, src)
+}
+func (m *ConfigResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *ConfigResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_ConfigResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ConfigResponse proto.InternalMessageInfo
+
+func (m *ConfigResponse) GetTlsKey() []byte {
+	if m != nil {
+		return m.TlsKey
+	}
+	return nil
+}
+
+func (m *ConfigResponse) GetTlsCert() []byte {
+	if m != nil {
+		return m.TlsCert
+	}
+	return nil
+}
+
+func (m *ConfigResponse) GetSerfKey() []byte {
+	if m != nil {
+		return m.SerfKey
+	}
+	return nil
+}
+
 type AddLabelLinkRequest struct {
 	Labels  *LabelSet `protobuf:"bytes,1,opt,name=labels,proto3" json:"labels,omitempty"`
 	Account *Account  `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
@@ -376,7 +495,7 @@ type AddLabelLinkRequest struct {
 func (m *AddLabelLinkRequest) Reset()      { *m = AddLabelLinkRequest{} }
 func (*AddLabelLinkRequest) ProtoMessage() {}
 func (*AddLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{6}
+	return fileDescriptor_0c5120591600887d, []int{8}
 }
 func (m *AddLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -432,7 +551,7 @@ type Noop struct {
 func (m *Noop) Reset()      { *m = Noop{} }
 func (*Noop) ProtoMessage() {}
 func (*Noop) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{7}
+	return fileDescriptor_0c5120591600887d, []int{9}
 }
 func (m *Noop) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -469,7 +588,7 @@ type RemoveLabelLinkRequest struct {
 func (m *RemoveLabelLinkRequest) Reset()      { *m = RemoveLabelLinkRequest{} }
 func (*RemoveLabelLinkRequest) ProtoMessage() {}
 func (*RemoveLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{8}
+	return fileDescriptor_0c5120591600887d, []int{10}
 }
 func (m *RemoveLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -521,7 +640,7 @@ type CreateTokenRequest struct {
 func (m *CreateTokenRequest) Reset()      { *m = CreateTokenRequest{} }
 func (*CreateTokenRequest) ProtoMessage() {}
 func (*CreateTokenRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{9}
+	return fileDescriptor_0c5120591600887d, []int{11}
 }
 func (m *CreateTokenRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -578,7 +697,7 @@ type CreateTokenResponse struct {
 func (m *CreateTokenResponse) Reset()      { *m = CreateTokenResponse{} }
 func (*CreateTokenResponse) ProtoMessage() {}
 func (*CreateTokenResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{10}
+	return fileDescriptor_0c5120591600887d, []int{12}
 }
 func (m *CreateTokenResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -621,7 +740,7 @@ type ControlRegister struct {
 func (m *ControlRegister) Reset()      { *m = ControlRegister{} }
 func (*ControlRegister) ProtoMessage() {}
 func (*ControlRegister) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{11}
+	return fileDescriptor_0c5120591600887d, []int{13}
 }
 func (m *ControlRegister) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -664,7 +783,7 @@ type ControlToken struct {
 func (m *ControlToken) Reset()      { *m = ControlToken{} }
 func (*ControlToken) ProtoMessage() {}
 func (*ControlToken) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{12}
+	return fileDescriptor_0c5120591600887d, []int{14}
 }
 func (m *ControlToken) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -707,6 +826,8 @@ func init() {
 	proto.RegisterType((*LabelLinks)(nil), "pb.LabelLinks")
 	proto.RegisterType((*ServiceRoute)(nil), "pb.ServiceRoute")
 	proto.RegisterType((*AccountServices)(nil), "pb.AccountServices")
+	proto.RegisterType((*ConfigRequest)(nil), "pb.ConfigRequest")
+	proto.RegisterType((*ConfigResponse)(nil), "pb.ConfigResponse")
 	proto.RegisterType((*AddLabelLinkRequest)(nil), "pb.AddLabelLinkRequest")
 	proto.RegisterType((*Noop)(nil), "pb.Noop")
 	proto.RegisterType((*RemoveLabelLinkRequest)(nil), "pb.RemoveLabelLinkRequest")
@@ -719,53 +840,61 @@ func init() {
 func init() { proto.RegisterFile("control.proto", fileDescriptor_0c5120591600887d) }
 
 var fileDescriptor_0c5120591600887d = []byte{
-	// 736 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xcd, 0x6e, 0xd3, 0x40,
-	0x10, 0xf6, 0x3a, 0x69, 0x48, 0x26, 0x49, 0xd3, 0x6e, 0x50, 0x6b, 0x59, 0xc8, 0x54, 0x56, 0x41,
-	0x95, 0x40, 0xa9, 0x94, 0x56, 0x42, 0x20, 0x90, 0xe8, 0xcf, 0x81, 0x8a, 0x82, 0x90, 0x5b, 0xb8,
-	0x56, 0x9b, 0x78, 0x1b, 0xac, 0x3a, 0x5e, 0x63, 0xaf, 0x23, 0xf5, 0x52, 0x71, 0x42, 0x1c, 0x79,
-	0x0c, 0x8e, 0x7d, 0x8c, 0xde, 0xe8, 0xb1, 0x27, 0x44, 0xdd, 0x0b, 0xc7, 0x3e, 0x02, 0xf2, 0x7a,
-	0xe3, 0xfc, 0xb4, 0x8d, 0xda, 0x03, 0x37, 0xcf, 0xcc, 0x37, 0x93, 0xf9, 0xbe, 0x99, 0xd9, 0x40,
-	0xb5, 0xcd, 0x3c, 0x1e, 0x30, 0xb7, 0xe1, 0x07, 0x8c, 0x33, 0xac, 0xfa, 0x2d, 0xbd, 0x66, 0xd3,
-	0xfd, 0x70, 0xb9, 0xc3, 0x3a, 0x2c, 0x75, 0xea, 0xc5, 0x83, 0x9e, 0xfc, 0x2a, 0xbb, 0xa4, 0x45,
-	0x25, 0x56, 0xaf, 0x92, 0x76, 0x9b, 0x45, 0x1e, 0x97, 0x26, 0x44, 0xae, 0x63, 0xf7, 0x71, 0x9c,
-	0x1d, 0x50, 0x4f, 0x1a, 0x35, 0xee, 0x74, 0x69, 0xc8, 0x49, 0xd7, 0x4f, 0x1d, 0xe6, 0x2f, 0x04,
-	0xd3, 0x3b, 0x34, 0xe8, 0x39, 0x6d, 0x6a, 0xd1, 0x2f, 0x11, 0x0d, 0x39, 0x7e, 0x04, 0xf7, 0x64,
-	0x35, 0x0d, 0x2d, 0xa0, 0xa5, 0x72, 0xb3, 0xdc, 0xf0, 0x5b, 0x8d, 0xb5, 0xd4, 0x65, 0xf5, 0x63,
-	0x58, 0x87, 0xdc, 0xe7, 0xa8, 0xa5, 0xa9, 0x02, 0x52, 0x4c, 0x20, 0x1f, 0xb7, 0xb7, 0x36, 0xad,
-	0xc4, 0x89, 0x35, 0x50, 0x1d, 0x5b, 0xcb, 0x8d, 0x85, 0x54, 0xc7, 0xc6, 0x18, 0xf2, 0xfc, 0xd0,
-	0xa7, 0x5a, 0x7e, 0x01, 0x2d, 0x95, 0x2c, 0xf1, 0x8d, 0x17, 0xa1, 0x20, 0xb8, 0x84, 0xda, 0x94,
-	0xc8, 0xa8, 0x24, 0x19, 0xdb, 0x89, 0x67, 0x87, 0x72, 0x4b, 0xc6, 0xf0, 0x63, 0x28, 0x76, 0x29,
-	0x27, 0x36, 0xe1, 0x44, 0x2b, 0x2c, 0xe4, 0x96, 0xca, 0x4d, 0x48, 0x70, 0x6f, 0x3f, 0x7d, 0x20,
-	0x4e, 0x60, 0x65, 0x31, 0x73, 0x16, 0x6a, 0x19, 0xa1, 0xd0, 0x67, 0x5e, 0x48, 0xcd, 0x23, 0x28,
-	0x89, 0x72, 0xdb, 0x8e, 0x77, 0x70, 0x5b, 0x7a, 0x83, 0xa6, 0xd4, 0x09, 0x4d, 0x2d, 0x42, 0x81,
-	0x93, 0xa0, 0x43, 0xb9, 0x24, 0x3b, 0x86, 0x4a, 0x63, 0xe6, 0x4b, 0x80, 0xec, 0xf7, 0x43, 0xdc,
-	0x80, 0x74, 0x74, 0x7b, 0x6e, 0x62, 0x6a, 0x48, 0x70, 0xa9, 0x66, 0x89, 0x09, 0xc8, 0x02, 0x37,
-	0xc3, 0x9b, 0x47, 0x50, 0xe9, 0x13, 0x62, 0x11, 0xa7, 0x7d, 0xe1, 0xd1, 0xcd, 0xc2, 0xab, 0x13,
-	0x84, 0xcf, 0x5d, 0x2b, 0x7c, 0xfe, 0x66, 0x8e, 0xe6, 0x3e, 0xd4, 0xa4, 0x3a, 0xb2, 0x8d, 0xf0,
-	0xb6, 0x1a, 0x3e, 0x85, 0x62, 0x28, 0x53, 0x34, 0x55, 0xd0, 0x9c, 0x49, 0x70, 0xc3, 0x6c, 0xac,
-	0x0c, 0x61, 0x7e, 0x47, 0x50, 0x5f, 0xb3, 0xed, 0x81, 0x08, 0x72, 0x1f, 0x07, 0x5d, 0xa2, 0x09,
-	0x93, 0x18, 0x6a, 0x49, 0x9d, 0x3c, 0xd6, 0x5b, 0x0c, 0xac, 0x00, 0xf9, 0xf7, 0x8c, 0xf9, 0x26,
-	0x85, 0x39, 0x8b, 0x76, 0x59, 0x8f, 0xfe, 0xd7, 0xa6, 0xcc, 0x63, 0x04, 0x78, 0x23, 0xa0, 0x84,
-	0xd3, 0xdd, 0xe4, 0x56, 0xef, 0x78, 0x88, 0xaf, 0xa0, 0xd2, 0x26, 0x3e, 0x69, 0x39, 0xae, 0xc3,
-	0x9d, 0x4c, 0xe9, 0x7a, 0x82, 0x15, 0xe5, 0x36, 0xfa, 0xc1, 0xc3, 0xf5, 0xfc, 0xc9, 0xef, 0x87,
-	0x8a, 0x35, 0x02, 0xc7, 0xab, 0x30, 0xdd, 0x23, 0xae, 0x63, 0xef, 0xd9, 0x51, 0x40, 0xb8, 0xc3,
-	0x3c, 0xa9, 0x8c, 0xd8, 0xc8, 0xdd, 0xfe, 0x73, 0x61, 0x55, 0x05, 0x68, 0x53, 0x62, 0xcc, 0x27,
-	0x50, 0x1f, 0xe9, 0x38, 0xbd, 0x34, 0x7c, 0x1f, 0xa6, 0xc4, 0x73, 0x23, 0x1a, 0x2e, 0x59, 0xa9,
-	0x61, 0x2e, 0x43, 0x6d, 0x23, 0x7d, 0xda, 0x2c, 0xda, 0x71, 0x42, 0x4e, 0x03, 0xfc, 0x00, 0x4a,
-	0x1e, 0xe9, 0xd2, 0xd0, 0x27, 0x6d, 0x2a, 0xc1, 0x03, 0x87, 0xb9, 0x08, 0x15, 0x99, 0x20, 0xca,
-	0x5f, 0x5f, 0xb6, 0xf9, 0x0d, 0x65, 0x75, 0xb3, 0xcd, 0x7c, 0x06, 0xb0, 0x66, 0xdb, 0xd2, 0xc4,
-	0x78, 0x78, 0xdd, 0x52, 0x55, 0xf5, 0xfa, 0x88, 0x4f, 0xbe, 0x10, 0x0a, 0x7e, 0x01, 0xd5, 0x74,
-	0xd4, 0x77, 0xcf, 0x6d, 0x1e, 0xab, 0x30, 0x2b, 0x1b, 0x79, 0x47, 0x3c, 0xd2, 0xa1, 0x5d, 0xea,
-	0x71, 0xbc, 0x02, 0xc5, 0x8c, 0xae, 0x48, 0x1c, 0xd3, 0x40, 0x9f, 0x19, 0x72, 0x0a, 0x9e, 0xa6,
-	0x82, 0x57, 0xa0, 0x32, 0x7c, 0x03, 0x78, 0x5e, 0x8c, 0xfc, 0xea, 0x55, 0xe8, 0xe2, 0xba, 0xc5,
-	0x92, 0x2a, 0xf8, 0x39, 0xd4, 0xc6, 0xd6, 0x14, 0xeb, 0x49, 0xf8, 0xfa, 0xdd, 0x1d, 0x49, 0x7d,
-	0x0d, 0xe5, 0xa1, 0x39, 0xe2, 0x39, 0xd1, 0xd2, 0x95, 0x55, 0xd4, 0xe7, 0xaf, 0xf8, 0x33, 0xe1,
-	0x56, 0xa1, 0xba, 0x15, 0x86, 0x11, 0x7d, 0x13, 0xb5, 0xd2, 0x1a, 0x59, 0xf9, 0x09, 0x59, 0xeb,
-	0xab, 0xa7, 0xe7, 0x86, 0x72, 0x76, 0x6e, 0x28, 0x97, 0xe7, 0x06, 0xfa, 0x1a, 0x1b, 0xe8, 0x67,
-	0x6c, 0xa0, 0x93, 0xd8, 0x40, 0xa7, 0xb1, 0x81, 0xfe, 0xc4, 0x06, 0xfa, 0x1b, 0x1b, 0xca, 0x65,
-	0x6c, 0xa0, 0x1f, 0x17, 0x86, 0x72, 0x7a, 0x61, 0x28, 0x67, 0x17, 0x86, 0xd2, 0x2a, 0x88, 0x3f,
-	0xad, 0x95, 0x7f, 0x01, 0x00, 0x00, 0xff, 0xff, 0xd6, 0xc4, 0x91, 0x77, 0x2a, 0x07, 0x00, 0x00,
+	// 862 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0x4f, 0x6f, 0xe3, 0x44,
+	0x14, 0xf7, 0x38, 0xd9, 0x6c, 0xf2, 0x92, 0x34, 0xdb, 0x09, 0xda, 0x1a, 0x03, 0xa6, 0xb2, 0x0a,
+	0xaa, 0x04, 0xea, 0x4a, 0x6d, 0x05, 0x02, 0x81, 0x44, 0x37, 0x2b, 0x44, 0xd5, 0x82, 0x90, 0x77,
+	0xe1, 0x1a, 0x4d, 0xec, 0xd7, 0xec, 0xa8, 0x8e, 0x6d, 0xec, 0x71, 0xa4, 0x5c, 0x56, 0x1c, 0x39,
+	0xf2, 0x31, 0x38, 0xee, 0x27, 0xe0, 0xbc, 0x37, 0x7a, 0xdc, 0x13, 0xa2, 0xe9, 0x85, 0xe3, 0x7e,
+	0x04, 0x34, 0xe3, 0xb1, 0x9b, 0xf4, 0x4f, 0x54, 0x90, 0xb8, 0x79, 0xde, 0xfb, 0xbd, 0x37, 0xef,
+	0xf7, 0x9b, 0xf7, 0x9e, 0xa1, 0xeb, 0xc7, 0x91, 0x48, 0xe3, 0x70, 0x27, 0x49, 0x63, 0x11, 0x53,
+	0x33, 0x19, 0xd9, 0xbd, 0x00, 0x4f, 0xb2, 0x47, 0xe3, 0x78, 0x1c, 0x17, 0x46, 0xbb, 0x79, 0x3a,
+	0xd5, 0x5f, 0xed, 0x90, 0x8d, 0x50, 0x63, 0xed, 0x2e, 0xf3, 0xfd, 0x38, 0x8f, 0x84, 0x3e, 0x42,
+	0x1e, 0xf2, 0xa0, 0xc4, 0x89, 0xf8, 0x14, 0x23, 0x7d, 0xe8, 0x09, 0x3e, 0xc1, 0x4c, 0xb0, 0x49,
+	0x52, 0x18, 0xdc, 0x3f, 0x08, 0xac, 0x3d, 0xc5, 0x74, 0xca, 0x7d, 0xf4, 0xf0, 0xa7, 0x1c, 0x33,
+	0x41, 0x3f, 0x80, 0xfb, 0x3a, 0x9b, 0x45, 0x36, 0xc9, 0x76, 0x7b, 0xb7, 0xbd, 0x93, 0x8c, 0x76,
+	0x0e, 0x0a, 0x93, 0x57, 0xfa, 0xa8, 0x0d, 0xb5, 0xe7, 0xf9, 0xc8, 0x32, 0x15, 0xa4, 0x29, 0x21,
+	0x3f, 0x1c, 0x1f, 0x3e, 0xf1, 0xa4, 0x91, 0x5a, 0x60, 0xf2, 0xc0, 0xaa, 0x5d, 0x71, 0x99, 0x3c,
+	0xa0, 0x14, 0xea, 0x62, 0x96, 0xa0, 0x55, 0xdf, 0x24, 0xdb, 0x2d, 0x4f, 0x7d, 0xd3, 0x2d, 0x68,
+	0x28, 0x2e, 0x99, 0x75, 0x4f, 0x45, 0x74, 0x64, 0xc4, 0xb1, 0xb4, 0x3c, 0x45, 0xe1, 0x69, 0x1f,
+	0xfd, 0x10, 0x9a, 0x13, 0x14, 0x2c, 0x60, 0x82, 0x59, 0x8d, 0xcd, 0xda, 0x76, 0x7b, 0x17, 0x24,
+	0xee, 0xe8, 0xc7, 0xef, 0x19, 0x4f, 0xbd, 0xca, 0xe7, 0xae, 0x43, 0xaf, 0x22, 0x94, 0x25, 0x71,
+	0x94, 0xa1, 0xfb, 0x02, 0x5a, 0x2a, 0xdd, 0x31, 0x8f, 0x4e, 0xef, 0x4a, 0xef, 0xb2, 0x28, 0x73,
+	0x45, 0x51, 0x5b, 0xd0, 0x10, 0x2c, 0x1d, 0xa3, 0xd0, 0x64, 0xaf, 0xa0, 0x0a, 0x9f, 0xfb, 0x05,
+	0x40, 0x75, 0x7f, 0x46, 0x77, 0xa0, 0x78, 0xba, 0x61, 0x28, 0x8f, 0x16, 0x51, 0x5c, 0xba, 0x55,
+	0xa0, 0x04, 0x79, 0x10, 0x56, 0x78, 0xf7, 0x05, 0x74, 0x4a, 0x42, 0x71, 0x2e, 0xb0, 0x14, 0x9e,
+	0xdc, 0x2e, 0xbc, 0xb9, 0x42, 0xf8, 0xda, 0x8d, 0xc2, 0xd7, 0x6f, 0xe7, 0xe8, 0x9e, 0x40, 0x4f,
+	0xab, 0xa3, 0xcb, 0xc8, 0xee, 0xaa, 0xe1, 0xc7, 0xd0, 0xcc, 0x74, 0x88, 0x65, 0x2a, 0x9a, 0x0f,
+	0x24, 0x6e, 0x91, 0x8d, 0x57, 0x21, 0xdc, 0x31, 0x74, 0x07, 0x71, 0x74, 0xc2, 0xc7, 0x65, 0x23,
+	0xae, 0x22, 0xfa, 0x0e, 0xb4, 0x92, 0x7c, 0x14, 0x72, 0x7f, 0xc8, 0x13, 0xc5, 0xb7, 0xe5, 0x35,
+	0x0b, 0xc3, 0x61, 0x42, 0xdf, 0x03, 0x48, 0x52, 0x3e, 0x65, 0x02, 0xa5, 0xb7, 0x60, 0xdc, 0xd2,
+	0x96, 0xc3, 0xc4, 0x1d, 0xc2, 0x5a, 0x79, 0x51, 0xd1, 0x20, 0x74, 0x03, 0xee, 0x8b, 0x30, 0x1b,
+	0x9e, 0xe2, 0x4c, 0xdd, 0xd6, 0xf1, 0x1a, 0x22, 0xcc, 0x8e, 0x70, 0x46, 0xdf, 0x86, 0xa6, 0x74,
+	0xf8, 0x98, 0x0a, 0x75, 0x4b, 0xc7, 0x93, 0xc0, 0x01, 0xa6, 0x42, 0xba, 0x32, 0x4c, 0x4f, 0x54,
+	0x50, 0xad, 0x70, 0xc9, 0xf3, 0x11, 0xce, 0xdc, 0x5f, 0x08, 0xf4, 0x0f, 0x82, 0xe0, 0xf2, 0x39,
+	0x35, 0xa1, 0x4b, 0xbd, 0xc9, 0x8a, 0x9e, 0x5a, 0x10, 0xd7, 0x5c, 0xdd, 0xa0, 0x77, 0x68, 0xbd,
+	0x06, 0xd4, 0xbf, 0x8b, 0xe3, 0xc4, 0x45, 0x78, 0xe8, 0xe1, 0x24, 0x9e, 0xe2, 0xff, 0x5a, 0x94,
+	0xfb, 0x92, 0x00, 0x1d, 0xa4, 0xc8, 0x04, 0x3e, 0x93, 0x5b, 0xe7, 0x5f, 0xae, 0x94, 0x2f, 0xa1,
+	0xe3, 0xb3, 0x84, 0x8d, 0x78, 0xc8, 0x05, 0xaf, 0x7a, 0xa6, 0x2f, 0xb1, 0x2a, 0xdd, 0xa0, 0x74,
+	0xce, 0x1e, 0xd7, 0x5f, 0xfd, 0xf9, 0xbe, 0xe1, 0x2d, 0xc1, 0xe9, 0x3e, 0xac, 0x4d, 0x59, 0xc8,
+	0x83, 0x61, 0x90, 0xa7, 0x4c, 0xf0, 0x38, 0xd2, 0xca, 0xa8, 0xd9, 0x7a, 0x56, 0x2e, 0x3e, 0xaf,
+	0xab, 0x40, 0x4f, 0x34, 0xc6, 0xfd, 0x08, 0xfa, 0x4b, 0x15, 0xeb, 0x96, 0x78, 0x0b, 0xee, 0xa9,
+	0xc5, 0xa9, 0x0a, 0x6e, 0x79, 0xc5, 0xc1, 0x7d, 0x04, 0xbd, 0x41, 0xb1, 0xa4, 0x3d, 0x1c, 0xf3,
+	0x4c, 0x60, 0x4a, 0xdf, 0x85, 0x56, 0xc4, 0x26, 0x98, 0x25, 0xcc, 0x47, 0x0d, 0xbe, 0x34, 0xb8,
+	0x5b, 0xd0, 0xd1, 0x01, 0x2a, 0xfd, 0xcd, 0x69, 0x77, 0x7f, 0x27, 0x55, 0xde, 0x6a, 0xc6, 0x3e,
+	0x05, 0x38, 0x08, 0x02, 0x7d, 0xa4, 0x74, 0x71, 0x70, 0x0a, 0x55, 0xed, 0xfe, 0x92, 0x4d, 0xef,
+	0x3a, 0x83, 0x7e, 0x0e, 0xdd, 0xe2, 0xa9, 0xff, 0x43, 0xec, 0x27, 0xd0, 0xfe, 0x1a, 0x85, 0xff,
+	0xbc, 0x98, 0x0f, 0xba, 0x2e, 0x51, 0x4b, 0x43, 0x69, 0xd3, 0x45, 0x53, 0x19, 0xb7, 0xfb, 0xd2,
+	0x84, 0x75, 0x4d, 0xe0, 0x5b, 0x16, 0xb1, 0x31, 0x4e, 0x30, 0x12, 0x74, 0x0f, 0x9a, 0x95, 0x4c,
+	0x7d, 0x1d, 0xb7, 0xa8, 0x9d, 0xfd, 0x60, 0xc1, 0xa8, 0xf4, 0x71, 0x0d, 0xba, 0x07, 0x9d, 0xc5,
+	0xd9, 0xa1, 0x1b, 0xaa, 0x55, 0xae, 0x4f, 0x93, 0xad, 0x36, 0x82, 0x6a, 0x6e, 0x83, 0x7e, 0x06,
+	0xbd, 0x2b, 0xed, 0x4d, 0x6d, 0xe9, 0xbe, 0xb9, 0xe7, 0x97, 0x42, 0xbf, 0x82, 0xf6, 0xc2, 0xfb,
+	0xd3, 0x87, 0xaa, 0xa4, 0x6b, 0x2d, 0x6c, 0x6f, 0x5c, 0xb3, 0x57, 0xa2, 0xed, 0x43, 0xf7, 0x30,
+	0xcb, 0x72, 0xfc, 0x26, 0x1f, 0x15, 0x39, 0xaa, 0xf4, 0x2b, 0xa2, 0x1e, 0xef, 0x9f, 0x9d, 0x3b,
+	0xc6, 0xeb, 0x73, 0xc7, 0x78, 0x73, 0xee, 0x90, 0x9f, 0xe7, 0x0e, 0xf9, 0x6d, 0xee, 0x90, 0x57,
+	0x73, 0x87, 0x9c, 0xcd, 0x1d, 0xf2, 0xd7, 0xdc, 0x21, 0x7f, 0xcf, 0x1d, 0xe3, 0xcd, 0xdc, 0x21,
+	0xbf, 0x5e, 0x38, 0xc6, 0xd9, 0x85, 0x63, 0xbc, 0xbe, 0x70, 0x8c, 0x51, 0x43, 0xfd, 0xb6, 0xf7,
+	0xfe, 0x09, 0x00, 0x00, 0xff, 0xff, 0x1a, 0xd4, 0xdd, 0xf0, 0x2c, 0x08, 0x00, 0x00,
 }
 
 func (this *ServiceRequest) Equal(that interface{}) bool {
@@ -954,6 +1083,66 @@ func (this *AccountServices) Equal(that interface{}) bool {
 		if !this.Services[i].Equal(that1.Services[i]) {
 			return false
 		}
+	}
+	return true
+}
+func (this *ConfigRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ConfigRequest)
+	if !ok {
+		that2, ok := that.(ConfigRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Hub.Equal(that1.Hub) {
+		return false
+	}
+	if this.PublicIp != that1.PublicIp {
+		return false
+	}
+	if this.PrivateIp != that1.PrivateIp {
+		return false
+	}
+	return true
+}
+func (this *ConfigResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ConfigResponse)
+	if !ok {
+		that2, ok := that.(ConfigResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !bytes.Equal(this.TlsKey, that1.TlsKey) {
+		return false
+	}
+	if !bytes.Equal(this.TlsCert, that1.TlsCert) {
+		return false
+	}
+	if !bytes.Equal(this.SerfKey, that1.SerfKey) {
+		return false
 	}
 	return true
 }
@@ -1240,6 +1429,32 @@ func (this *AccountServices) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *ConfigRequest) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&pb.ConfigRequest{")
+	if this.Hub != nil {
+		s = append(s, "Hub: "+fmt.Sprintf("%#v", this.Hub)+",\n")
+	}
+	s = append(s, "PublicIp: "+fmt.Sprintf("%#v", this.PublicIp)+",\n")
+	s = append(s, "PrivateIp: "+fmt.Sprintf("%#v", this.PrivateIp)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *ConfigResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&pb.ConfigResponse{")
+	s = append(s, "TlsKey: "+fmt.Sprintf("%#v", this.TlsKey)+",\n")
+	s = append(s, "TlsCert: "+fmt.Sprintf("%#v", this.TlsCert)+",\n")
+	s = append(s, "SerfKey: "+fmt.Sprintf("%#v", this.SerfKey)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func (this *AddLabelLinkRequest) GoString() string {
 	if this == nil {
 		return "nil"
@@ -1357,6 +1572,7 @@ const _ = grpc.SupportPackageIsVersion4
 type ControlServicesClient interface {
 	AddService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error)
 	RemoveService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error)
+	FetchConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 }
 
 type controlServicesClient struct {
@@ -1385,10 +1601,20 @@ func (c *controlServicesClient) RemoveService(ctx context.Context, in *ServiceRe
 	return out, nil
 }
 
+func (c *controlServicesClient) FetchConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error) {
+	out := new(ConfigResponse)
+	err := c.cc.Invoke(ctx, "/pb.ControlServices/FetchConfig", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServicesServer is the server API for ControlServices service.
 type ControlServicesServer interface {
 	AddService(context.Context, *ServiceRequest) (*ServiceResponse, error)
 	RemoveService(context.Context, *ServiceRequest) (*ServiceResponse, error)
+	FetchConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
 }
 
 // UnimplementedControlServicesServer can be embedded to have forward compatible implementations.
@@ -1400,6 +1626,9 @@ func (*UnimplementedControlServicesServer) AddService(ctx context.Context, req *
 }
 func (*UnimplementedControlServicesServer) RemoveService(ctx context.Context, req *ServiceRequest) (*ServiceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RemoveService not implemented")
+}
+func (*UnimplementedControlServicesServer) FetchConfig(ctx context.Context, req *ConfigRequest) (*ConfigResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method FetchConfig not implemented")
 }
 
 func RegisterControlServicesServer(s *grpc.Server, srv ControlServicesServer) {
@@ -1442,6 +1671,24 @@ func _ControlServices_RemoveService_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlServices_FetchConfig_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ConfigRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServicesServer).FetchConfig(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.ControlServices/FetchConfig",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServicesServer).FetchConfig(ctx, req.(*ConfigRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _ControlServices_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pb.ControlServices",
 	HandlerType: (*ControlServicesServer)(nil),
@@ -1453,6 +1700,10 @@ var _ControlServices_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveService",
 			Handler:    _ControlServices_RemoveService_Handler,
+		},
+		{
+			MethodName: "FetchConfig",
+			Handler:    _ControlServices_FetchConfig_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -2001,6 +2252,99 @@ func (m *AccountServices) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ConfigRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConfigRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.PrivateIp) > 0 {
+		i -= len(m.PrivateIp)
+		copy(dAtA[i:], m.PrivateIp)
+		i = encodeVarintControl(dAtA, i, uint64(len(m.PrivateIp)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.PublicIp) > 0 {
+		i -= len(m.PublicIp)
+		copy(dAtA[i:], m.PublicIp)
+		i = encodeVarintControl(dAtA, i, uint64(len(m.PublicIp)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Hub != nil {
+		{
+			size, err := m.Hub.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *ConfigResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ConfigResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.SerfKey) > 0 {
+		i -= len(m.SerfKey)
+		copy(dAtA[i:], m.SerfKey)
+		i = encodeVarintControl(dAtA, i, uint64(len(m.SerfKey)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.TlsCert) > 0 {
+		i -= len(m.TlsCert)
+		copy(dAtA[i:], m.TlsCert)
+		i = encodeVarintControl(dAtA, i, uint64(len(m.TlsCert)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.TlsKey) > 0 {
+		i -= len(m.TlsKey)
+		copy(dAtA[i:], m.TlsKey)
+		i = encodeVarintControl(dAtA, i, uint64(len(m.TlsKey)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *AddLabelLinkRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2416,6 +2760,48 @@ func (m *AccountServices) Size() (n int) {
 	return n
 }
 
+func (m *ConfigRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Hub != nil {
+		l = m.Hub.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	l = len(m.PublicIp)
+	if l > 0 {
+		n += 1 + l + sovControl(uint64(l))
+	}
+	l = len(m.PrivateIp)
+	if l > 0 {
+		n += 1 + l + sovControl(uint64(l))
+	}
+	return n
+}
+
+func (m *ConfigResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.TlsKey)
+	if l > 0 {
+		n += 1 + l + sovControl(uint64(l))
+	}
+	l = len(m.TlsCert)
+	if l > 0 {
+		n += 1 + l + sovControl(uint64(l))
+	}
+	l = len(m.SerfKey)
+	if l > 0 {
+		n += 1 + l + sovControl(uint64(l))
+	}
+	return n
+}
+
 func (m *AddLabelLinkRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2612,6 +2998,30 @@ func (this *AccountServices) String() string {
 	s := strings.Join([]string{`&AccountServices{`,
 		`Account:` + strings.Replace(fmt.Sprintf("%v", this.Account), "Account", "Account", 1) + `,`,
 		`Services:` + repeatedStringForServices + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *ConfigRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&ConfigRequest{`,
+		`Hub:` + strings.Replace(fmt.Sprintf("%v", this.Hub), "ULID", "ULID", 1) + `,`,
+		`PublicIp:` + fmt.Sprintf("%v", this.PublicIp) + `,`,
+		`PrivateIp:` + fmt.Sprintf("%v", this.PrivateIp) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *ConfigResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&ConfigResponse{`,
+		`TlsKey:` + fmt.Sprintf("%v", this.TlsKey) + `,`,
+		`TlsCert:` + fmt.Sprintf("%v", this.TlsCert) + `,`,
+		`SerfKey:` + fmt.Sprintf("%v", this.SerfKey) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -3557,6 +3967,314 @@ func (m *AccountServices) Unmarshal(dAtA []byte) error {
 			m.Services = append(m.Services, &ServiceRoute{})
 			if err := m.Services[len(m.Services)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConfigRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConfigRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConfigRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hub", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Hub == nil {
+				m.Hub = &ULID{}
+			}
+			if err := m.Hub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PublicIp", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PublicIp = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field PrivateIp", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.PrivateIp = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ConfigResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ConfigResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ConfigResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TlsKey", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TlsKey = append(m.TlsKey[:0], dAtA[iNdEx:postIndex]...)
+			if m.TlsKey == nil {
+				m.TlsKey = []byte{}
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TlsCert", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TlsCert = append(m.TlsCert[:0], dAtA[iNdEx:postIndex]...)
+			if m.TlsCert == nil {
+				m.TlsCert = []byte{}
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SerfKey", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.SerfKey = append(m.SerfKey[:0], dAtA[iNdEx:postIndex]...)
+			if m.SerfKey == nil {
+				m.SerfKey = []byte{}
 			}
 			iNdEx = postIndex
 		default:

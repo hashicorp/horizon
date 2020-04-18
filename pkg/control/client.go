@@ -2,8 +2,12 @@ package control
 
 import (
 	context "context"
+	"crypto/ed25519"
+	"crypto/tls"
+	fmt "fmt"
 	io "io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -66,6 +70,10 @@ type Client struct {
 	labelMu      sync.RWMutex
 	lastLabelMD5 string
 	labelLinks   *pb.LabelLinks
+
+	tlsCert []byte
+	tlsKey  []byte
+	serfKey []byte
 }
 
 type ClientConfig struct {
@@ -79,6 +87,7 @@ type ClientConfig struct {
 	S3Bucket string
 	Session  *session.Session
 	WorkDir  string
+	TLSPort  int
 }
 
 func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
@@ -88,27 +97,10 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		cfg.Logger = hclog.L()
 	}
 
-	scfg := serf.DefaultConfig()
-	scfg.NodeName = cfg.Id.SpecString()
-	scfg.EventCh = events
-	scfg.Tags = map[string]string{
-		"version": cfg.Version,
-	}
-
-	if cfg.BindPort > 0 {
-		scfg.MemberlistConfig.BindPort = cfg.BindPort
-	}
-
-	scfg.Logger = cfg.Logger.StandardLogger(&hclog.StandardLoggerOptions{
-		InferLevels: true,
-	})
-
-	s, err := serf.Create(scfg)
-	if err != nil {
-		return nil, err
-	}
-
-	var gcc *grpc.ClientConn
+	var (
+		gcc *grpc.ClientConn
+		err error
+	)
 
 	gClient := cfg.Client
 	if gClient == nil && cfg.Addr != "" {
@@ -126,7 +118,6 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		L:               cfg.Logger,
 		cfg:             cfg,
 		events:          events,
-		s:               s,
 		client:          gClient,
 		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
@@ -152,6 +143,71 @@ func (c *Client) Close() error {
 	c.s.Leave()
 
 	return c.s.Shutdown()
+}
+
+func (c *Client) StartSerf() error {
+	scfg := serf.DefaultConfig()
+	scfg.NodeName = c.cfg.Id.SpecString()
+	scfg.EventCh = c.events
+	scfg.Tags = map[string]string{
+		"version": c.cfg.Version,
+	}
+
+	if c.cfg.BindPort > 0 {
+		scfg.MemberlistConfig.BindPort = c.cfg.BindPort
+	}
+
+	scfg.Logger = c.cfg.Logger.StandardLogger(&hclog.StandardLoggerOptions{
+		InferLevels: true,
+	})
+
+	scfg.MemberlistConfig.SecretKey = c.serfKey
+
+	s, err := serf.Create(scfg)
+	if err != nil {
+		return err
+	}
+
+	c.s = s
+
+	return nil
+}
+
+func (c *Client) BootstrapConfig(ctx context.Context) error {
+	resp, err := c.client.FetchConfig(ctx, &pb.ConfigRequest{
+		Hub: c.cfg.Id,
+	})
+	if err != nil {
+		return err
+	}
+
+	c.tlsCert = resp.TlsCert
+	c.tlsKey = resp.TlsKey
+	c.serfKey = resp.SerfKey
+
+	return nil
+}
+
+func (c *Client) RunIngress(ctx context.Context) error {
+	var cfg tls.Config
+	cfg.Certificates = []tls.Certificate{
+		{
+			Certificate: [][]byte{c.tlsCert},
+			PrivateKey:  ed25519.PrivateKey(c.tlsKey),
+		},
+	}
+
+	hs := &http.Server{
+		Addr:      fmt.Sprintf(":%d", c.cfg.TLSPort),
+		Handler:   c,
+		TLSConfig: &cfg,
+	}
+
+	return hs.ListenAndServeTLS("", "")
+}
+
+func (c *Client) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	w.WriteHeader(200)
 }
 
 func (c *Client) AddService(ctx context.Context, serv *pb.ServiceRequest) error {
@@ -399,6 +455,10 @@ func (c *Client) keepLabelLinksUpdated(ctx context.Context, L hclog.Logger) {
 }
 
 func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
+	if c.bucket == "" {
+		return nil
+	}
+
 	tmp, err := ioutil.TempFile(c.workDir, "label-links")
 	if err != nil {
 		return err
@@ -419,7 +479,7 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 	if err != nil {
 		// Until we can figure out how to detect it, assume that an error here means
 		// we got a 304 and the file isn't updated.
-		L.Info("error downloading account data - benign due to 304s", "error", err)
+		L.Info("error downloading label link data - benign due to 304s", "error", err)
 		return nil
 	}
 

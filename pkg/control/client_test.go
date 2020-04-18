@@ -2,8 +2,16 @@ package control
 
 import (
 	context "context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	fmt "fmt"
 	"io/ioutil"
+	"math/big"
 	"net"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -459,6 +467,9 @@ func TestClient(t *testing.T) {
 
 		go client.Run(ctx)
 
+		err = client.StartSerf()
+		require.NoError(t, err)
+
 		// Wire it up to the servers serf config
 		_, err = client.s.Join([]string{"127.0.0.1:25000"}, true)
 		require.NoError(t, err)
@@ -607,6 +618,9 @@ func TestClient(t *testing.T) {
 
 		go client.Run(ctx)
 
+		err = client.StartSerf()
+		require.NoError(t, err)
+
 		// Wire it up to the servers serf config
 		_, err = client.s.Join([]string{"127.0.0.1:25000"}, true)
 		require.NoError(t, err)
@@ -619,4 +633,144 @@ func TestClient(t *testing.T) {
 		assert.Equal(t, accountId, labelAccount)
 		assert.Equal(t, target, labelTarget)
 	})
+
+	t.Run("bootstraps configuration from the server", func(t *testing.T) {
+		db, err := gorm.Open("pgtest", "server")
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		var s Server
+		s.db = db
+		s.vaultClient = vc
+		s.vaultPath = pb.NewULID().SpecString()
+		s.keyId = "k1"
+		s.registerToken = "aabbcc"
+		s.awsSess = sess
+		s.bucket = bucket
+		s.s = serfObj
+		s.lockTable = "hzntest"
+
+		tlspub, tlspriv, err := ed25519.GenerateKey(rand.Reader)
+		require.NoError(t, err)
+
+		notBefore := time.Now()
+
+		serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+		serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+		require.NoError(t, err)
+
+		template := x509.Certificate{
+			SerialNumber: serialNumber,
+			Subject: pkix.Name{
+				Organization: []string{"Acme Co"},
+			},
+			NotBefore: time.Now(),
+			NotAfter:  notBefore.Add(5 * time.Minute),
+
+			KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+			ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			BasicConstraintsValid: true,
+			DNSNames:              []string{"hub.test"},
+			IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+			IsCA:                  true,
+		}
+
+		derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, tlspub, tlspriv)
+		require.NoError(t, err)
+
+		s.hubCert = derBytes
+		s.hubKey = tlspriv
+
+		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
+		require.NoError(t, err)
+
+		_, err = s.lockMgr.CreateTable(s.lockTable)
+		require.NoError(t, err)
+
+		pub, err := token.SetupVault(vc, s.vaultPath)
+		require.NoError(t, err)
+
+		s.pubKey = pub
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		gs := grpc.NewServer()
+		pb.RegisterControlServicesServer(gs, &s)
+
+		li, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		gcc, err := grpc.Dial(li.Addr().String(),
+			grpc.WithInsecure(),
+			grpc.WithPerRPCCredentials(Token(ctr.Token)))
+
+		require.NoError(t, err)
+
+		defer gcc.Close()
+
+		gClient := pb.NewControlServicesClient(gcc)
+
+		id := pb.NewULID()
+
+		tlsPort := bindPort + 1
+
+		client, err := NewClient(ctx, ClientConfig{
+			Id:       id,
+			Token:    ctr.Token,
+			Version:  "test",
+			Client:   gClient,
+			BindPort: bindPort,
+			Session:  sess,
+			TLSPort:  tlsPort,
+		})
+
+		bindPort += 2
+
+		require.NoError(t, err)
+
+		err = client.BootstrapConfig(ctx)
+
+		go client.RunIngress(ctx)
+
+		parsedHubCert, err := x509.ParseCertificate(derBytes)
+		require.NoError(t, err)
+
+		var tlscfg tls.Config
+
+		tlscfg.RootCAs = x509.NewCertPool()
+		tlscfg.RootCAs.AddCert(parsedHubCert)
+
+		httpc := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tlscfg,
+			},
+		}
+
+		resp, err := httpc.Get(fmt.Sprintf("https://127.0.0.1:%d/_healthz", tlsPort))
+		require.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+	})
+
 }
