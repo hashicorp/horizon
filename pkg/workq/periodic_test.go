@@ -56,7 +56,47 @@ func TestPeriodic(t *testing.T) {
 		assert.NotEqual(t, pjob.NextRun, pjob2.NextRun)
 
 		err = w.CheckPeriodic()
-		require.Error(t, err)
+		require.NoError(t, err)
 
+	})
+
+	t.Run("creates or updates periodic jobs", func(t *testing.T) {
+		db.Exec("TRUNCATE jobs")
+		db.Exec("TRUNCATE periodic_jobs")
+
+		var i Injector
+		i.db = db
+
+		err := i.AddPeriodicJob("foo", "a", "aabbcc", time.Hour)
+		require.NoError(t, err)
+
+		var pjob PeriodicJob
+
+		err = dbx.Check(db.First(&pjob))
+		require.NoError(t, err)
+
+		err = i.AddPeriodicJob("foo", "a", "aabbccdd", time.Minute)
+		require.NoError(t, err)
+
+		var pjob2 PeriodicJob
+
+		err = dbx.Check(db.Last(&pjob2))
+		require.NoError(t, err)
+
+		assert.Equal(t, pjob.Id, pjob2.Id)
+
+		assert.Equal(t, pjob2.Payload, "aabbccdd")
+		assert.True(t, pjob2.NextRun.Before(pjob.NextRun))
+
+		err = i.AddPeriodicJob("foo", "a", "aabbccdd", time.Hour)
+		require.NoError(t, err)
+
+		var pjob3 PeriodicJob
+
+		err = dbx.Check(db.Last(&pjob3))
+		require.NoError(t, err)
+
+		assert.Equal(t, pjob.Id, pjob2.Id)
+		assert.True(t, pjob2.NextRun.Equal(pjob3.NextRun))
 	})
 }

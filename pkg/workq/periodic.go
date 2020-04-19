@@ -4,10 +4,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/horizon/pkg/dbx"
+	"github.com/jinzhu/gorm"
 )
 
 type PeriodicJob struct {
 	Id      int `gorm:"primary_key"`
+	Name    string
 	Queue   string
 	Payload string
 	Period  string
@@ -30,6 +32,10 @@ func (w *Worker) CheckPeriodic() error {
 
 	if err != nil {
 		tx.Rollback()
+		if err == gorm.ErrRecordNotFound {
+			return nil
+		}
+
 		return err
 	}
 

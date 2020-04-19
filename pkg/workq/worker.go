@@ -161,10 +161,18 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 		go w.processJobs(ctx, workChan, cfg.Handler)
 	}
 
+	pticker := time.NewTicker(time.Minute)
+	defer pticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-pticker.C:
+			err := w.CheckPeriodic()
+			if err != nil {
+				L.Error("error checking periodic jobs", "error", err)
+			}
 		case <-listener.Notify:
 			w.Stats.ListenWakeups++
 			// got event

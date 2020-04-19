@@ -10,9 +10,10 @@ CREATE TABLE IF NOT EXISTS jobs (
 
 CREATE TABLE IF NOT EXISTS periodic_jobs (
   id serial PRIMARY KEY,
+  name text NOT NULL UNIQUE,
   queue text NOT NULL,
   payload text,
-  period text NOT NULL default '1h',
-  next_run timestamp NOT NULL,
+  period text NOT NULL DEFAULT '1h',
+  next_run timestamp NOT NULL DEFAULT now(),
   created_at timestamp NOT NULL DEFAULT now()
 )
