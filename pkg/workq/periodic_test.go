@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -22,6 +23,8 @@ func TestPeriodic(t *testing.T) {
 
 	defer db.Close()
 
+	L := hclog.L()
+
 	t.Run("creates jobs from periodic jobs", func(t *testing.T) {
 		db.Exec("TRUNCATE jobs")
 		db.Exec("TRUNCATE periodic_jobs")
@@ -37,7 +40,7 @@ func TestPeriodic(t *testing.T) {
 		err = dbx.Check(db.Create(&pjob))
 		require.NoError(t, err)
 
-		w := NewWorker(db, []string{"a"})
+		w := NewWorker(L, db, []string{"a"})
 
 		err = w.CheckPeriodic()
 		require.NoError(t, err)

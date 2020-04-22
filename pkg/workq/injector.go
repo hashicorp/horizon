@@ -29,6 +29,15 @@ func (i *Injector) Inject(job *Job) error {
 }
 
 func (i *Injector) AddPeriodicJob(name, queue, jt string, v interface{}, period time.Duration) error {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	return i.AddPeriodicJobRaw(name, queue, jt, data, period)
+}
+
+func (i *Injector) AddPeriodicJobRaw(name, queue, jt string, payload []byte, period time.Duration) error {
 	var pjob PeriodicJob
 
 	pjob.Name = name
@@ -36,15 +45,9 @@ func (i *Injector) AddPeriodicJob(name, queue, jt string, v interface{}, period 
 	pjob.Period = period.String()
 	pjob.JobType = jt
 	pjob.NextRun = time.Now().Add(period)
+	pjob.Payload = payload
 
-	data, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	pjob.Payload = data
-
-	err = dbx.Check(
+	err := dbx.Check(
 		i.db.Set("gorm:insert_option",
 			"ON CONFLICT (name) DO UPDATE SET queue=EXCLUDED.queue, payload=EXCLUDED.payload, period=EXCLUDED.period, next_run=LEAST(periodic_jobs.next_run, EXCLUDED.next_run)").
 			Create(&pjob),

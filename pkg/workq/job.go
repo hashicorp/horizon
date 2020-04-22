@@ -14,6 +14,9 @@ type Job struct {
 	JobType string
 	Payload []byte
 
+	CoolOffUntil *time.Time
+	Attempts     int
+
 	CreatedAt time.Time
 }
 

@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -24,6 +25,8 @@ func TestWorker(t *testing.T) {
 
 	defer db.Close()
 
+	L := hclog.L()
+
 	t.Run("fetches an available job", func(t *testing.T) {
 		db.Exec("TRUNCATE jobs")
 
@@ -40,7 +43,7 @@ func TestWorker(t *testing.T) {
 		err = dbx.Check(tx.Commit())
 		require.NoError(t, err)
 
-		w := NewWorker(db, []string{"a"})
+		w := NewWorker(L, db, []string{"a"})
 
 		j2, err := w.Pop()
 		require.NoError(t, err)
@@ -79,14 +82,14 @@ func TestWorker(t *testing.T) {
 
 		var w1Job, w2Job *Job
 
-		w1 := NewWorker(db, []string{"a"})
+		w1 := NewWorker(L, db, []string{"a"})
 		w1.Validate = func(j *Job) (bool, error) {
 			w1Job = j
 			time.Sleep(2 * time.Second)
 			return true, nil
 		}
 
-		w2 := NewWorker(db, []string{"a"})
+		w2 := NewWorker(L, db, []string{"a"})
 		w2.Validate = func(j *Job) (bool, error) {
 			w2Job = j
 			time.Sleep(2 * time.Second)
@@ -159,14 +162,14 @@ func TestWorker(t *testing.T) {
 
 		var w1Job, w2Job *Job
 
-		w1 := NewWorker(db, []string{"a"})
+		w1 := NewWorker(L, db, []string{"a"})
 		w1.Validate = func(j *Job) (bool, error) {
 			w1Job = j
 			time.Sleep(2 * time.Second)
 			return true, nil
 		}
 
-		w2 := NewWorker(db, []string{"a"})
+		w2 := NewWorker(L, db, []string{"a"})
 		w2.Validate = func(j *Job) (bool, error) {
 			w2Job = j
 			time.Sleep(2 * time.Second)
@@ -222,20 +225,20 @@ func TestWorker(t *testing.T) {
 		err = dbx.Check(tx.Commit())
 		require.NoError(t, err)
 
-		w1 := NewWorker(db, []string{"a"})
+		w1 := NewWorker(L, db, []string{"a"})
 
-		w2 := NewWorker(db, []string{"a"})
+		w2 := NewWorker(L, db, []string{"a"})
 
 		j2, err := w1.Pop()
 		require.NoError(t, err)
 
-		j2.Abort()
+		j2.AbortAndRequeue()
 
 		j21, err := w2.Pop()
 
-		defer j21.Close()
-
 		require.NoError(t, err)
+
+		defer j21.Close()
 
 		assert.Equal(t, job.Id, j2.Id)
 		assert.Equal(t, job.Id, j21.Id)
@@ -257,7 +260,7 @@ func TestWorker(t *testing.T) {
 		err = dbx.Check(tx.Commit())
 		require.NoError(t, err)
 
-		w := NewWorker(db, []string{"a"})
+		w := NewWorker(L, db, []string{"a"})
 
 		j2, err := w.Pop()
 		require.NoError(t, err)
@@ -326,7 +329,7 @@ func TestWorker(t *testing.T) {
 		err = dbx.Check(tx.Commit())
 		require.NoError(t, err)
 
-		w := NewWorker(db, []string{"a"})
+		w := NewWorker(L, db, []string{"a"})
 
 		j2, err := w.Pop()
 		require.Error(t, err)
@@ -363,7 +366,7 @@ func TestWorker(t *testing.T) {
 	t.Run("invokes a handler using LISTEN", func(t *testing.T) {
 		db.Exec("TRUNCATE jobs")
 
-		w := NewWorker(db, []string{"a"})
+		w := NewWorker(L, db, []string{"a"})
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
@@ -399,5 +402,122 @@ func TestWorker(t *testing.T) {
 		assert.Equal(t, job.Id, jobs[0].Id)
 
 		assert.Equal(t, int64(1), w.Stats.ListenWakeups)
+	})
+
+	t.Run("skips a job in cooloff", func(t *testing.T) {
+		db.Exec("TRUNCATE jobs")
+
+		tx := db.Begin()
+
+		job := NewJob()
+		job.Queue = "a"
+
+		job.Set("test", 1)
+
+		ts := time.Now().Add(time.Hour)
+		job.CoolOffUntil = &ts
+
+		err := dbx.Check(tx.Create(&job))
+		require.NoError(t, err)
+
+		err = dbx.Check(tx.Commit())
+		require.NoError(t, err)
+
+		w := NewWorker(L, db, []string{"a"})
+
+		_, err = w.Pop()
+		require.Error(t, err)
+	})
+
+	t.Run("picks up jobs that have cooled off", func(t *testing.T) {
+		db.Exec("TRUNCATE jobs")
+
+		tx := db.Begin()
+
+		job := NewJob()
+		job.Queue = "a"
+
+		job.Set("test", 1)
+
+		ts := time.Now().Add(-time.Hour)
+		job.CoolOffUntil = &ts
+
+		err := dbx.Check(tx.Create(&job))
+		require.NoError(t, err)
+
+		err = dbx.Check(tx.Commit())
+		require.NoError(t, err)
+
+		w := NewWorker(L, db, []string{"a"})
+
+		j, err := w.Pop()
+		require.NoError(t, err)
+
+		defer j.Close()
+	})
+
+	t.Run("abort advances the cool off timer", func(t *testing.T) {
+		db.Exec("TRUNCATE jobs")
+
+		tx := db.Begin()
+
+		job := NewJob()
+		job.Queue = "a"
+
+		job.Set("test", 1)
+
+		err := dbx.Check(tx.Create(&job))
+		require.NoError(t, err)
+
+		err = dbx.Check(tx.Commit())
+		require.NoError(t, err)
+
+		w := NewWorker(L, db, []string{"a"})
+
+		j2, err := w.Pop()
+		require.NoError(t, err)
+
+		err = j2.Abort()
+		require.NoError(t, err)
+
+		var job3 Job
+		err = dbx.Check(db.First(&job3))
+		require.NoError(t, err)
+
+		assert.Equal(t, 1, job3.Attempts)
+		until := time.Until((*job3.CoolOffUntil))
+
+		assert.True(t, until > 8*time.Second && until < 10*time.Second, "%s", until)
+	})
+
+	t.Run("gives up on a job after a maximum attempt counter is reached", func(t *testing.T) {
+		db.Exec("TRUNCATE jobs")
+
+		tx := db.Begin()
+
+		job := NewJob()
+		job.Queue = "a"
+
+		job.Set("test", 1)
+
+		err := dbx.Check(tx.Create(&job))
+		require.NoError(t, err)
+
+		err = dbx.Check(tx.Commit())
+		require.NoError(t, err)
+
+		w := NewWorker(L, db, []string{"a"})
+
+		j2, err := w.Pop()
+		require.NoError(t, err)
+
+		j2.Attempts = MaximumAttempts - 1
+
+		err = j2.Abort()
+		require.NoError(t, err)
+
+		var job3 Job
+		err = dbx.Check(db.First(&job3))
+		require.Error(t, err)
 	})
 }

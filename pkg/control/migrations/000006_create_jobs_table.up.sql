@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS jobs (
   status job_status NOT NULL DEFAULT 'queued',
   job_type text NOT NULL,
   payload jsonb,
-  created_at timestamp NOT NULL DEFAULT now()
+  cool_off_until timestamp with time zone,
+  attempts int NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS periodic_jobs (
@@ -16,6 +18,6 @@ CREATE TABLE IF NOT EXISTS periodic_jobs (
   job_type text NOT NULL,
   payload jsonb,
   period text NOT NULL DEFAULT '1h',
-  next_run timestamp NOT NULL DEFAULT now(),
-  created_at timestamp NOT NULL DEFAULT now()
+  next_run timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now()
 )

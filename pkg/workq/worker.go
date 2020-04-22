@@ -5,20 +5,26 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
+	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 )
 
 const (
-	DefaultPopInterval = time.Minute
-	DefaultConcurrency = 5
+	DefaultPopInterval     = time.Minute
+	DefaultConcurrency     = 5
+	DefaultCleanupInterval = time.Hour
+	MaximumAttempts        = 100
 )
 
 type Worker struct {
 	db     *gorm.DB
 	queues []string
+
+	L hclog.Logger
 
 	Validate func(job *Job) (bool, error)
 
@@ -27,16 +33,64 @@ type Worker struct {
 	}
 }
 
-func NewWorker(db *gorm.DB, queues []string) *Worker {
-	return &Worker{db: db, queues: queues}
+func NewWorker(L hclog.Logger, db *gorm.DB, queues []string) *Worker {
+	return &Worker{L: L, db: db, queues: queues}
 }
 
 type RunningJob struct {
 	Job
+	L  hclog.Logger
 	tx *gorm.DB
 }
 
+var MaxCoolOffDuration = 240 * time.Second
+
 func (r *RunningJob) Abort() error {
+	if r.tx == nil {
+		return nil
+	}
+
+	attempts := r.Job.Attempts + 1
+
+	if attempts >= MaximumAttempts {
+		r.L.Error("maximum attempts reached, dropping job",
+			"id", pb.ULIDFromBytes(r.Id).SpecString(),
+			"queue", r.Queue,
+			"job-type", r.JobType,
+			"created-at", r.CreatedAt.String(),
+		)
+
+		r.tx.Delete(&r.Job)
+
+		return dbx.Check(r.tx.Commit())
+	}
+
+	dur := time.Duration(attempts*10) * time.Second
+
+	if dur > MaxCoolOffDuration {
+		dur = MaxCoolOffDuration
+	}
+
+	cool := time.Now().Add(dur)
+
+	err := dbx.Check(r.tx.Model(&r.Job).
+		Updates(map[string]interface{}{
+			"status":         "queued",
+			"attempts":       attempts,
+			"cool_off_until": &cool,
+		}),
+	)
+
+	if err != nil {
+		return err
+	}
+
+	err = dbx.Check(r.tx.Commit())
+	r.tx = nil
+	return err
+}
+
+func (r *RunningJob) AbortAndRequeue() error {
 	if r.tx == nil {
 		return nil
 	}
@@ -60,12 +114,14 @@ func (w *Worker) Pop() (*RunningJob, error) {
 	tx := w.db.Begin()
 
 	var job RunningJob
+	job.L = w.L
 
 	err := dbx.Check(
 		tx.
 			Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
 			Where("status = ?", "queued").
 			Where("queue IN (?)", w.queues).
+			Where("cool_off_until IS NULL or now() >= cool_off_until").
 			First(&job.Job),
 	)
 
@@ -111,10 +167,11 @@ func (w *Worker) CleanupFinished(lag bool) error {
 }
 
 type RunConfig struct {
-	ConnInfo    string
-	PopInterval time.Duration
-	Concurrency int
-	Handler     func(j *Job) error
+	ConnInfo     string
+	PopInterval  time.Duration
+	Concurrency  int
+	CleanupCheck time.Duration
+	Handler      func(j *Job) error
 }
 
 const listenChannel = "work_available"
@@ -122,6 +179,18 @@ const listenChannel = "work_available"
 // Setup a pq listener and watch for events (and still pop every once in a while)"
 func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 	L := ctxlog.L(ctx)
+
+	// setup any default periodics
+	periodMu.Lock()
+
+	var inj Injector
+	inj.db = w.db
+
+	for _, pe := range defaultPeriodics {
+		inj.AddPeriodicJobRaw(pe.name, pe.queue, pe.jobType, pe.payload, pe.period)
+	}
+
+	periodMu.Unlock()
 
 	reportProblem := func(ev pq.ListenerEventType, err error) {
 		if err != nil {
@@ -139,6 +208,10 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 
 	if cfg.Concurrency == 1 {
 		cfg.Concurrency = DefaultConcurrency
+	}
+
+	if cfg.CleanupCheck == 0 {
+		cfg.CleanupCheck = DefaultCleanupInterval
 	}
 
 	if cfg.Handler == nil {
@@ -170,6 +243,9 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 	pticker := time.NewTicker(time.Minute)
 	defer pticker.Stop()
 
+	cticker := time.NewTicker(cfg.CleanupCheck)
+	defer cticker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -179,6 +255,15 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 			if err != nil {
 				L.Error("error checking periodic jobs", "error", err)
 			}
+
+			continue
+		case <-cticker.C:
+			err := w.CleanupFinished(true)
+			if err != nil {
+				L.Error("error cleaning up finished jobs", "error", err)
+			}
+
+			continue
 		case <-listener.Notify:
 			w.Stats.ListenWakeups++
 			// got event
