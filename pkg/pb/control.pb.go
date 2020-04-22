@@ -368,6 +368,57 @@ func (m *AccountServices) GetServices() []*ServiceRoute {
 	return nil
 }
 
+type ActivityEntry struct {
+	RouteAdded   *AccountServices `protobuf:"bytes,1,opt,name=route_added,json=routeAdded,proto3" json:"route_added,omitempty"`
+	RouteRemoved *ULID            `protobuf:"bytes,2,opt,name=route_removed,json=routeRemoved,proto3" json:"route_removed,omitempty"`
+}
+
+func (m *ActivityEntry) Reset()      { *m = ActivityEntry{} }
+func (*ActivityEntry) ProtoMessage() {}
+func (*ActivityEntry) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{6}
+}
+func (m *ActivityEntry) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ActivityEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ActivityEntry.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ActivityEntry) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ActivityEntry.Merge(m, src)
+}
+func (m *ActivityEntry) XXX_Size() int {
+	return m.Size()
+}
+func (m *ActivityEntry) XXX_DiscardUnknown() {
+	xxx_messageInfo_ActivityEntry.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ActivityEntry proto.InternalMessageInfo
+
+func (m *ActivityEntry) GetRouteAdded() *AccountServices {
+	if m != nil {
+		return m.RouteAdded
+	}
+	return nil
+}
+
+func (m *ActivityEntry) GetRouteRemoved() *ULID {
+	if m != nil {
+		return m.RouteRemoved
+	}
+	return nil
+}
+
 type ConfigRequest struct {
 	Hub       *ULID  `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
 	PublicIp  string `protobuf:"bytes,2,opt,name=public_ip,json=publicIp,proto3" json:"public_ip,omitempty"`
@@ -377,7 +428,7 @@ type ConfigRequest struct {
 func (m *ConfigRequest) Reset()      { *m = ConfigRequest{} }
 func (*ConfigRequest) ProtoMessage() {}
 func (*ConfigRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{6}
+	return fileDescriptor_0c5120591600887d, []int{7}
 }
 func (m *ConfigRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -436,7 +487,7 @@ type ConfigResponse struct {
 func (m *ConfigResponse) Reset()      { *m = ConfigResponse{} }
 func (*ConfigResponse) ProtoMessage() {}
 func (*ConfigResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{7}
+	return fileDescriptor_0c5120591600887d, []int{8}
 }
 func (m *ConfigResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -486,6 +537,207 @@ func (m *ConfigResponse) GetSerfKey() []byte {
 	return nil
 }
 
+type CentralActivity struct {
+	AccountServices []*AccountServices `protobuf:"bytes,1,rep,name=account_services,json=accountServices,proto3" json:"account_services,omitempty"`
+	RequestStats    bool               `protobuf:"varint,2,opt,name=request_stats,json=requestStats,proto3" json:"request_stats,omitempty"`
+	NewLabelLinks   *LabelLinks        `protobuf:"bytes,3,opt,name=new_label_links,json=newLabelLinks,proto3" json:"new_label_links,omitempty"`
+}
+
+func (m *CentralActivity) Reset()      { *m = CentralActivity{} }
+func (*CentralActivity) ProtoMessage() {}
+func (*CentralActivity) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{9}
+}
+func (m *CentralActivity) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *CentralActivity) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_CentralActivity.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *CentralActivity) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CentralActivity.Merge(m, src)
+}
+func (m *CentralActivity) XXX_Size() int {
+	return m.Size()
+}
+func (m *CentralActivity) XXX_DiscardUnknown() {
+	xxx_messageInfo_CentralActivity.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CentralActivity proto.InternalMessageInfo
+
+func (m *CentralActivity) GetAccountServices() []*AccountServices {
+	if m != nil {
+		return m.AccountServices
+	}
+	return nil
+}
+
+func (m *CentralActivity) GetRequestStats() bool {
+	if m != nil {
+		return m.RequestStats
+	}
+	return false
+}
+
+func (m *CentralActivity) GetNewLabelLinks() *LabelLinks {
+	if m != nil {
+		return m.NewLabelLinks
+	}
+	return nil
+}
+
+type HubActivity struct {
+	Hub    *ULID                 `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
+	SentAt *Timestamp            `protobuf:"bytes,2,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	Stats  *HubActivity_HubStats `protobuf:"bytes,3,opt,name=stats,proto3" json:"stats,omitempty"`
+}
+
+func (m *HubActivity) Reset()      { *m = HubActivity{} }
+func (*HubActivity) ProtoMessage() {}
+func (*HubActivity) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{10}
+}
+func (m *HubActivity) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HubActivity) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HubActivity.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HubActivity) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubActivity.Merge(m, src)
+}
+func (m *HubActivity) XXX_Size() int {
+	return m.Size()
+}
+func (m *HubActivity) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubActivity.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HubActivity proto.InternalMessageInfo
+
+func (m *HubActivity) GetHub() *ULID {
+	if m != nil {
+		return m.Hub
+	}
+	return nil
+}
+
+func (m *HubActivity) GetSentAt() *Timestamp {
+	if m != nil {
+		return m.SentAt
+	}
+	return nil
+}
+
+func (m *HubActivity) GetStats() *HubActivity_HubStats {
+	if m != nil {
+		return m.Stats
+	}
+	return nil
+}
+
+type HubActivity_HubStats struct {
+	AgentConnections     int64      `protobuf:"varint,1,opt,name=agent_connections,json=agentConnections,proto3" json:"agent_connections,omitempty"`
+	AccountsSeen         int64      `protobuf:"varint,2,opt,name=accounts_seen,json=accountsSeen,proto3" json:"accounts_seen,omitempty"`
+	AccountsCached       int64      `protobuf:"varint,3,opt,name=accounts_cached,json=accountsCached,proto3" json:"accounts_cached,omitempty"`
+	CachedBytes          int64      `protobuf:"varint,4,opt,name=cached_bytes,json=cachedBytes,proto3" json:"cached_bytes,omitempty"`
+	LastSuccessfulUpdate *Timestamp `protobuf:"bytes,5,opt,name=last_successful_update,json=lastSuccessfulUpdate,proto3" json:"last_successful_update,omitempty"`
+	LastAttemptedUpdate  *Timestamp `protobuf:"bytes,6,opt,name=last_attempted_update,json=lastAttemptedUpdate,proto3" json:"last_attempted_update,omitempty"`
+}
+
+func (m *HubActivity_HubStats) Reset()      { *m = HubActivity_HubStats{} }
+func (*HubActivity_HubStats) ProtoMessage() {}
+func (*HubActivity_HubStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{10, 0}
+}
+func (m *HubActivity_HubStats) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HubActivity_HubStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HubActivity_HubStats.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HubActivity_HubStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubActivity_HubStats.Merge(m, src)
+}
+func (m *HubActivity_HubStats) XXX_Size() int {
+	return m.Size()
+}
+func (m *HubActivity_HubStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubActivity_HubStats.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HubActivity_HubStats proto.InternalMessageInfo
+
+func (m *HubActivity_HubStats) GetAgentConnections() int64 {
+	if m != nil {
+		return m.AgentConnections
+	}
+	return 0
+}
+
+func (m *HubActivity_HubStats) GetAccountsSeen() int64 {
+	if m != nil {
+		return m.AccountsSeen
+	}
+	return 0
+}
+
+func (m *HubActivity_HubStats) GetAccountsCached() int64 {
+	if m != nil {
+		return m.AccountsCached
+	}
+	return 0
+}
+
+func (m *HubActivity_HubStats) GetCachedBytes() int64 {
+	if m != nil {
+		return m.CachedBytes
+	}
+	return 0
+}
+
+func (m *HubActivity_HubStats) GetLastSuccessfulUpdate() *Timestamp {
+	if m != nil {
+		return m.LastSuccessfulUpdate
+	}
+	return nil
+}
+
+func (m *HubActivity_HubStats) GetLastAttemptedUpdate() *Timestamp {
+	if m != nil {
+		return m.LastAttemptedUpdate
+	}
+	return nil
+}
+
 type AddLabelLinkRequest struct {
 	Labels  *LabelSet `protobuf:"bytes,1,opt,name=labels,proto3" json:"labels,omitempty"`
 	Account *Account  `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
@@ -495,7 +747,7 @@ type AddLabelLinkRequest struct {
 func (m *AddLabelLinkRequest) Reset()      { *m = AddLabelLinkRequest{} }
 func (*AddLabelLinkRequest) ProtoMessage() {}
 func (*AddLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{8}
+	return fileDescriptor_0c5120591600887d, []int{11}
 }
 func (m *AddLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -551,7 +803,7 @@ type Noop struct {
 func (m *Noop) Reset()      { *m = Noop{} }
 func (*Noop) ProtoMessage() {}
 func (*Noop) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{9}
+	return fileDescriptor_0c5120591600887d, []int{12}
 }
 func (m *Noop) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -588,7 +840,7 @@ type RemoveLabelLinkRequest struct {
 func (m *RemoveLabelLinkRequest) Reset()      { *m = RemoveLabelLinkRequest{} }
 func (*RemoveLabelLinkRequest) ProtoMessage() {}
 func (*RemoveLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{10}
+	return fileDescriptor_0c5120591600887d, []int{13}
 }
 func (m *RemoveLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -640,7 +892,7 @@ type CreateTokenRequest struct {
 func (m *CreateTokenRequest) Reset()      { *m = CreateTokenRequest{} }
 func (*CreateTokenRequest) ProtoMessage() {}
 func (*CreateTokenRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{11}
+	return fileDescriptor_0c5120591600887d, []int{14}
 }
 func (m *CreateTokenRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -697,7 +949,7 @@ type CreateTokenResponse struct {
 func (m *CreateTokenResponse) Reset()      { *m = CreateTokenResponse{} }
 func (*CreateTokenResponse) ProtoMessage() {}
 func (*CreateTokenResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{12}
+	return fileDescriptor_0c5120591600887d, []int{15}
 }
 func (m *CreateTokenResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -740,7 +992,7 @@ type ControlRegister struct {
 func (m *ControlRegister) Reset()      { *m = ControlRegister{} }
 func (*ControlRegister) ProtoMessage() {}
 func (*ControlRegister) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{13}
+	return fileDescriptor_0c5120591600887d, []int{16}
 }
 func (m *ControlRegister) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -783,7 +1035,7 @@ type ControlToken struct {
 func (m *ControlToken) Reset()      { *m = ControlToken{} }
 func (*ControlToken) ProtoMessage() {}
 func (*ControlToken) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{14}
+	return fileDescriptor_0c5120591600887d, []int{17}
 }
 func (m *ControlToken) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -826,8 +1078,12 @@ func init() {
 	proto.RegisterType((*LabelLinks)(nil), "pb.LabelLinks")
 	proto.RegisterType((*ServiceRoute)(nil), "pb.ServiceRoute")
 	proto.RegisterType((*AccountServices)(nil), "pb.AccountServices")
+	proto.RegisterType((*ActivityEntry)(nil), "pb.ActivityEntry")
 	proto.RegisterType((*ConfigRequest)(nil), "pb.ConfigRequest")
 	proto.RegisterType((*ConfigResponse)(nil), "pb.ConfigResponse")
+	proto.RegisterType((*CentralActivity)(nil), "pb.CentralActivity")
+	proto.RegisterType((*HubActivity)(nil), "pb.HubActivity")
+	proto.RegisterType((*HubActivity_HubStats)(nil), "pb.HubActivity.HubStats")
 	proto.RegisterType((*AddLabelLinkRequest)(nil), "pb.AddLabelLinkRequest")
 	proto.RegisterType((*Noop)(nil), "pb.Noop")
 	proto.RegisterType((*RemoveLabelLinkRequest)(nil), "pb.RemoveLabelLinkRequest")
@@ -840,61 +1096,81 @@ func init() {
 func init() { proto.RegisterFile("control.proto", fileDescriptor_0c5120591600887d) }
 
 var fileDescriptor_0c5120591600887d = []byte{
-	// 862 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0x4f, 0x6f, 0xe3, 0x44,
-	0x14, 0xf7, 0x38, 0xd9, 0x6c, 0xf2, 0x92, 0x34, 0xdb, 0x09, 0xda, 0x1a, 0x03, 0xa6, 0xb2, 0x0a,
-	0xaa, 0x04, 0xea, 0x4a, 0x6d, 0x05, 0x02, 0x81, 0x44, 0x37, 0x2b, 0x44, 0xd5, 0x82, 0x90, 0x77,
-	0xe1, 0x1a, 0x4d, 0xec, 0xd7, 0xec, 0xa8, 0x8e, 0x6d, 0xec, 0x71, 0xa4, 0x5c, 0x56, 0x1c, 0x39,
-	0xf2, 0x31, 0x38, 0xee, 0x27, 0xe0, 0xbc, 0x37, 0x7a, 0xdc, 0x13, 0xa2, 0xe9, 0x85, 0xe3, 0x7e,
-	0x04, 0x34, 0xe3, 0xb1, 0x9b, 0xf4, 0x4f, 0x54, 0x90, 0xb8, 0x79, 0xde, 0xfb, 0xbd, 0x37, 0xef,
-	0xf7, 0x9b, 0xf7, 0x9e, 0xa1, 0xeb, 0xc7, 0x91, 0x48, 0xe3, 0x70, 0x27, 0x49, 0x63, 0x11, 0x53,
-	0x33, 0x19, 0xd9, 0xbd, 0x00, 0x4f, 0xb2, 0x47, 0xe3, 0x78, 0x1c, 0x17, 0x46, 0xbb, 0x79, 0x3a,
-	0xd5, 0x5f, 0xed, 0x90, 0x8d, 0x50, 0x63, 0xed, 0x2e, 0xf3, 0xfd, 0x38, 0x8f, 0x84, 0x3e, 0x42,
-	0x1e, 0xf2, 0xa0, 0xc4, 0x89, 0xf8, 0x14, 0x23, 0x7d, 0xe8, 0x09, 0x3e, 0xc1, 0x4c, 0xb0, 0x49,
-	0x52, 0x18, 0xdc, 0x3f, 0x08, 0xac, 0x3d, 0xc5, 0x74, 0xca, 0x7d, 0xf4, 0xf0, 0xa7, 0x1c, 0x33,
-	0x41, 0x3f, 0x80, 0xfb, 0x3a, 0x9b, 0x45, 0x36, 0xc9, 0x76, 0x7b, 0xb7, 0xbd, 0x93, 0x8c, 0x76,
-	0x0e, 0x0a, 0x93, 0x57, 0xfa, 0xa8, 0x0d, 0xb5, 0xe7, 0xf9, 0xc8, 0x32, 0x15, 0xa4, 0x29, 0x21,
-	0x3f, 0x1c, 0x1f, 0x3e, 0xf1, 0xa4, 0x91, 0x5a, 0x60, 0xf2, 0xc0, 0xaa, 0x5d, 0x71, 0x99, 0x3c,
-	0xa0, 0x14, 0xea, 0x62, 0x96, 0xa0, 0x55, 0xdf, 0x24, 0xdb, 0x2d, 0x4f, 0x7d, 0xd3, 0x2d, 0x68,
-	0x28, 0x2e, 0x99, 0x75, 0x4f, 0x45, 0x74, 0x64, 0xc4, 0xb1, 0xb4, 0x3c, 0x45, 0xe1, 0x69, 0x1f,
-	0xfd, 0x10, 0x9a, 0x13, 0x14, 0x2c, 0x60, 0x82, 0x59, 0x8d, 0xcd, 0xda, 0x76, 0x7b, 0x17, 0x24,
-	0xee, 0xe8, 0xc7, 0xef, 0x19, 0x4f, 0xbd, 0xca, 0xe7, 0xae, 0x43, 0xaf, 0x22, 0x94, 0x25, 0x71,
-	0x94, 0xa1, 0xfb, 0x02, 0x5a, 0x2a, 0xdd, 0x31, 0x8f, 0x4e, 0xef, 0x4a, 0xef, 0xb2, 0x28, 0x73,
-	0x45, 0x51, 0x5b, 0xd0, 0x10, 0x2c, 0x1d, 0xa3, 0xd0, 0x64, 0xaf, 0xa0, 0x0a, 0x9f, 0xfb, 0x05,
-	0x40, 0x75, 0x7f, 0x46, 0x77, 0xa0, 0x78, 0xba, 0x61, 0x28, 0x8f, 0x16, 0x51, 0x5c, 0xba, 0x55,
-	0xa0, 0x04, 0x79, 0x10, 0x56, 0x78, 0xf7, 0x05, 0x74, 0x4a, 0x42, 0x71, 0x2e, 0xb0, 0x14, 0x9e,
-	0xdc, 0x2e, 0xbc, 0xb9, 0x42, 0xf8, 0xda, 0x8d, 0xc2, 0xd7, 0x6f, 0xe7, 0xe8, 0x9e, 0x40, 0x4f,
-	0xab, 0xa3, 0xcb, 0xc8, 0xee, 0xaa, 0xe1, 0xc7, 0xd0, 0xcc, 0x74, 0x88, 0x65, 0x2a, 0x9a, 0x0f,
-	0x24, 0x6e, 0x91, 0x8d, 0x57, 0x21, 0xdc, 0x31, 0x74, 0x07, 0x71, 0x74, 0xc2, 0xc7, 0x65, 0x23,
-	0xae, 0x22, 0xfa, 0x0e, 0xb4, 0x92, 0x7c, 0x14, 0x72, 0x7f, 0xc8, 0x13, 0xc5, 0xb7, 0xe5, 0x35,
-	0x0b, 0xc3, 0x61, 0x42, 0xdf, 0x03, 0x48, 0x52, 0x3e, 0x65, 0x02, 0xa5, 0xb7, 0x60, 0xdc, 0xd2,
-	0x96, 0xc3, 0xc4, 0x1d, 0xc2, 0x5a, 0x79, 0x51, 0xd1, 0x20, 0x74, 0x03, 0xee, 0x8b, 0x30, 0x1b,
-	0x9e, 0xe2, 0x4c, 0xdd, 0xd6, 0xf1, 0x1a, 0x22, 0xcc, 0x8e, 0x70, 0x46, 0xdf, 0x86, 0xa6, 0x74,
-	0xf8, 0x98, 0x0a, 0x75, 0x4b, 0xc7, 0x93, 0xc0, 0x01, 0xa6, 0x42, 0xba, 0x32, 0x4c, 0x4f, 0x54,
-	0x50, 0xad, 0x70, 0xc9, 0xf3, 0x11, 0xce, 0xdc, 0x5f, 0x08, 0xf4, 0x0f, 0x82, 0xe0, 0xf2, 0x39,
-	0x35, 0xa1, 0x4b, 0xbd, 0xc9, 0x8a, 0x9e, 0x5a, 0x10, 0xd7, 0x5c, 0xdd, 0xa0, 0x77, 0x68, 0xbd,
-	0x06, 0xd4, 0xbf, 0x8b, 0xe3, 0xc4, 0x45, 0x78, 0xe8, 0xe1, 0x24, 0x9e, 0xe2, 0xff, 0x5a, 0x94,
-	0xfb, 0x92, 0x00, 0x1d, 0xa4, 0xc8, 0x04, 0x3e, 0x93, 0x5b, 0xe7, 0x5f, 0xae, 0x94, 0x2f, 0xa1,
-	0xe3, 0xb3, 0x84, 0x8d, 0x78, 0xc8, 0x05, 0xaf, 0x7a, 0xa6, 0x2f, 0xb1, 0x2a, 0xdd, 0xa0, 0x74,
-	0xce, 0x1e, 0xd7, 0x5f, 0xfd, 0xf9, 0xbe, 0xe1, 0x2d, 0xc1, 0xe9, 0x3e, 0xac, 0x4d, 0x59, 0xc8,
-	0x83, 0x61, 0x90, 0xa7, 0x4c, 0xf0, 0x38, 0xd2, 0xca, 0xa8, 0xd9, 0x7a, 0x56, 0x2e, 0x3e, 0xaf,
-	0xab, 0x40, 0x4f, 0x34, 0xc6, 0xfd, 0x08, 0xfa, 0x4b, 0x15, 0xeb, 0x96, 0x78, 0x0b, 0xee, 0xa9,
-	0xc5, 0xa9, 0x0a, 0x6e, 0x79, 0xc5, 0xc1, 0x7d, 0x04, 0xbd, 0x41, 0xb1, 0xa4, 0x3d, 0x1c, 0xf3,
-	0x4c, 0x60, 0x4a, 0xdf, 0x85, 0x56, 0xc4, 0x26, 0x98, 0x25, 0xcc, 0x47, 0x0d, 0xbe, 0x34, 0xb8,
-	0x5b, 0xd0, 0xd1, 0x01, 0x2a, 0xfd, 0xcd, 0x69, 0x77, 0x7f, 0x27, 0x55, 0xde, 0x6a, 0xc6, 0x3e,
-	0x05, 0x38, 0x08, 0x02, 0x7d, 0xa4, 0x74, 0x71, 0x70, 0x0a, 0x55, 0xed, 0xfe, 0x92, 0x4d, 0xef,
-	0x3a, 0x83, 0x7e, 0x0e, 0xdd, 0xe2, 0xa9, 0xff, 0x43, 0xec, 0x27, 0xd0, 0xfe, 0x1a, 0x85, 0xff,
-	0xbc, 0x98, 0x0f, 0xba, 0x2e, 0x51, 0x4b, 0x43, 0x69, 0xd3, 0x45, 0x53, 0x19, 0xb7, 0xfb, 0xd2,
-	0x84, 0x75, 0x4d, 0xe0, 0x5b, 0x16, 0xb1, 0x31, 0x4e, 0x30, 0x12, 0x74, 0x0f, 0x9a, 0x95, 0x4c,
-	0x7d, 0x1d, 0xb7, 0xa8, 0x9d, 0xfd, 0x60, 0xc1, 0xa8, 0xf4, 0x71, 0x0d, 0xba, 0x07, 0x9d, 0xc5,
-	0xd9, 0xa1, 0x1b, 0xaa, 0x55, 0xae, 0x4f, 0x93, 0xad, 0x36, 0x82, 0x6a, 0x6e, 0x83, 0x7e, 0x06,
-	0xbd, 0x2b, 0xed, 0x4d, 0x6d, 0xe9, 0xbe, 0xb9, 0xe7, 0x97, 0x42, 0xbf, 0x82, 0xf6, 0xc2, 0xfb,
-	0xd3, 0x87, 0xaa, 0xa4, 0x6b, 0x2d, 0x6c, 0x6f, 0x5c, 0xb3, 0x57, 0xa2, 0xed, 0x43, 0xf7, 0x30,
-	0xcb, 0x72, 0xfc, 0x26, 0x1f, 0x15, 0x39, 0xaa, 0xf4, 0x2b, 0xa2, 0x1e, 0xef, 0x9f, 0x9d, 0x3b,
-	0xc6, 0xeb, 0x73, 0xc7, 0x78, 0x73, 0xee, 0x90, 0x9f, 0xe7, 0x0e, 0xf9, 0x6d, 0xee, 0x90, 0x57,
-	0x73, 0x87, 0x9c, 0xcd, 0x1d, 0xf2, 0xd7, 0xdc, 0x21, 0x7f, 0xcf, 0x1d, 0xe3, 0xcd, 0xdc, 0x21,
-	0xbf, 0x5e, 0x38, 0xc6, 0xd9, 0x85, 0x63, 0xbc, 0xbe, 0x70, 0x8c, 0x51, 0x43, 0xfd, 0xb6, 0xf7,
-	0xfe, 0x09, 0x00, 0x00, 0xff, 0xff, 0x1a, 0xd4, 0xdd, 0xf0, 0x2c, 0x08, 0x00, 0x00,
+	// 1184 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x4d, 0x8f, 0xdb, 0x54,
+	0x17, 0x8e, 0x93, 0x69, 0x9a, 0x9c, 0x24, 0x93, 0x99, 0x3b, 0x7d, 0xdb, 0xbc, 0x01, 0x4c, 0x31,
+	0xa5, 0x8c, 0x54, 0x98, 0xa2, 0xe9, 0xa8, 0x08, 0x54, 0x10, 0x69, 0x0a, 0xea, 0xa8, 0x05, 0xa1,
+	0x9b, 0x96, 0xad, 0x75, 0x63, 0x9f, 0x49, 0xad, 0x71, 0x6c, 0xe3, 0x7b, 0x9d, 0x2a, 0x9b, 0x8a,
+	0x25, 0x4b, 0x7e, 0x06, 0x2b, 0xd4, 0x05, 0x3f, 0xa2, 0x3b, 0xba, 0xec, 0x0a, 0xd1, 0x74, 0xc3,
+	0xb2, 0x3f, 0x80, 0x05, 0xba, 0x1f, 0x76, 0x3e, 0x66, 0x1a, 0x15, 0x24, 0x76, 0xb9, 0xcf, 0x79,
+	0xce, 0xd7, 0x73, 0xef, 0x39, 0x0e, 0xb4, 0xbc, 0x38, 0x12, 0x69, 0x1c, 0xee, 0x25, 0x69, 0x2c,
+	0x62, 0x52, 0x4e, 0x86, 0xdd, 0xb6, 0x8f, 0x47, 0xfc, 0xea, 0x28, 0x1e, 0xc5, 0x1a, 0xec, 0xd6,
+	0x8e, 0x27, 0xe6, 0x57, 0x23, 0x64, 0x43, 0x34, 0xdc, 0x6e, 0x8b, 0x79, 0x5e, 0x9c, 0x45, 0xc2,
+	0x1c, 0x21, 0x0b, 0x03, 0x3f, 0xe7, 0x89, 0xf8, 0x18, 0x23, 0x73, 0x68, 0x8b, 0x60, 0x8c, 0x5c,
+	0xb0, 0x71, 0xa2, 0x01, 0xe7, 0x37, 0x0b, 0x36, 0x07, 0x98, 0x4e, 0x02, 0x0f, 0x29, 0x7e, 0x9f,
+	0x21, 0x17, 0xe4, 0x3d, 0x38, 0x6b, 0xa2, 0x75, 0xac, 0x8b, 0xd6, 0x6e, 0x63, 0xbf, 0xb1, 0x97,
+	0x0c, 0xf7, 0x7a, 0x1a, 0xa2, 0xb9, 0x8d, 0x74, 0xa1, 0xf2, 0x20, 0x1b, 0x76, 0xca, 0x8a, 0x52,
+	0x93, 0x94, 0xfb, 0x77, 0x0f, 0x6f, 0x51, 0x09, 0x92, 0x0e, 0x94, 0x03, 0xbf, 0x53, 0x59, 0x31,
+	0x95, 0x03, 0x9f, 0x10, 0xd8, 0x10, 0xd3, 0x04, 0x3b, 0x1b, 0x17, 0xad, 0xdd, 0x3a, 0x55, 0xbf,
+	0xc9, 0x25, 0xa8, 0xaa, 0x5e, 0x78, 0xe7, 0x8c, 0xf2, 0x68, 0x4a, 0x8f, 0xbb, 0x12, 0x19, 0xa0,
+	0xa0, 0xc6, 0x46, 0x2e, 0x43, 0x6d, 0x8c, 0x82, 0xf9, 0x4c, 0xb0, 0x4e, 0xf5, 0x62, 0x65, 0xb7,
+	0xb1, 0x0f, 0x92, 0x77, 0xe7, 0xbb, 0x6f, 0x59, 0x90, 0xd2, 0xc2, 0xe6, 0x6c, 0x43, 0xbb, 0x68,
+	0x88, 0x27, 0x71, 0xc4, 0xd1, 0x79, 0x04, 0x75, 0x15, 0xee, 0x6e, 0x10, 0x1d, 0xbf, 0x6e, 0x7b,
+	0xf3, 0xa2, 0xca, 0x6b, 0x8a, 0xba, 0x04, 0x55, 0xc1, 0xd2, 0x11, 0x0a, 0xd3, 0xec, 0x0a, 0x4b,
+	0xdb, 0x9c, 0x1b, 0x00, 0x45, 0x7e, 0x4e, 0xf6, 0x40, 0x5f, 0x9d, 0x1b, 0xca, 0x63, 0xc7, 0x52,
+	0xbd, 0xb4, 0x0a, 0x47, 0x49, 0xa2, 0x10, 0x16, 0x7c, 0xe7, 0x11, 0x34, 0xf3, 0x86, 0xe2, 0x4c,
+	0x60, 0x2e, 0xbc, 0xf5, 0x6a, 0xe1, 0xcb, 0x6b, 0x84, 0xaf, 0x9c, 0x2a, 0xfc, 0xc6, 0xab, 0x7b,
+	0x74, 0x8e, 0xa0, 0x6d, 0xd4, 0x31, 0x65, 0xf0, 0xd7, 0xd5, 0xf0, 0x03, 0xa8, 0x71, 0xe3, 0xd2,
+	0x29, 0xab, 0x36, 0xb7, 0x24, 0x6f, 0xb1, 0x1b, 0x5a, 0x30, 0x1c, 0x01, 0xad, 0x9e, 0x27, 0x82,
+	0x49, 0x20, 0xa6, 0x5f, 0x46, 0x22, 0x9d, 0x92, 0x03, 0x68, 0xa4, 0x92, 0xe3, 0x32, 0xdf, 0x47,
+	0xdf, 0x64, 0xda, 0x59, 0xc8, 0x94, 0xd7, 0x43, 0x41, 0xf1, 0x7a, 0x92, 0x46, 0x3e, 0x84, 0x96,
+	0xf6, 0x4a, 0x71, 0x1c, 0x4f, 0xf0, 0xa4, 0x1a, 0x4d, 0x65, 0xa6, 0xda, 0xea, 0x8c, 0xa0, 0xd5,
+	0x8f, 0xa3, 0xa3, 0x60, 0x94, 0x3f, 0xff, 0x75, 0xf2, 0xbe, 0x01, 0xf5, 0x24, 0x1b, 0x86, 0x81,
+	0xe7, 0x06, 0x89, 0x8a, 0x5b, 0xa7, 0x35, 0x0d, 0x1c, 0x26, 0xe4, 0x2d, 0x80, 0x24, 0x0d, 0x26,
+	0x4c, 0xa0, 0xb4, 0x6a, 0x9d, 0xeb, 0x06, 0x39, 0x4c, 0x1c, 0x17, 0x36, 0xf3, 0x44, 0xfa, 0x59,
+	0x92, 0x0b, 0x70, 0x56, 0x84, 0xdc, 0x3d, 0xc6, 0xa9, 0xca, 0xd6, 0xa4, 0x55, 0x11, 0xf2, 0x3b,
+	0x38, 0x25, 0xff, 0x87, 0x9a, 0x34, 0x78, 0x98, 0x0a, 0x95, 0xa5, 0x49, 0x25, 0xb1, 0x8f, 0xa9,
+	0x90, 0x26, 0x8e, 0xe9, 0x91, 0x72, 0xaa, 0x68, 0x93, 0x3c, 0xdf, 0xc1, 0xa9, 0xf3, 0x8b, 0x05,
+	0xed, 0x3e, 0x46, 0x22, 0x65, 0x61, 0xae, 0x23, 0xf9, 0x1c, 0xb6, 0xcc, 0x65, 0xb8, 0xc5, 0x4d,
+	0xe8, 0x07, 0x77, 0xaa, 0x8e, 0x6d, 0xb6, 0x72, 0xd1, 0xef, 0x42, 0x2b, 0xd5, 0xba, 0xb8, 0x5c,
+	0x30, 0xa1, 0x87, 0xa1, 0x46, 0x9b, 0x06, 0x1c, 0x48, 0x8c, 0x5c, 0x87, 0x76, 0x84, 0x0f, 0xdd,
+	0xc5, 0x47, 0xad, 0xa7, 0x61, 0x73, 0xe9, 0x51, 0x73, 0xda, 0x8a, 0xf0, 0xe1, 0xfc, 0xe8, 0xfc,
+	0x5a, 0x81, 0xc6, 0xed, 0x6c, 0x58, 0x14, 0xbb, 0x4e, 0xf9, 0xcb, 0x70, 0x96, 0x63, 0x24, 0x5c,
+	0x26, 0xcc, 0x7d, 0xaa, 0x81, 0xb9, 0x97, 0x6f, 0x33, 0x5a, 0x95, 0xd6, 0x9e, 0x20, 0x7b, 0x70,
+	0x46, 0x17, 0xaa, 0x2b, 0xe8, 0x48, 0xd6, 0x42, 0x0e, 0xf9, 0x5b, 0x15, 0x4d, 0x35, 0xad, 0xfb,
+	0xb8, 0x0c, 0xb5, 0x1c, 0x23, 0x57, 0x60, 0x9b, 0x8d, 0x64, 0x16, 0x2f, 0x8e, 0x22, 0xf4, 0x44,
+	0x10, 0x47, 0x5c, 0x95, 0x53, 0xa1, 0x5b, 0xca, 0xd0, 0x9f, 0xe3, 0x52, 0x1a, 0xa3, 0x16, 0x77,
+	0x39, 0x62, 0xa4, 0xea, 0xaa, 0xd0, 0x66, 0x0e, 0x0e, 0x10, 0x23, 0xf2, 0x3e, 0xb4, 0x0b, 0x92,
+	0xc7, 0xbc, 0x07, 0xa8, 0xb7, 0x62, 0x85, 0x6e, 0xe6, 0x70, 0x5f, 0xa1, 0xe4, 0x1d, 0x68, 0x6a,
+	0xbb, 0x3b, 0x9c, 0x0a, 0xd4, 0x03, 0x59, 0xa1, 0x0d, 0x8d, 0xdd, 0x94, 0x10, 0xe9, 0xc3, 0xf9,
+	0x90, 0xc9, 0x8b, 0xc8, 0x3c, 0x0f, 0x39, 0x3f, 0xca, 0x42, 0x37, 0x4b, 0x7c, 0x26, 0xd0, 0xac,
+	0xcd, 0x15, 0x45, 0xce, 0x49, 0xf2, 0xa0, 0xe0, 0xde, 0x57, 0x54, 0xd2, 0x83, 0xff, 0xa9, 0x20,
+	0x4c, 0x08, 0x1c, 0x27, 0x02, 0xfd, 0x3c, 0x46, 0xf5, 0xb4, 0x18, 0x3b, 0x92, 0xdb, 0xcb, 0xa9,
+	0x3a, 0x84, 0xf3, 0xa3, 0x05, 0x3b, 0x3d, 0xdf, 0x9f, 0x2f, 0x2b, 0x33, 0x38, 0xf3, 0x6d, 0x62,
+	0xad, 0xd9, 0x98, 0x0b, 0xab, 0xa3, 0xbc, 0x7e, 0xfd, 0xbe, 0xc6, 0x62, 0xad, 0xc2, 0xc6, 0x37,
+	0x71, 0x9c, 0x38, 0x08, 0xe7, 0xf5, 0x3c, 0xff, 0xa7, 0x45, 0x39, 0x8f, 0x2d, 0x20, 0xfd, 0x14,
+	0x99, 0xc0, 0x7b, 0xf2, 0x9b, 0xfa, 0x0f, 0x3f, 0x98, 0x9f, 0xc9, 0x2b, 0x4e, 0xd8, 0x30, 0x08,
+	0x03, 0x11, 0x14, 0x1b, 0x51, 0xcd, 0xa1, 0x0a, 0xd7, 0xcf, 0x8d, 0xd3, 0x9b, 0x1b, 0x4f, 0x7e,
+	0x7f, 0xbb, 0x44, 0x97, 0xe8, 0xe4, 0x00, 0x36, 0x27, 0x2c, 0x0c, 0x7c, 0xd7, 0xcf, 0x52, 0x26,
+	0x9f, 0xa0, 0x51, 0x66, 0xe5, 0xca, 0x5a, 0x8a, 0x74, 0xcb, 0x70, 0x9c, 0x2b, 0xb0, 0xb3, 0x54,
+	0xb1, 0x59, 0x3d, 0xe7, 0xe0, 0x8c, 0xfa, 0x5b, 0xa0, 0x0a, 0xae, 0x53, 0x7d, 0x70, 0xae, 0x42,
+	0xbb, 0xaf, 0xff, 0x82, 0x50, 0x1c, 0x05, 0x5c, 0x60, 0x4a, 0xde, 0x84, 0x7a, 0xc4, 0xc6, 0xc8,
+	0x13, 0xe6, 0xa1, 0x21, 0xcf, 0x01, 0xe7, 0x12, 0x34, 0x8d, 0x83, 0x0a, 0x7f, 0x7a, 0xd8, 0xfd,
+	0xbf, 0xac, 0x22, 0x6e, 0xb1, 0x58, 0x3e, 0x06, 0xe8, 0xf9, 0xbe, 0x39, 0x12, 0xb2, 0xf8, 0x59,
+	0xd0, 0xaa, 0x76, 0x77, 0x96, 0x30, 0xf3, 0x25, 0x2f, 0x91, 0x4f, 0xa1, 0xa5, 0xaf, 0xfa, 0x5f,
+	0xf8, 0x5e, 0x87, 0xc6, 0x57, 0x28, 0xbc, 0x07, 0x7a, 0x0f, 0x93, 0x6d, 0xc9, 0x5a, 0x5a, 0xfe,
+	0x5d, 0xb2, 0x08, 0x15, 0x7e, 0x37, 0x60, 0x73, 0x20, 0x52, 0x64, 0xe3, 0x62, 0x55, 0xb5, 0x57,
+	0xf6, 0x8a, 0xce, 0xb8, 0xb2, 0x7d, 0x9d, 0xd2, 0xae, 0xf5, 0x91, 0xb5, 0xff, 0xb8, 0x0c, 0xdb,
+	0xa6, 0xfd, 0xaf, 0x59, 0xc4, 0x46, 0x38, 0xc6, 0x48, 0x90, 0x6b, 0x50, 0x2b, 0x44, 0xde, 0x31,
+	0x59, 0x17, 0x95, 0xef, 0x6e, 0x2d, 0x80, 0x4a, 0x5d, 0xa7, 0x44, 0xae, 0x41, 0x73, 0x71, 0xf2,
+	0xc8, 0x05, 0xf5, 0xd0, 0x4e, 0xce, 0x62, 0x57, 0x6d, 0x4f, 0x35, 0x1a, 0x25, 0xf2, 0x09, 0xb4,
+	0x57, 0x86, 0x83, 0x74, 0xa5, 0xf9, 0xf4, 0x89, 0x59, 0x72, 0xfd, 0x02, 0x1a, 0x0b, 0xaf, 0x87,
+	0x9c, 0x57, 0x25, 0x9d, 0x18, 0x80, 0xee, 0x85, 0x13, 0x78, 0x21, 0xdd, 0x01, 0xb4, 0x0e, 0x39,
+	0xcf, 0xf0, 0x76, 0x36, 0xd4, 0x31, 0x8a, 0xf0, 0x6b, 0xbc, 0x6e, 0x1e, 0x3c, 0x7d, 0x6e, 0x97,
+	0x9e, 0x3d, 0xb7, 0x4b, 0x2f, 0x9f, 0xdb, 0xd6, 0x0f, 0x33, 0xdb, 0xfa, 0x79, 0x66, 0x5b, 0x4f,
+	0x66, 0xb6, 0xf5, 0x74, 0x66, 0x5b, 0x7f, 0xcc, 0x6c, 0xeb, 0xcf, 0x99, 0x5d, 0x7a, 0x39, 0xb3,
+	0xad, 0x9f, 0x5e, 0xd8, 0xa5, 0xa7, 0x2f, 0xec, 0xd2, 0xb3, 0x17, 0x76, 0x69, 0x58, 0x55, 0x7f,
+	0x69, 0xaf, 0xfd, 0x1d, 0x00, 0x00, 0xff, 0xff, 0xe1, 0x87, 0xb9, 0xc8, 0x48, 0x0b, 0x00, 0x00,
 }
 
 func (this *ServiceRequest) Equal(that interface{}) bool {
@@ -1086,6 +1362,33 @@ func (this *AccountServices) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *ActivityEntry) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ActivityEntry)
+	if !ok {
+		that2, ok := that.(ActivityEntry)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.RouteAdded.Equal(that1.RouteAdded) {
+		return false
+	}
+	if !this.RouteRemoved.Equal(that1.RouteRemoved) {
+		return false
+	}
+	return true
+}
 func (this *ConfigRequest) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -1142,6 +1445,110 @@ func (this *ConfigResponse) Equal(that interface{}) bool {
 		return false
 	}
 	if !bytes.Equal(this.SerfKey, that1.SerfKey) {
+		return false
+	}
+	return true
+}
+func (this *CentralActivity) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*CentralActivity)
+	if !ok {
+		that2, ok := that.(CentralActivity)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if len(this.AccountServices) != len(that1.AccountServices) {
+		return false
+	}
+	for i := range this.AccountServices {
+		if !this.AccountServices[i].Equal(that1.AccountServices[i]) {
+			return false
+		}
+	}
+	if this.RequestStats != that1.RequestStats {
+		return false
+	}
+	if !this.NewLabelLinks.Equal(that1.NewLabelLinks) {
+		return false
+	}
+	return true
+}
+func (this *HubActivity) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HubActivity)
+	if !ok {
+		that2, ok := that.(HubActivity)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Hub.Equal(that1.Hub) {
+		return false
+	}
+	if !this.SentAt.Equal(that1.SentAt) {
+		return false
+	}
+	if !this.Stats.Equal(that1.Stats) {
+		return false
+	}
+	return true
+}
+func (this *HubActivity_HubStats) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HubActivity_HubStats)
+	if !ok {
+		that2, ok := that.(HubActivity_HubStats)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.AgentConnections != that1.AgentConnections {
+		return false
+	}
+	if this.AccountsSeen != that1.AccountsSeen {
+		return false
+	}
+	if this.AccountsCached != that1.AccountsCached {
+		return false
+	}
+	if this.CachedBytes != that1.CachedBytes {
+		return false
+	}
+	if !this.LastSuccessfulUpdate.Equal(that1.LastSuccessfulUpdate) {
+		return false
+	}
+	if !this.LastAttemptedUpdate.Equal(that1.LastAttemptedUpdate) {
 		return false
 	}
 	return true
@@ -1429,6 +1836,21 @@ func (this *AccountServices) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
+func (this *ActivityEntry) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&pb.ActivityEntry{")
+	if this.RouteAdded != nil {
+		s = append(s, "RouteAdded: "+fmt.Sprintf("%#v", this.RouteAdded)+",\n")
+	}
+	if this.RouteRemoved != nil {
+		s = append(s, "RouteRemoved: "+fmt.Sprintf("%#v", this.RouteRemoved)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
 func (this *ConfigRequest) GoString() string {
 	if this == nil {
 		return "nil"
@@ -1452,6 +1874,59 @@ func (this *ConfigResponse) GoString() string {
 	s = append(s, "TlsKey: "+fmt.Sprintf("%#v", this.TlsKey)+",\n")
 	s = append(s, "TlsCert: "+fmt.Sprintf("%#v", this.TlsCert)+",\n")
 	s = append(s, "SerfKey: "+fmt.Sprintf("%#v", this.SerfKey)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *CentralActivity) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&pb.CentralActivity{")
+	if this.AccountServices != nil {
+		s = append(s, "AccountServices: "+fmt.Sprintf("%#v", this.AccountServices)+",\n")
+	}
+	s = append(s, "RequestStats: "+fmt.Sprintf("%#v", this.RequestStats)+",\n")
+	if this.NewLabelLinks != nil {
+		s = append(s, "NewLabelLinks: "+fmt.Sprintf("%#v", this.NewLabelLinks)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *HubActivity) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&pb.HubActivity{")
+	if this.Hub != nil {
+		s = append(s, "Hub: "+fmt.Sprintf("%#v", this.Hub)+",\n")
+	}
+	if this.SentAt != nil {
+		s = append(s, "SentAt: "+fmt.Sprintf("%#v", this.SentAt)+",\n")
+	}
+	if this.Stats != nil {
+		s = append(s, "Stats: "+fmt.Sprintf("%#v", this.Stats)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *HubActivity_HubStats) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 10)
+	s = append(s, "&pb.HubActivity_HubStats{")
+	s = append(s, "AgentConnections: "+fmt.Sprintf("%#v", this.AgentConnections)+",\n")
+	s = append(s, "AccountsSeen: "+fmt.Sprintf("%#v", this.AccountsSeen)+",\n")
+	s = append(s, "AccountsCached: "+fmt.Sprintf("%#v", this.AccountsCached)+",\n")
+	s = append(s, "CachedBytes: "+fmt.Sprintf("%#v", this.CachedBytes)+",\n")
+	if this.LastSuccessfulUpdate != nil {
+		s = append(s, "LastSuccessfulUpdate: "+fmt.Sprintf("%#v", this.LastSuccessfulUpdate)+",\n")
+	}
+	if this.LastAttemptedUpdate != nil {
+		s = append(s, "LastAttemptedUpdate: "+fmt.Sprintf("%#v", this.LastAttemptedUpdate)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -1573,6 +2048,7 @@ type ControlServicesClient interface {
 	AddService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error)
 	RemoveService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error)
 	FetchConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
+	StreamActivity(ctx context.Context, opts ...grpc.CallOption) (ControlServices_StreamActivityClient, error)
 }
 
 type controlServicesClient struct {
@@ -1610,11 +2086,43 @@ func (c *controlServicesClient) FetchConfig(ctx context.Context, in *ConfigReque
 	return out, nil
 }
 
+func (c *controlServicesClient) StreamActivity(ctx context.Context, opts ...grpc.CallOption) (ControlServices_StreamActivityClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_ControlServices_serviceDesc.Streams[0], "/pb.ControlServices/StreamActivity", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &controlServicesStreamActivityClient{stream}
+	return x, nil
+}
+
+type ControlServices_StreamActivityClient interface {
+	Send(*HubActivity) error
+	Recv() (*CentralActivity, error)
+	grpc.ClientStream
+}
+
+type controlServicesStreamActivityClient struct {
+	grpc.ClientStream
+}
+
+func (x *controlServicesStreamActivityClient) Send(m *HubActivity) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *controlServicesStreamActivityClient) Recv() (*CentralActivity, error) {
+	m := new(CentralActivity)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 // ControlServicesServer is the server API for ControlServices service.
 type ControlServicesServer interface {
 	AddService(context.Context, *ServiceRequest) (*ServiceResponse, error)
 	RemoveService(context.Context, *ServiceRequest) (*ServiceResponse, error)
 	FetchConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
+	StreamActivity(ControlServices_StreamActivityServer) error
 }
 
 // UnimplementedControlServicesServer can be embedded to have forward compatible implementations.
@@ -1629,6 +2137,9 @@ func (*UnimplementedControlServicesServer) RemoveService(ctx context.Context, re
 }
 func (*UnimplementedControlServicesServer) FetchConfig(ctx context.Context, req *ConfigRequest) (*ConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FetchConfig not implemented")
+}
+func (*UnimplementedControlServicesServer) StreamActivity(srv ControlServices_StreamActivityServer) error {
+	return status.Errorf(codes.Unimplemented, "method StreamActivity not implemented")
 }
 
 func RegisterControlServicesServer(s *grpc.Server, srv ControlServicesServer) {
@@ -1689,6 +2200,32 @@ func _ControlServices_FetchConfig_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlServices_StreamActivity_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(ControlServicesServer).StreamActivity(&controlServicesStreamActivityServer{stream})
+}
+
+type ControlServices_StreamActivityServer interface {
+	Send(*CentralActivity) error
+	Recv() (*HubActivity, error)
+	grpc.ServerStream
+}
+
+type controlServicesStreamActivityServer struct {
+	grpc.ServerStream
+}
+
+func (x *controlServicesStreamActivityServer) Send(m *CentralActivity) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *controlServicesStreamActivityServer) Recv() (*HubActivity, error) {
+	m := new(HubActivity)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 var _ControlServices_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pb.ControlServices",
 	HandlerType: (*ControlServicesServer)(nil),
@@ -1706,7 +2243,14 @@ var _ControlServices_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ControlServices_FetchConfig_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StreamActivity",
+			Handler:       _ControlServices_StreamActivity_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
+		},
+	},
 	Metadata: "control.proto",
 }
 
@@ -2252,6 +2796,53 @@ func (m *AccountServices) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ActivityEntry) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ActivityEntry) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ActivityEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.RouteRemoved != nil {
+		{
+			size, err := m.RouteRemoved.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.RouteAdded != nil {
+		{
+			size, err := m.RouteAdded.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *ConfigRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -2341,6 +2932,191 @@ func (m *ConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i = encodeVarintControl(dAtA, i, uint64(len(m.TlsKey)))
 		i--
 		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *CentralActivity) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *CentralActivity) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *CentralActivity) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.NewLabelLinks != nil {
+		{
+			size, err := m.NewLabelLinks.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.RequestStats {
+		i--
+		if m.RequestStats {
+			dAtA[i] = 1
+		} else {
+			dAtA[i] = 0
+		}
+		i--
+		dAtA[i] = 0x10
+	}
+	if len(m.AccountServices) > 0 {
+		for iNdEx := len(m.AccountServices) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.AccountServices[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintControl(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *HubActivity) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HubActivity) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HubActivity) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Stats != nil {
+		{
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.SentAt != nil {
+		{
+			size, err := m.SentAt.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Hub != nil {
+		{
+			size, err := m.Hub.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *HubActivity_HubStats) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HubActivity_HubStats) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HubActivity_HubStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.LastAttemptedUpdate != nil {
+		{
+			size, err := m.LastAttemptedUpdate.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.LastSuccessfulUpdate != nil {
+		{
+			size, err := m.LastSuccessfulUpdate.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.CachedBytes != 0 {
+		i = encodeVarintControl(dAtA, i, uint64(m.CachedBytes))
+		i--
+		dAtA[i] = 0x20
+	}
+	if m.AccountsCached != 0 {
+		i = encodeVarintControl(dAtA, i, uint64(m.AccountsCached))
+		i--
+		dAtA[i] = 0x18
+	}
+	if m.AccountsSeen != 0 {
+		i = encodeVarintControl(dAtA, i, uint64(m.AccountsSeen))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.AgentConnections != 0 {
+		i = encodeVarintControl(dAtA, i, uint64(m.AgentConnections))
+		i--
+		dAtA[i] = 0x8
 	}
 	return len(dAtA) - i, nil
 }
@@ -2760,6 +3536,23 @@ func (m *AccountServices) Size() (n int) {
 	return n
 }
 
+func (m *ActivityEntry) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.RouteAdded != nil {
+		l = m.RouteAdded.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if m.RouteRemoved != nil {
+		l = m.RouteRemoved.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	return n
+}
+
 func (m *ConfigRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -2797,6 +3590,78 @@ func (m *ConfigResponse) Size() (n int) {
 	}
 	l = len(m.SerfKey)
 	if l > 0 {
+		n += 1 + l + sovControl(uint64(l))
+	}
+	return n
+}
+
+func (m *CentralActivity) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if len(m.AccountServices) > 0 {
+		for _, e := range m.AccountServices {
+			l = e.Size()
+			n += 1 + l + sovControl(uint64(l))
+		}
+	}
+	if m.RequestStats {
+		n += 2
+	}
+	if m.NewLabelLinks != nil {
+		l = m.NewLabelLinks.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	return n
+}
+
+func (m *HubActivity) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Hub != nil {
+		l = m.Hub.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if m.SentAt != nil {
+		l = m.SentAt.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if m.Stats != nil {
+		l = m.Stats.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	return n
+}
+
+func (m *HubActivity_HubStats) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.AgentConnections != 0 {
+		n += 1 + sovControl(uint64(m.AgentConnections))
+	}
+	if m.AccountsSeen != 0 {
+		n += 1 + sovControl(uint64(m.AccountsSeen))
+	}
+	if m.AccountsCached != 0 {
+		n += 1 + sovControl(uint64(m.AccountsCached))
+	}
+	if m.CachedBytes != 0 {
+		n += 1 + sovControl(uint64(m.CachedBytes))
+	}
+	if m.LastSuccessfulUpdate != nil {
+		l = m.LastSuccessfulUpdate.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if m.LastAttemptedUpdate != nil {
+		l = m.LastAttemptedUpdate.Size()
 		n += 1 + l + sovControl(uint64(l))
 	}
 	return n
@@ -3002,6 +3867,17 @@ func (this *AccountServices) String() string {
 	}, "")
 	return s
 }
+func (this *ActivityEntry) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&ActivityEntry{`,
+		`RouteAdded:` + strings.Replace(this.RouteAdded.String(), "AccountServices", "AccountServices", 1) + `,`,
+		`RouteRemoved:` + strings.Replace(fmt.Sprintf("%v", this.RouteRemoved), "ULID", "ULID", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *ConfigRequest) String() string {
 	if this == nil {
 		return "nil"
@@ -3022,6 +3898,50 @@ func (this *ConfigResponse) String() string {
 		`TlsKey:` + fmt.Sprintf("%v", this.TlsKey) + `,`,
 		`TlsCert:` + fmt.Sprintf("%v", this.TlsCert) + `,`,
 		`SerfKey:` + fmt.Sprintf("%v", this.SerfKey) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *CentralActivity) String() string {
+	if this == nil {
+		return "nil"
+	}
+	repeatedStringForAccountServices := "[]*AccountServices{"
+	for _, f := range this.AccountServices {
+		repeatedStringForAccountServices += strings.Replace(f.String(), "AccountServices", "AccountServices", 1) + ","
+	}
+	repeatedStringForAccountServices += "}"
+	s := strings.Join([]string{`&CentralActivity{`,
+		`AccountServices:` + repeatedStringForAccountServices + `,`,
+		`RequestStats:` + fmt.Sprintf("%v", this.RequestStats) + `,`,
+		`NewLabelLinks:` + strings.Replace(this.NewLabelLinks.String(), "LabelLinks", "LabelLinks", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HubActivity) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HubActivity{`,
+		`Hub:` + strings.Replace(fmt.Sprintf("%v", this.Hub), "ULID", "ULID", 1) + `,`,
+		`SentAt:` + strings.Replace(fmt.Sprintf("%v", this.SentAt), "Timestamp", "Timestamp", 1) + `,`,
+		`Stats:` + strings.Replace(fmt.Sprintf("%v", this.Stats), "HubActivity_HubStats", "HubActivity_HubStats", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HubActivity_HubStats) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HubActivity_HubStats{`,
+		`AgentConnections:` + fmt.Sprintf("%v", this.AgentConnections) + `,`,
+		`AccountsSeen:` + fmt.Sprintf("%v", this.AccountsSeen) + `,`,
+		`AccountsCached:` + fmt.Sprintf("%v", this.AccountsCached) + `,`,
+		`CachedBytes:` + fmt.Sprintf("%v", this.CachedBytes) + `,`,
+		`LastSuccessfulUpdate:` + strings.Replace(fmt.Sprintf("%v", this.LastSuccessfulUpdate), "Timestamp", "Timestamp", 1) + `,`,
+		`LastAttemptedUpdate:` + strings.Replace(fmt.Sprintf("%v", this.LastAttemptedUpdate), "Timestamp", "Timestamp", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -3993,6 +4913,131 @@ func (m *AccountServices) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *ActivityEntry) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ActivityEntry: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ActivityEntry: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RouteAdded", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RouteAdded == nil {
+				m.RouteAdded = &AccountServices{}
+			}
+			if err := m.RouteAdded.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RouteRemoved", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.RouteRemoved == nil {
+				m.RouteRemoved = &ULID{}
+			}
+			if err := m.RouteRemoved.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func (m *ConfigRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -4275,6 +5320,511 @@ func (m *ConfigResponse) Unmarshal(dAtA []byte) error {
 			m.SerfKey = append(m.SerfKey[:0], dAtA[iNdEx:postIndex]...)
 			if m.SerfKey == nil {
 				m.SerfKey = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *CentralActivity) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: CentralActivity: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: CentralActivity: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountServices", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.AccountServices = append(m.AccountServices, &AccountServices{})
+			if err := m.AccountServices[len(m.AccountServices)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field RequestStats", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				v |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.RequestStats = bool(v != 0)
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NewLabelLinks", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.NewLabelLinks == nil {
+				m.NewLabelLinks = &LabelLinks{}
+			}
+			if err := m.NewLabelLinks.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HubActivity) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HubActivity: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HubActivity: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hub", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Hub == nil {
+				m.Hub = &ULID{}
+			}
+			if err := m.Hub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SentAt", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SentAt == nil {
+				m.SentAt = &Timestamp{}
+			}
+			if err := m.SentAt.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Stats == nil {
+				m.Stats = &HubActivity_HubStats{}
+			}
+			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HubActivity_HubStats) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HubStats: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HubStats: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AgentConnections", wireType)
+			}
+			m.AgentConnections = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.AgentConnections |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountsSeen", wireType)
+			}
+			m.AccountsSeen = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.AccountsSeen |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountsCached", wireType)
+			}
+			m.AccountsCached = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.AccountsCached |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 4:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field CachedBytes", wireType)
+			}
+			m.CachedBytes = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.CachedBytes |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LastSuccessfulUpdate", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LastSuccessfulUpdate == nil {
+				m.LastSuccessfulUpdate = &Timestamp{}
+			}
+			if err := m.LastSuccessfulUpdate.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field LastAttemptedUpdate", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.LastAttemptedUpdate == nil {
+				m.LastAttemptedUpdate = &Timestamp{}
+			}
+			if err := m.LastAttemptedUpdate.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
 			}
 			iNdEx = postIndex
 		default:

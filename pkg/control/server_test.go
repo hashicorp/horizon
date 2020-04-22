@@ -17,8 +17,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/token"
-	"github.com/hashicorp/serf/serf"
 	"github.com/hashicorp/vault/api"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -33,6 +33,45 @@ func init() {
 		dialect, _ := gorm.GetDialect("postgres")
 		gorm.RegisterDialect("pgtest", dialect)
 	}
+}
+
+type staticServerStream struct {
+	ctx   context.Context
+	SendC chan *pb.CentralActivity
+	RecvC chan *pb.HubActivity
+}
+
+func (s *staticServerStream) Send(act *pb.CentralActivity) error {
+	s.SendC <- act
+	return nil
+}
+
+func (s *staticServerStream) Recv() (*pb.HubActivity, error) {
+	return <-s.RecvC, nil
+}
+
+func (s *staticServerStream) SetHeader(_ metadata.MD) error {
+	panic("not implemented")
+}
+
+func (s *staticServerStream) SendHeader(_ metadata.MD) error {
+	panic("not implemented")
+}
+
+func (s *staticServerStream) SetTrailer(_ metadata.MD) {
+	panic("not implemented")
+}
+
+func (s *staticServerStream) Context() context.Context {
+	return s.ctx
+}
+
+func (s *staticServerStream) SendMsg(m interface{}) error {
+	panic("not implemented")
+}
+
+func (s *staticServerStream) RecvMsg(m interface{}) error {
+	panic("not implemented")
 }
 
 func TestServer(t *testing.T) {
@@ -57,18 +96,12 @@ func TestServer(t *testing.T) {
 	)
 
 	bucket := "hzntest"
-	s3.New(sess).DeleteBucket(&s3.DeleteBucketInput{
-		Bucket: aws.String(bucket),
-	})
+
 	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	})
 
-	serfcfg := serf.DefaultConfig()
-	serfcfg.NodeName = pb.NewULID().SpecString()
-	serfObj, err := serf.Create(serfcfg)
-	require.NoError(t, err)
-	defer serfObj.Shutdown()
+	defer testutils.DeleteBucket(s3.New(sess), bucket)
 
 	t.Run("can register a new management client", func(t *testing.T) {
 		db, err := gorm.Open("pgtest", "server")
@@ -364,12 +397,6 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("can create and remove a labellink for an account", func(t *testing.T) {
-		bucket := os.Getenv("TEST_BUCKET")
-		endpoint := os.Getenv("S3_ENDPOINT")
-		if bucket == "" || endpoint == "" {
-			t.Skip("no s3 bucket or creds")
-		}
-
 		db, err := gorm.Open("pgtest", "server")
 		require.NoError(t, err)
 
@@ -383,7 +410,6 @@ func TestServer(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.s = serfObj
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -494,12 +520,6 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("can create and remove a service for an account", func(t *testing.T) {
-		bucket := os.Getenv("TEST_BUCKET")
-		endpoint := os.Getenv("S3_ENDPOINT")
-		if bucket == "" || endpoint == "" {
-			t.Skip("no s3 bucket or creds")
-		}
-
 		db, err := gorm.Open("pgtest", "server")
 		require.NoError(t, err)
 
@@ -513,7 +533,6 @@ func TestServer(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.s = serfObj
 		s.lockTable = "hzntest"
 
 		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
@@ -647,4 +666,121 @@ func TestServer(t *testing.T) {
 		require.Equal(t, 0, len(accs2.Services))
 	})
 
+	t.Run("picks up activity from postgresql", func(t *testing.T) {
+		connect := os.Getenv("DATABASE_URL")
+
+		db, err := gorm.Open("postgres", connect)
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		defer func() {
+			db.Exec("TRUNCATE activity_logs")
+			db.Exec("TRUNCATE accounts")
+			db.Exec("TRUNCATE management_clients")
+		}()
+
+		s, err := NewServer()
+		require.NoError(t, err)
+
+		s.db = db
+		s.vaultClient = vc
+		s.vaultPath = pb.NewULID().SpecString()
+		s.keyId = "k1"
+		s.registerToken = "aabbcc"
+		s.awsSess = sess
+		s.bucket = bucket
+		s.lockTable = "hzntest"
+
+		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
+		require.NoError(t, err)
+
+		_, err = s.lockMgr.CreateTable(s.lockTable)
+		require.NoError(t, err)
+
+		pub, err := token.SetupVault(vc, s.vaultPath)
+		require.NoError(t, err)
+
+		s.pubKey = pub
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		err = s.StartActivityReader(ctx, "postgres", connect)
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		accountId := pb.NewULID()
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		md3 := make(metadata.MD)
+		md3.Set("authorization", ctr.Token)
+
+		var stream staticServerStream
+		stream.ctx = ctx
+		stream.SendC = make(chan *pb.CentralActivity, 1)
+		stream.RecvC = make(chan *pb.HubActivity, 1)
+
+		stream.RecvC <- &pb.HubActivity{
+			Hub: pb.NewULID(),
+		}
+
+		go s.StreamActivity(&stream)
+
+		ai, err := NewActivityInjector(db)
+		require.NoError(t, err)
+
+		labels := pb.ParseLabelSet("service=www,env=prod")
+
+		hubId := pb.NewULID()
+		serviceId := pb.NewULID()
+
+		err = ai.Inject(ctx, &pb.ActivityEntry{
+			RouteAdded: &pb.AccountServices{
+				Account: &pb.Account{
+					AccountId: accountId,
+				},
+				Services: []*pb.ServiceRoute{
+					{
+						Hub:    hubId,
+						Id:     serviceId,
+						Type:   "test",
+						Labels: labels,
+					},
+				},
+			},
+		})
+
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+
+		select {
+		case <-ctx.Done():
+			require.NoError(t, ctx.Err())
+		case ca := <-stream.SendC:
+			require.Equal(t, 1, len(ca.AccountServices))
+			ac := ca.AccountServices[0]
+
+			assert.Equal(t, accountId, ac.Account.AccountId)
+			require.Equal(t, 1, len(ac.Services))
+
+			assert.Equal(t, hubId, ac.Services[0].Hub)
+		}
+	})
 }

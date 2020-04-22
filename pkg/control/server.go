@@ -3,7 +3,9 @@ package control
 import (
 	context "context"
 	"crypto/ed25519"
+	"encoding/json"
 	fmt "fmt"
+	"sync"
 	"time"
 
 	"cirello.io/dynamolock"
@@ -12,13 +14,16 @@ import (
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
-	"github.com/hashicorp/serf/serf"
 	"github.com/hashicorp/vault/api"
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
 )
+
+type connectedHub struct {
+	xmit chan *pb.CentralActivity
+}
 
 type Server struct {
 	db       *gorm.DB
@@ -30,8 +35,6 @@ type Server struct {
 
 	registerToken string
 
-	s *serf.Serf
-
 	lockMgr   *dynamolock.Client
 	lockTable string
 
@@ -41,6 +44,15 @@ type Server struct {
 
 	hubCert []byte
 	hubKey  []byte
+
+	mu            sync.RWMutex
+	connectedHubs map[string]*connectedHub
+}
+
+func NewServer() (*Server, error) {
+	return &Server{
+		connectedHubs: make(map[string]*connectedHub),
+	}, nil
 }
 
 type Account struct {
@@ -111,6 +123,23 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 		return nil, err
 	}
 
+	s.broadcastActivity(ctx, &pb.CentralActivity{
+		AccountServices: []*pb.AccountServices{
+			{
+				Account: service.Account,
+				Services: []*pb.ServiceRoute{
+					{
+						Hub:    service.Hub,
+						Id:     service.Id,
+						Type:   service.Type,
+						Labels: service.Labels,
+					},
+				},
+			},
+		},
+	})
+	// return s.s.UserEvent("account-updated", account, false)
+
 	err = s.updateAccountRouting(ctx, service.Account.AccountId.Bytes())
 	if err != nil {
 		return nil, err
@@ -147,6 +176,116 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 	}
 
 	return resp, nil
+}
+
+func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {
+	msg, err := stream.Recv()
+	if err != nil {
+		return err
+	}
+
+	key := msg.Hub.SpecString()
+
+	ch := &connectedHub{
+		xmit: make(chan *pb.CentralActivity),
+	}
+
+	s.mu.Lock()
+	s.connectedHubs[key] = ch
+	s.mu.Unlock()
+
+	defer func() {
+		s.mu.Lock()
+		delete(s.connectedHubs, key)
+		s.mu.Unlock()
+
+		// drain the xmit channel in the case that the sender saw
+		// us around but we're now exiting.
+		for {
+			select {
+			case <-ch.xmit:
+				// draining
+			default:
+				// not blocking
+			}
+		}
+	}()
+
+	for {
+		select {
+		case <-stream.Context().Done():
+			return stream.Context().Err()
+		case act, ok := <-ch.xmit:
+			if !ok {
+				return nil
+			}
+
+			err = stream.Send(act)
+			if err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func (s *Server) StartActivityReader(ctx context.Context, dbtype, conn string) error {
+	ar, err := NewActivityReader(ctx, dbtype, conn)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		L := ctxlog.L(ctx)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case ev, ok := <-ar.C:
+				if !ok {
+					return
+				}
+
+				L.Info("detected activity")
+
+				var adds []*pb.AccountServices
+
+				for _, act := range ev {
+					var ae pb.ActivityEntry
+
+					err := json.Unmarshal(act.Event, &ae)
+					if err != nil {
+						L.Error("error unmarshaling activity log entry", "error", err)
+						continue
+					}
+
+					adds = append(adds, ae.RouteAdded)
+				}
+
+				s.broadcastActivity(ctx, &pb.CentralActivity{
+					AccountServices: adds,
+				})
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (s *Server) broadcastActivity(ctx context.Context, act *pb.CentralActivity) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, hub := range s.connectedHubs {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case hub.xmit <- act:
+			// ok
+		}
+	}
+
+	return nil
 }
 
 type ManagementClient struct {
@@ -299,6 +438,17 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 	if err != nil {
 		return nil, err
 	}
+
+	var out pb.LabelLinks
+	out.LabelLinks = []*pb.LabelLink{{
+		Account: req.Account,
+		Labels:  req.Labels,
+		Target:  req.Target,
+	}}
+
+	s.broadcastActivity(ctx, &pb.CentralActivity{
+		NewLabelLinks: &out,
+	})
 
 	err = s.updateLabelLinks(ctx)
 	if err != nil {

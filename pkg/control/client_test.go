@@ -23,8 +23,8 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/token"
-	"github.com/hashicorp/serf/serf"
 	"github.com/hashicorp/vault/api"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
@@ -61,13 +61,7 @@ func TestClient(t *testing.T) {
 		Bucket: aws.String(bucket),
 	})
 
-	serfcfg := serf.DefaultConfig()
-	serfcfg.NodeName = pb.NewULID().SpecString()
-	serfcfg.MemberlistConfig.BindPort = 25000
-	serfObj, err := serf.Create(serfcfg)
-	require.NoError(t, err)
-
-	defer serfObj.Shutdown()
+	defer testutils.DeleteBucket(s3.New(sess), bucket)
 
 	t.Run("can create and remove a service", func(t *testing.T) {
 		db, err := gorm.Open("pgtest", "server")
@@ -75,7 +69,9 @@ func TestClient(t *testing.T) {
 
 		defer db.Close()
 
-		var s Server
+		s, err := NewServer()
+		require.NoError(t, err)
+
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -83,7 +79,6 @@ func TestClient(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.s = serfObj
 		s.lockTable = "hzntest"
 
 		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
@@ -119,7 +114,7 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		gs := grpc.NewServer()
-		pb.RegisterControlServicesServer(gs, &s)
+		pb.RegisterControlServicesServer(gs, s)
 
 		li, err := net.Listen("tcp", ":0")
 		require.NoError(t, err)
@@ -202,7 +197,9 @@ func TestClient(t *testing.T) {
 
 		defer db.Close()
 
-		var s Server
+		s, err := NewServer()
+		require.NoError(t, err)
+
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -210,7 +207,6 @@ func TestClient(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.s = serfObj
 		s.lockTable = "hzntest"
 
 		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
@@ -246,7 +242,7 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		gs := grpc.NewServer()
-		pb.RegisterControlServicesServer(gs, &s)
+		pb.RegisterControlServicesServer(gs, s)
 
 		li, err := net.Listen("tcp", ":0")
 		require.NoError(t, err)
@@ -370,13 +366,15 @@ func TestClient(t *testing.T) {
 		assert.Equal(t, serviceId2, services[1].Id)
 	})
 
-	t.Run("refreshes an account on response to a serf event", func(t *testing.T) {
+	t.Run("refreshes an account on response to activity from the server", func(t *testing.T) {
 		db, err := gorm.Open("pgtest", "server")
 		require.NoError(t, err)
 
 		defer db.Close()
 
-		var s Server
+		s, err := NewServer()
+		require.NoError(t, err)
+
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -384,7 +382,6 @@ func TestClient(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.s = serfObj
 		s.lockTable = "hzntest"
 
 		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
@@ -420,7 +417,7 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		gs := grpc.NewServer()
-		pb.RegisterControlServicesServer(gs, &s)
+		pb.RegisterControlServicesServer(gs, s)
 
 		li, err := net.Listen("tcp", ":0")
 		require.NoError(t, err)
@@ -467,13 +464,6 @@ func TestClient(t *testing.T) {
 
 		go client.Run(ctx)
 
-		err = client.StartSerf()
-		require.NoError(t, err)
-
-		// Wire it up to the servers serf config
-		_, err = client.s.Join([]string{"127.0.0.1:25000"}, true)
-		require.NoError(t, err)
-
 		time.Sleep(time.Second)
 
 		// Setup the info so that we're tracking the account when the event arrives
@@ -513,9 +503,6 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
 
-		time.Sleep(time.Second)
-		// Now, in the background, the client should have fetched account again
-
 		services, err := client.LookupService(ctx, accountId, labels)
 		require.NoError(t, err)
 
@@ -525,18 +512,14 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("resolves label links", func(t *testing.T) {
-		bucket := os.Getenv("TEST_BUCKET")
-		endpoint := os.Getenv("S3_ENDPOINT")
-		if bucket == "" || endpoint == "" {
-			t.Skip("no s3 bucket or creds")
-		}
-
 		db, err := gorm.Open("pgtest", "server")
 		require.NoError(t, err)
 
 		defer db.Close()
 
-		var s Server
+		s, err := NewServer()
+		require.NoError(t, err)
+
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -544,7 +527,6 @@ func TestClient(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.s = serfObj
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -618,13 +600,6 @@ func TestClient(t *testing.T) {
 
 		go client.Run(ctx)
 
-		err = client.StartSerf()
-		require.NoError(t, err)
-
-		// Wire it up to the servers serf config
-		_, err = client.s.Join([]string{"127.0.0.1:25000"}, true)
-		require.NoError(t, err)
-
 		time.Sleep(time.Second)
 
 		labelAccount, labelTarget, err := client.ResolveLabelLink(label)
@@ -640,7 +615,9 @@ func TestClient(t *testing.T) {
 
 		defer db.Close()
 
-		var s Server
+		s, err := NewServer()
+		require.NoError(t, err)
+
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -648,7 +625,6 @@ func TestClient(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.s = serfObj
 		s.lockTable = "hzntest"
 
 		tlspub, tlspriv, err := ed25519.GenerateKey(rand.Reader)
@@ -713,7 +689,7 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		gs := grpc.NewServer()
-		pb.RegisterControlServicesServer(gs, &s)
+		pb.RegisterControlServicesServer(gs, s)
 
 		li, err := net.Listen("tcp", ":0")
 		require.NoError(t, err)

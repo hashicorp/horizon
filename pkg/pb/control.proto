@@ -43,6 +43,11 @@ message AccountServices {
   repeated ServiceRoute services = 2;
 }
 
+message ActivityEntry {
+  AccountServices route_added = 1;
+  ULID route_removed = 2;
+}
+
 message ConfigRequest {
   ULID hub = 1;
   string public_ip = 2;
@@ -55,10 +60,33 @@ message ConfigResponse {
   bytes serf_key = 3;
 }
 
+message CentralActivity {
+  repeated AccountServices account_services = 1;
+  bool request_stats = 2;
+  LabelLinks new_label_links = 3;
+}
+
+message HubActivity {
+  ULID hub = 1;
+  Timestamp sent_at = 2;
+
+  message HubStats {
+    int64 agent_connections = 1;
+    int64 accounts_seen = 2;
+    int64 accounts_cached = 3;
+    int64 cached_bytes = 4;
+    Timestamp last_successful_update = 5;
+    Timestamp last_attempted_update = 6;
+  }
+
+  HubStats stats = 3;
+}
+
 service ControlServices {
   rpc AddService(ServiceRequest) returns (ServiceResponse) {}
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
   rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
+  rpc StreamActivity(stream HubActivity) returns (stream CentralActivity) {}
 }
 
 message AddLabelLinkRequest {

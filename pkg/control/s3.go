@@ -179,7 +179,7 @@ func (s *Server) updateAccountRouting(ctx context.Context, account []byte) error
 		return fmt.Errorf("corruption detected, wrong etag: %s / %s", hex.EncodeToString(sum), outet)
 	}
 
-	return s.s.UserEvent("account-updated", account, false)
+	return nil
 }
 
 func (s *Server) updateLabelLinks(ctx context.Context) error {
@@ -272,5 +272,5 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 		return fmt.Errorf("corruption detected, wrong etag: %s / %s", hex.EncodeToString(sum), outet)
 	}
 
-	return s.s.UserEvent("label-link-updated", nil, true)
+	return nil
 }

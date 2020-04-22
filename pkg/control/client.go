@@ -16,12 +16,12 @@ import (
 
 	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
-	"github.com/hashicorp/serf/serf"
 	"google.golang.org/grpc"
 )
 
@@ -40,6 +40,9 @@ type accountInfo struct {
 	Services *pb.AccountServices
 	Process  chan struct{}
 	LastMD5  string
+
+	// Populated by pushes from the server
+	Recent []*pb.ServiceRoute
 }
 
 type Client struct {
@@ -48,9 +51,6 @@ type Client struct {
 	cfg ClientConfig
 
 	cancel func()
-
-	events chan serf.Event
-	s      *serf.Serf
 
 	mu    sync.RWMutex
 	peers map[string]*Peer
@@ -73,7 +73,6 @@ type Client struct {
 
 	tlsCert []byte
 	tlsKey  []byte
-	serfKey []byte
 }
 
 type ClientConfig struct {
@@ -91,8 +90,6 @@ type ClientConfig struct {
 }
 
 func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
-	events := make(chan serf.Event, 10)
-
 	if cfg.Logger == nil {
 		cfg.Logger = hclog.L()
 	}
@@ -117,7 +114,6 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	client := &Client{
 		L:               cfg.Logger,
 		cfg:             cfg,
-		events:          events,
 		client:          gClient,
 		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
@@ -128,7 +124,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		cancel:          cancel,
 	}
 
-	go client.keepLabelLinksUpdated(ctx, cfg.Logger)
+	// go client.keepLabelLinksUpdated(ctx, cfg.Logger)
 
 	return client, nil
 }
@@ -139,36 +135,6 @@ func (c *Client) Close() error {
 	if c.gcc != nil {
 		c.gcc.Close()
 	}
-
-	c.s.Leave()
-
-	return c.s.Shutdown()
-}
-
-func (c *Client) StartSerf() error {
-	scfg := serf.DefaultConfig()
-	scfg.NodeName = c.cfg.Id.SpecString()
-	scfg.EventCh = c.events
-	scfg.Tags = map[string]string{
-		"version": c.cfg.Version,
-	}
-
-	if c.cfg.BindPort > 0 {
-		scfg.MemberlistConfig.BindPort = c.cfg.BindPort
-	}
-
-	scfg.Logger = c.cfg.Logger.StandardLogger(&hclog.StandardLoggerOptions{
-		InferLevels: true,
-	})
-
-	scfg.MemberlistConfig.SecretKey = c.serfKey
-
-	s, err := serf.Create(scfg)
-	if err != nil {
-		return err
-	}
-
-	c.s = s
 
 	return nil
 }
@@ -183,7 +149,6 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 
 	c.tlsCert = resp.TlsCert
 	c.tlsKey = resp.TlsKey
-	c.serfKey = resp.SerfKey
 
 	return nil
 }
@@ -279,6 +244,17 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 		c.accountServices[accStr] = info
 
 		c.refreshAcconut(ctxlog.L(ctx), info)
+	}
+
+	for _, service := range info.Recent {
+		// Skip yourself, you already got those.
+		if service.Hub.Equal(c.cfg.Id) {
+			continue
+		}
+
+		if labels.Matches(service.Labels) {
+			out = append(out, service)
+		}
 	}
 
 	if info.Services != nil {
@@ -388,6 +364,52 @@ func (c *Client) checkAccounts(L hclog.Logger) {
 func (c *Client) Run(ctx context.Context) error {
 	L := ctxlog.L(ctx)
 
+	err := c.updateLabelLinks(ctx, L)
+	if err != nil {
+		return err
+	}
+
+	var activity pb.ControlServices_StreamActivityClient
+
+	activityChan := make(chan *pb.CentralActivity)
+
+	if c.client != nil {
+		activity, err = c.client.StreamActivity(ctx)
+		if err != nil {
+			return err
+		}
+
+		err = activity.Send(&pb.HubActivity{
+			Hub:    c.cfg.Id,
+			SentAt: pb.NewTimestamp(time.Now()),
+		})
+
+		if err != nil {
+			return err
+		}
+
+		L.Info("waiting on server activity")
+
+		defer activity.CloseSend()
+		go func() {
+			defer close(activityChan)
+
+			for {
+				ca, err := activity.Recv()
+				if err != nil {
+					return
+				}
+
+				select {
+				case <-ctx.Done():
+					return
+				case activityChan <- ca:
+					// ok
+				}
+			}
+		}()
+	}
+
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 
@@ -397,22 +419,16 @@ func (c *Client) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			c.checkAccounts(L)
-		case ev := <-c.events:
-			switch sev := ev.(type) {
-			case serf.UserEvent:
-				err := c.processUserEvent(L, sev)
-				if err != nil {
-					L.Error("error processing user event", "error", err)
-				}
-			}
+			c.updateLabelLinks(ctx, L)
+		case ev := <-activityChan:
+			c.processCentralActivity(ctx, L, ev)
 		}
 	}
 }
 
-func (c *Client) processUserEvent(L hclog.Logger, ev serf.UserEvent) error {
-	switch ev.Name {
-	case "account-updated":
-		u := pb.ULIDFromBytes(ev.Payload)
+func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev *pb.CentralActivity) {
+	for _, acc := range ev.AccountServices {
+		u := acc.Account.AccountId
 
 		c.mu.RLock()
 		info, ok := c.accountServices[u.SpecString()]
@@ -423,34 +439,10 @@ func (c *Client) processUserEvent(L hclog.Logger, ev serf.UserEvent) error {
 
 		// We weren't tracking this account, bail
 		if !ok {
-			return nil
+			continue
 		}
 
-		// Kick over the processing goroutine
-		go c.refreshAcconut(L, info)
-	}
-
-	return nil
-}
-
-func (c *Client) keepLabelLinksUpdated(ctx context.Context, L hclog.Logger) {
-	err := c.updateLabelLinks(ctx, L)
-	if err != nil {
-		L.Error("error updating label links", "error", err)
-	}
-
-	ticker := time.NewTicker(time.Minute)
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			err := c.updateLabelLinks(ctx, L)
-			if err != nil {
-				L.Error("error updating label links", "error", err)
-			}
-		}
+		info.Recent = append(info.Recent, acc.Services...)
 	}
 }
 
@@ -477,10 +469,13 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 
 	resp, err := c.s3api.GetObjectWithContext(ctx, obj)
 	if err != nil {
-		// Until we can figure out how to detect it, assume that an error here means
-		// we got a 304 and the file isn't updated.
-		L.Info("error downloading label link data - benign due to 304s", "error", err)
-		return nil
+		if s3e, ok := err.(awserr.Error); ok {
+			if s3e.Code() == s3.ErrCodeNoSuchKey {
+				return nil
+			}
+		}
+
+		return err
 	}
 
 	defer resp.Body.Close()
