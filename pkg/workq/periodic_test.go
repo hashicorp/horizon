@@ -31,7 +31,8 @@ func TestPeriodic(t *testing.T) {
 		pjob.NextRun = time.Now()
 		pjob.Queue = "a"
 		pjob.Period = "30m"
-		pjob.Payload = "aabbcc"
+		pjob.JobType = "test"
+		pjob.Payload = []byte("1")
 
 		err = dbx.Check(db.Create(&pjob))
 		require.NoError(t, err)
@@ -67,7 +68,7 @@ func TestPeriodic(t *testing.T) {
 		var i Injector
 		i.db = db
 
-		err := i.AddPeriodicJob("foo", "a", "aabbcc", time.Hour)
+		err := i.AddPeriodicJob("foo", "a", "test", "aabbcc", time.Hour)
 		require.NoError(t, err)
 
 		var pjob PeriodicJob
@@ -75,7 +76,7 @@ func TestPeriodic(t *testing.T) {
 		err = dbx.Check(db.First(&pjob))
 		require.NoError(t, err)
 
-		err = i.AddPeriodicJob("foo", "a", "aabbccdd", time.Minute)
+		err = i.AddPeriodicJob("foo", "a", "test", "aabbccdd", time.Minute)
 		require.NoError(t, err)
 
 		var pjob2 PeriodicJob
@@ -85,10 +86,10 @@ func TestPeriodic(t *testing.T) {
 
 		assert.Equal(t, pjob.Id, pjob2.Id)
 
-		assert.Equal(t, pjob2.Payload, "aabbccdd")
+		assert.Equal(t, pjob2.Payload, []byte(`"aabbccdd"`))
 		assert.True(t, pjob2.NextRun.Before(pjob.NextRun))
 
-		err = i.AddPeriodicJob("foo", "a", "aabbccdd", time.Hour)
+		err = i.AddPeriodicJob("foo", "a", "test", "aabbccdd", time.Hour)
 		require.NoError(t, err)
 
 		var pjob3 PeriodicJob

@@ -32,6 +32,8 @@ func TestWorker(t *testing.T) {
 		job := NewJob()
 		job.Queue = "a"
 
+		job.Set("test", 1)
+
 		err := dbx.Check(tx.Create(&job))
 		require.NoError(t, err)
 
@@ -66,6 +68,8 @@ func TestWorker(t *testing.T) {
 
 		job := NewJob()
 		job.Queue = "a"
+
+		job.Set("test", 1)
 
 		err := dbx.Check(tx.Create(&job))
 		require.NoError(t, err)
@@ -137,11 +141,15 @@ func TestWorker(t *testing.T) {
 		job := NewJob()
 		job.Queue = "a"
 
+		job.Set("test", 1)
+
 		err := dbx.Check(tx.Create(&job))
 		require.NoError(t, err)
 
 		job1 := NewJob()
 		job1.Queue = "a"
+
+		job1.Set("test", 1)
 
 		err = dbx.Check(tx.Create(&job1))
 		require.NoError(t, err)
@@ -206,6 +214,8 @@ func TestWorker(t *testing.T) {
 		job := NewJob()
 		job.Queue = "a"
 
+		job.Set("test", 1)
+
 		err := dbx.Check(tx.Create(&job))
 		require.NoError(t, err)
 
@@ -239,6 +249,8 @@ func TestWorker(t *testing.T) {
 		job := NewJob()
 		job.Queue = "a"
 
+		job.Set("test", 1)
+
 		err := dbx.Check(tx.Create(&job))
 		require.NoError(t, err)
 
@@ -268,6 +280,8 @@ func TestWorker(t *testing.T) {
 		job = NewJob()
 		job.Queue = "a"
 		job.Status = "finished"
+
+		job.Set("test", 1)
 
 		err = dbx.Check(db.Create(&job))
 		require.NoError(t, err)
@@ -304,6 +318,8 @@ func TestWorker(t *testing.T) {
 		job := NewJob()
 		job.Queue = "b"
 
+		job.Set("test", 1)
+
 		err := dbx.Check(tx.Create(&job))
 		require.NoError(t, err)
 
@@ -317,6 +333,8 @@ func TestWorker(t *testing.T) {
 
 		job = NewJob()
 		job.Queue = "a"
+
+		job.Set("test", 1)
 
 		err = dbx.Check(db.Create(&job))
 		require.NoError(t, err)
@@ -369,6 +387,8 @@ func TestWorker(t *testing.T) {
 
 		job := NewJob()
 		job.Queue = "a"
+
+		job.Set("test", 1)
 
 		err = i.Inject(job)
 		require.NoError(t, err)

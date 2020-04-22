@@ -2,6 +2,7 @@ package workq
 
 import (
 	"database/sql"
+	"encoding/json"
 	"time"
 
 	"github.com/hashicorp/horizon/pkg/dbx"
@@ -27,16 +28,23 @@ func (i *Injector) Inject(job *Job) error {
 	return dbx.Check(tx.Commit())
 }
 
-func (i *Injector) AddPeriodicJob(name, queue, payload string, period time.Duration) error {
+func (i *Injector) AddPeriodicJob(name, queue, jt string, v interface{}, period time.Duration) error {
 	var pjob PeriodicJob
 
 	pjob.Name = name
 	pjob.Queue = queue
 	pjob.Period = period.String()
-	pjob.Payload = payload
+	pjob.JobType = jt
 	pjob.NextRun = time.Now().Add(period)
 
-	err := dbx.Check(
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	pjob.Payload = data
+
+	err = dbx.Check(
 		i.db.Set("gorm:insert_option",
 			"ON CONFLICT (name) DO UPDATE SET queue=EXCLUDED.queue, payload=EXCLUDED.payload, period=EXCLUDED.period, next_run=LEAST(periodic_jobs.next_run, EXCLUDED.next_run)").
 			Create(&pjob),

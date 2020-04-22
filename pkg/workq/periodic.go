@@ -11,7 +11,8 @@ type PeriodicJob struct {
 	Id      int `gorm:"primary_key"`
 	Name    string
 	Queue   string
-	Payload string
+	JobType string
+	Payload []byte
 	Period  string
 	NextRun time.Time
 
@@ -50,6 +51,7 @@ func (w *Worker) CheckPeriodic() error {
 	job := NewJob()
 	job.Queue = pjob.Queue
 	job.Payload = pjob.Payload
+	job.JobType = pjob.JobType
 
 	tx.Create(&job)
 

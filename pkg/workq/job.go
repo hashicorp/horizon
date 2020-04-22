@@ -1,6 +1,7 @@
 package workq
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -9,10 +10,23 @@ import (
 type Job struct {
 	Id      []byte `gorm:"primary_key"`
 	Queue   string
-	Payload string
 	Status  string
+	JobType string
+	Payload []byte
 
 	CreatedAt time.Time
+}
+
+func (j *Job) Set(jt string, v interface{}) error {
+	j.JobType = jt
+
+	data, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	j.Payload = data
+	return nil
 }
 
 func NewJob() *Job {
