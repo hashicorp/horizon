@@ -139,7 +139,13 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 
 	if cfg.Concurrency == 1 {
 		cfg.Concurrency = DefaultConcurrency
+	}
 
+	if cfg.Handler == nil {
+		if GlobalRegistry.Size() == 0 {
+			return fmt.Errorf("no handler and default registry is empty")
+		}
+		cfg.Handler = GlobalRegistry.Handle
 	}
 
 	minReconn := 10 * time.Second
