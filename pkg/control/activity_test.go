@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -57,5 +58,28 @@ func TestActivity(t *testing.T) {
 		case entries := <-ar.C:
 			assert.Equal(t, []byte(`"this is a second event"`), entries[0].Event)
 		}
+	})
+
+	t.Run("prunes old logs", func(t *testing.T) {
+		db, err := gorm.Open("postgres", connect)
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		defer db.Exec("TRUNCATE activity_logs")
+
+		var ae ActivityLog
+		ae.CreatedAt = time.Now().Add(-6 * time.Hour)
+		ae.Event = []byte(`1`)
+
+		err = dbx.Check(db.Create(&ae))
+		require.NoError(t, err)
+
+		err = cleanupActivityLog("cleanup-activity-log", 0)
+		require.NoError(t, err)
+
+		var ae2 ActivityLog
+		err = dbx.Check(db.First(&ae2))
+		require.Error(t, err)
 	})
 }
