@@ -4,11 +4,12 @@ import (
 	"io"
 	"sync"
 
+	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/pkg/errors"
 )
 
 type Context interface {
-	AccountId() string
+	AccountId() *pb.ULID
 	ReadMarshal(v Unmarshaller) (byte, error)
 	WriteMarshal(tag byte, v Marshaller) error
 
@@ -23,12 +24,12 @@ type Context interface {
 }
 
 type ctx struct {
-	accountId string
+	accountId *pb.ULID
 	fr        *FramingReader
 	fw        *FramingWriter
 }
 
-func NewContext(accountId string, fr *FramingReader, fw *FramingWriter) Context {
+func NewContext(accountId *pb.ULID, fr *FramingReader, fw *FramingWriter) Context {
 	return &ctx{
 		accountId: accountId,
 		fr:        fr,
@@ -36,7 +37,7 @@ func NewContext(accountId string, fr *FramingReader, fw *FramingWriter) Context 
 	}
 }
 
-func (c *ctx) AccountId() string {
+func (c *ctx) AccountId() *pb.ULID {
 	return c.accountId
 }
 

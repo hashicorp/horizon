@@ -63,6 +63,7 @@ require (
 	github.com/y0ssar1an/q v1.0.10
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200317142112-1b76d66859c6
+	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	google.golang.org/grpc v1.27.1
 	gopkg.in/mgo.v2 v2.0.0-20190816093944-a6b53ec6cb22 // indirect
 	gotest.tools v2.2.0+incompatible

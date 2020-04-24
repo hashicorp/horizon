@@ -57,7 +57,7 @@ message ConfigRequest {
 message ConfigResponse {
   bytes tls_key = 1;
   bytes tls_cert = 2;
-  bytes serf_key = 3;
+  bytes token_pub = 3;
 }
 
 message CentralActivity {

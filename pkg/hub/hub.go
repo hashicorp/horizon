@@ -2,22 +2,23 @@ package hub
 
 import (
 	"context"
+	"crypto/tls"
 	"io"
-	"math/rand"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
-	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/edgeservices"
-	"github.com/hashicorp/horizon/pkg/noiseconn"
-	"github.com/hashicorp/horizon/pkg/registry"
+	"github.com/hashicorp/horizon/pkg/control"
+	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/pkg/errors"
 )
 
+/*
 type Registry interface {
 	AuthAgent(L hclog.Logger, token, pubKey string, labels []string, services []*wire.ServiceInfo) (string, func(), error)
 	ResolveAgent(L hclog.Logger, target string) (registry.ResolvedService, error)
@@ -34,22 +35,24 @@ func (_ randomSorter) NextService(services []registry.ResolvedService) registry.
 	return services[pick]
 }
 
+*/
+
 type Hub struct {
 	L   hclog.Logger
 	cfg *yamux.Config
-	key noise.DHKey
 
-	reg *registry.Registry
+	id *pb.ULID
+	cc *control.Client
 
-	services edgeservices.Services
+	// services edgeservices.Services
 
 	mu     sync.RWMutex
 	active map[string]*yamux.Session
 
-	ServiceSorter ServiceSorter
+	// ServiceSorter ServiceSorter
 }
 
-func NewHub(L hclog.Logger, r *registry.Registry, key noise.DHKey) (*Hub, error) {
+func NewHub(L hclog.Logger, client *control.Client) (*Hub, error) {
 	cfg := yamux.DefaultConfig()
 	cfg.EnableKeepAlive = true
 	cfg.KeepAliveInterval = 30 * time.Second
@@ -61,11 +64,9 @@ func NewHub(L hclog.Logger, r *registry.Registry, key noise.DHKey) (*Hub, error)
 	h := &Hub{
 		L:      L,
 		cfg:    cfg,
-		reg:    r,
 		active: make(map[string]*yamux.Session),
-		key:    key,
-
-		ServiceSorter: randomSorter{},
+		cc:     client,
+		id:     pb.NewULID(),
 	}
 
 	return h, nil
@@ -82,22 +83,36 @@ func (h *Hub) Serve(ctx context.Context, l net.Listener) error {
 	}
 }
 
+func (hub *Hub) Run(ctx context.Context) error {
+	npn := map[string]control.NPNHandler{
+		"hzn": hub.handleHZN,
+	}
+
+	return hub.cc.RunIngress(ctx, npn)
+}
+
+func (hub *Hub) handleHZN(hs *http.Server, tlsConn *tls.Conn, h http.Handler) {
+	// Use the same trick http2 does to extract a context.
+	var ctx context.Context
+	type baseContexter interface {
+		BaseContext() context.Context
+	}
+
+	if bc, ok := h.(baseContexter); ok {
+		ctx = bc.BaseContext()
+	}
+
+	hub.handleConn(ctx, tlsConn)
+}
+
+func (h *Hub) ValidateToken(stoken string) (*token.ValidToken, error) {
+	return token.CheckTokenED25519(stoken, h.cc.TokenPub())
+}
+
 func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 	defer conn.Close()
 
-	nconn, err := noiseconn.NewConn(conn)
-	if err != nil {
-		h.L.Error("error creating noise conn", "error", err)
-		return
-	}
-
-	err = nconn.Accept(h.key)
-	if err != nil {
-		h.L.Error("error initializing noise conn", "error", err)
-		return
-	}
-
-	fr, err := wire.NewFramingReader(nconn)
+	fr, err := wire.NewFramingReader(conn)
 	if err != nil {
 		h.L.Error("error creating frame reader", "error", err)
 		return
@@ -105,7 +120,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	defer fr.Recycle()
 
-	var preamble wire.Preamble
+	var preamble pb.Preamble
 
 	tag, _, err := fr.ReadMarshal(&preamble)
 	if err != nil {
@@ -118,29 +133,90 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	agentKey, headers, remove, err := h.reg.AuthAgent(h.L, preamble.Token, nconn.PeerStatic(), preamble.Labels, preamble.Services)
-	if err != nil {
-		h.L.Error("error authenticating agent", "error", err)
-		return
-	}
-
-	defer remove()
-
 	ts := time.Now()
 
-	var wc wire.Confirmation
-	wc.Time = &wire.Timestamp{
+	var wc pb.Confirmation
+	wc.Time = &pb.Timestamp{
 		Sec:  uint64(ts.Unix()),
 		Nsec: uint64(ts.Nanosecond()),
 	}
 
 	wc.Status = "connected"
 
-	fw, err := wire.NewFramingWriter(nconn)
+	fw, err := wire.NewFramingWriter(conn)
 	if err != nil {
 		h.L.Error("error creating frame writer", "error", err)
 		return
 	}
+
+	fw.Recycle()
+
+	vt, err := h.ValidateToken(preamble.Token)
+	if err != nil {
+		h.L.Error("invalid token recieved", "error", err)
+		wc.Status = "bad-token"
+
+		_, err = fw.WriteMarshal(1, &wc)
+		if err != nil {
+			h.L.Error("error marshaling confirmation", "error", err)
+		}
+
+		return
+	}
+
+	if len(preamble.Services) > 0 {
+		ok, _ := vt.HasCapability("hzn:serve")
+		if !ok {
+			wc.Status = "bad-token-capability"
+
+			_, err = fw.WriteMarshal(1, &wc)
+			if err != nil {
+				h.L.Error("error marshaling confirmation", "error", err)
+			}
+
+			return
+		}
+	}
+
+	for _, serv := range preamble.Services {
+		err = h.cc.AddService(ctx, &pb.ServiceRequest{
+			Account: &pb.Account{
+				Namespace: vt.AccountNamespace(),
+				AccountId: vt.AccountId(),
+			},
+			Hub:      h.id,
+			Id:       serv.ServiceId,
+			Type:     serv.Type,
+			Labels:   serv.Labels,
+			Metadata: serv.Metadata,
+		})
+
+		if err != nil {
+			h.L.Error("error adding services", "error", err)
+			return
+		}
+	}
+
+	defer func() {
+		for _, serv := range preamble.Services {
+			err = h.cc.RemoveService(ctx, &pb.ServiceRequest{
+				Account: &pb.Account{
+					Namespace: vt.AccountNamespace(),
+					AccountId: vt.AccountId(),
+				},
+				Hub:      h.id,
+				Id:       serv.ServiceId,
+				Type:     serv.Type,
+				Labels:   serv.Labels,
+				Metadata: serv.Metadata,
+			})
+
+			if err != nil {
+				h.L.Error("error removing service", "error", err)
+				// we want to try all of them regardless of the error.
+			}
+		}
+	}()
 
 	_, err = fw.WriteMarshal(1, &wc)
 	if err != nil {
@@ -152,7 +228,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	bc := &wire.ComposedConn{
 		Reader: fr.BufReader(),
-		Writer: nconn,
+		Writer: conn,
 		Closer: conn,
 	}
 
@@ -163,6 +239,8 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 	}
 
 	defer sess.Close()
+
+	agentKey := pb.NewULID().String()
 
 	h.mu.Lock()
 	h.active[agentKey] = sess
@@ -204,14 +282,15 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 		defer fw.Recycle()
 
-		wctx := wire.NewContext(headers.AccountId().String(), fr, fw)
+		wctx := wire.NewContext(vt.AccountId(), fr, fw)
 
 		h.L.Trace("accepted yamux session", "id", stream.StreamID())
 
-		go h.handleAgentStream(ctx, stream, wctx)
+		go h.handleAgentStream(ctx, vt, stream, wctx)
 	}
 }
 
+/*
 func (h *Hub) findSession(target string) (*yamux.Session, registry.ResolvedService, error) {
 	rs, err := h.reg.ResolveAgent(h.L, target)
 	if err != nil {
@@ -228,12 +307,14 @@ func (h *Hub) findSession(target string) (*yamux.Session, registry.ResolvedServi
 
 	return sess, rs, nil
 }
+*/
 
 var (
 	ErrProtocolError = errors.New("protocol error")
 	ErrWrongService  = errors.New("wrong service")
 )
 
+/*
 func (h *Hub) ConnectToService(req *wire.Request, accid string, rs registry.ResolvedService) (wire.Context, error) {
 	h.mu.RLock()
 	session, ok := h.active[rs.Agent]
@@ -267,3 +348,4 @@ func (h *Hub) ConnectToService(req *wire.Request, accid string, rs registry.Reso
 
 	return wire.NewContext(accid, fr, fw), nil
 }
+*/

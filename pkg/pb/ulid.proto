@@ -6,3 +6,8 @@ message ULID {
   uint64 timestamp = 1;
   bytes entropy = 2;
 }
+
+message ULIDWithDuration {
+  ULID ulid = 1;
+  uint64 elapse = 2;
+}

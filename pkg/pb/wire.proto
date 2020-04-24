@@ -4,6 +4,7 @@ import "timestamp.proto";
 import "kv.proto";
 import "ulid.proto";
 import "account.proto";
+import "label.proto";
 
 package pb;
 
@@ -20,7 +21,7 @@ message ServiceInfo {
   string type = 2;
 
   // These labels are used to identify this specific service instance
-  repeated Labels labels = 3;
+  LabelSet labels = 3;
 
   repeated KVPair metadata = 4; 
 }
@@ -47,6 +48,18 @@ message Header {
 message Auth {
   string user = 1;
   string password = 2;
+}
+
+message ConnectRequest {
+  LabelSet target = 1;
+  string type = 2;
+  Account pivot_account = 3;
+  int64 protocol_id = 4;
+}
+
+message SessionIdentification {
+  ULID service_id = 1;
+  int64 protocol_id = 2;
 }
 
 message Request {

@@ -63,34 +63,27 @@ func TestClient(t *testing.T) {
 
 	defer testutils.DeleteBucket(s3.New(sess), bucket)
 
+	scfg := ServerConfig{
+		VaultClient:   vc,
+		VaultPath:     pb.NewULID().SpecString(),
+		KeyId:         "k1",
+		RegisterToken: "aabbcc",
+		AwsSession:    sess,
+		Bucket:        bucket,
+		LockTable:     "hzntest",
+	}
+
 	t.Run("can create and remove a service", func(t *testing.T) {
 		db, err := gorm.Open("pgtest", "server")
 		require.NoError(t, err)
 
 		defer db.Close()
 
-		s, err := NewServer()
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
 		require.NoError(t, err)
-
-		s.db = db
-		s.vaultClient = vc
-		s.vaultPath = pb.NewULID().SpecString()
-		s.keyId = "k1"
-		s.registerToken = "aabbcc"
-		s.awsSess = sess
-		s.bucket = bucket
-		s.lockTable = "hzntest"
-
-		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
-		require.NoError(t, err)
-
-		_, err = s.lockMgr.CreateTable(s.lockTable)
-		require.NoError(t, err)
-
-		pub, err := token.SetupVault(vc, s.vaultPath)
-		require.NoError(t, err)
-
-		s.pubKey = pub
 
 		top := context.Background()
 
@@ -197,28 +190,11 @@ func TestClient(t *testing.T) {
 
 		defer db.Close()
 
-		s, err := NewServer()
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
 		require.NoError(t, err)
-
-		s.db = db
-		s.vaultClient = vc
-		s.vaultPath = pb.NewULID().SpecString()
-		s.keyId = "k1"
-		s.registerToken = "aabbcc"
-		s.awsSess = sess
-		s.bucket = bucket
-		s.lockTable = "hzntest"
-
-		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
-		require.NoError(t, err)
-
-		_, err = s.lockMgr.CreateTable(s.lockTable)
-		require.NoError(t, err)
-
-		pub, err := token.SetupVault(vc, s.vaultPath)
-		require.NoError(t, err)
-
-		s.pubKey = pub
 
 		top := context.Background()
 
@@ -372,28 +348,11 @@ func TestClient(t *testing.T) {
 
 		defer db.Close()
 
-		s, err := NewServer()
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
 		require.NoError(t, err)
-
-		s.db = db
-		s.vaultClient = vc
-		s.vaultPath = pb.NewULID().SpecString()
-		s.keyId = "k1"
-		s.registerToken = "aabbcc"
-		s.awsSess = sess
-		s.bucket = bucket
-		s.lockTable = "hzntest"
-
-		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
-		require.NoError(t, err)
-
-		_, err = s.lockMgr.CreateTable(s.lockTable)
-		require.NoError(t, err)
-
-		pub, err := token.SetupVault(vc, s.vaultPath)
-		require.NoError(t, err)
-
-		s.pubKey = pub
 
 		top := context.Background()
 
@@ -517,21 +476,11 @@ func TestClient(t *testing.T) {
 
 		defer db.Close()
 
-		s, err := NewServer()
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
 		require.NoError(t, err)
-
-		s.db = db
-		s.vaultClient = vc
-		s.vaultPath = pb.NewULID().SpecString()
-		s.keyId = "k1"
-		s.registerToken = "aabbcc"
-		s.awsSess = sess
-		s.bucket = bucket
-
-		pub, err := token.SetupVault(vc, s.vaultPath)
-		require.NoError(t, err)
-
-		s.pubKey = pub
 
 		top := context.Background()
 
@@ -615,17 +564,11 @@ func TestClient(t *testing.T) {
 
 		defer db.Close()
 
-		s, err := NewServer()
-		require.NoError(t, err)
+		cfg := scfg
+		cfg.DB = db
 
-		s.db = db
-		s.vaultClient = vc
-		s.vaultPath = pb.NewULID().SpecString()
-		s.keyId = "k1"
-		s.registerToken = "aabbcc"
-		s.awsSess = sess
-		s.bucket = bucket
-		s.lockTable = "hzntest"
+		s, err := NewServer(cfg)
+		require.NoError(t, err)
 
 		tlspub, tlspriv, err := ed25519.GenerateKey(rand.Reader)
 		require.NoError(t, err)
@@ -728,7 +671,7 @@ func TestClient(t *testing.T) {
 
 		err = client.BootstrapConfig(ctx)
 
-		go client.RunIngress(ctx)
+		go client.RunIngress(ctx, nil)
 
 		parsedHubCert, err := x509.ParseCertificate(derBytes)
 		require.NoError(t, err)

@@ -10,6 +10,7 @@ import (
 
 	"cirello.io/dynamolock"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -49,10 +50,59 @@ type Server struct {
 	connectedHubs map[string]*connectedHub
 }
 
-func NewServer() (*Server, error) {
-	return &Server{
+type ServerConfig struct {
+	DB *gorm.DB
+
+	RegisterToken string
+
+	VaultClient *api.Client
+	VaultPath   string
+	KeyId       string
+
+	AwsSession *session.Session
+	Bucket     string
+	LockTable  string
+}
+
+func NewServer(cfg ServerConfig) (*Server, error) {
+	s := &Server{
+		db:            cfg.DB,
+		vaultClient:   cfg.VaultClient,
+		vaultPath:     cfg.VaultPath,
+		keyId:         cfg.KeyId,
+		registerToken: cfg.RegisterToken,
+		awsSess:       cfg.AwsSession,
+		bucket:        cfg.Bucket,
+		lockTable:     cfg.LockTable,
+
 		connectedHubs: make(map[string]*connectedHub),
-	}, nil
+	}
+
+	var err error
+
+	s.lockMgr, err = dynamolock.New(dynamodb.New(s.awsSess), s.lockTable)
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = s.lockMgr.CreateTable(s.lockTable)
+	if err != nil {
+		return nil, err
+	}
+
+	pub, err := token.SetupVault(s.vaultClient, s.vaultPath)
+	if err != nil {
+		return nil, err
+	}
+
+	s.pubKey = pub
+
+	return s, nil
+}
+
+func (s *Server) SetHubTLS(cert []byte, key ed25519.PrivateKey) {
+	s.hubCert = cert
+	s.hubKey = key
 }
 
 type Account struct {
@@ -171,8 +221,9 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 	ctxlog.L(ctx).Info("fetching configuration", "hub", req.Hub.SpecString())
 
 	resp := &pb.ConfigResponse{
-		TlsKey:  s.hubKey,
-		TlsCert: s.hubCert,
+		TlsKey:   s.hubKey,
+		TlsCert:  s.hubCert,
+		TokenPub: s.pubKey,
 	}
 
 	return resp, nil

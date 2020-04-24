@@ -76,24 +76,79 @@ func (m *ULID) GetEntropy() []byte {
 	return nil
 }
 
+type ULIDWithDuration struct {
+	Ulid   *ULID  `protobuf:"bytes,1,opt,name=ulid,proto3" json:"ulid,omitempty"`
+	Elapse uint64 `protobuf:"varint,2,opt,name=elapse,proto3" json:"elapse,omitempty"`
+}
+
+func (m *ULIDWithDuration) Reset()      { *m = ULIDWithDuration{} }
+func (*ULIDWithDuration) ProtoMessage() {}
+func (*ULIDWithDuration) Descriptor() ([]byte, []int) {
+	return fileDescriptor_e1763ad9496d1f17, []int{1}
+}
+func (m *ULIDWithDuration) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *ULIDWithDuration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_ULIDWithDuration.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *ULIDWithDuration) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_ULIDWithDuration.Merge(m, src)
+}
+func (m *ULIDWithDuration) XXX_Size() int {
+	return m.Size()
+}
+func (m *ULIDWithDuration) XXX_DiscardUnknown() {
+	xxx_messageInfo_ULIDWithDuration.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_ULIDWithDuration proto.InternalMessageInfo
+
+func (m *ULIDWithDuration) GetUlid() *ULID {
+	if m != nil {
+		return m.Ulid
+	}
+	return nil
+}
+
+func (m *ULIDWithDuration) GetElapse() uint64 {
+	if m != nil {
+		return m.Elapse
+	}
+	return 0
+}
+
 func init() {
 	proto.RegisterType((*ULID)(nil), "pb.ULID")
+	proto.RegisterType((*ULIDWithDuration)(nil), "pb.ULIDWithDuration")
 }
 
 func init() { proto.RegisterFile("ulid.proto", fileDescriptor_e1763ad9496d1f17) }
 
 var fileDescriptor_e1763ad9496d1f17 = []byte{
-	// 152 bytes of a gzipped FileDescriptorProto
+	// 206 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x2a, 0xcd, 0xc9, 0x4c,
 	0xd1, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x2a, 0x48, 0x52, 0xb2, 0xe3, 0x62, 0x09, 0xf5,
 	0xf1, 0x74, 0x11, 0x92, 0xe1, 0xe2, 0x2c, 0xc9, 0xcc, 0x4d, 0x2d, 0x2e, 0x49, 0xcc, 0x2d, 0x90,
 	0x60, 0x54, 0x60, 0xd4, 0x60, 0x09, 0x42, 0x08, 0x08, 0x49, 0x70, 0xb1, 0xa7, 0xe6, 0x95, 0x14,
-	0xe5, 0x17, 0x54, 0x4a, 0x30, 0x29, 0x30, 0x6a, 0xf0, 0x04, 0xc1, 0xb8, 0x4e, 0x26, 0x17, 0x1e,
-	0xca, 0x31, 0xdc, 0x78, 0x28, 0xc7, 0xf0, 0xe1, 0xa1, 0x1c, 0x63, 0xc3, 0x23, 0x39, 0xc6, 0x15,
-	0x8f, 0xe4, 0x18, 0x4f, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48, 0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6,
-	0x17, 0x8f, 0xe4, 0x18, 0x3e, 0x3c, 0x92, 0x63, 0x9c, 0xf0, 0x58, 0x8e, 0xe1, 0xc2, 0x63, 0x39,
-	0x86, 0x1b, 0x8f, 0xe5, 0x18, 0x92, 0xd8, 0xc0, 0x0e, 0x30, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff,
-	0x1f, 0x27, 0x6f, 0x09, 0x8e, 0x00, 0x00, 0x00,
+	0xe5, 0x17, 0x54, 0x4a, 0x30, 0x29, 0x30, 0x6a, 0xf0, 0x04, 0xc1, 0xb8, 0x4a, 0x1e, 0x5c, 0x02,
+	0x20, 0xfd, 0xe1, 0x99, 0x25, 0x19, 0x2e, 0xa5, 0x45, 0x89, 0x25, 0x99, 0xf9, 0x79, 0x42, 0x32,
+	0x5c, 0x2c, 0x20, 0x5b, 0xc0, 0xc6, 0x70, 0x1b, 0x71, 0xe8, 0x15, 0x24, 0xe9, 0x81, 0xd4, 0x04,
+	0x81, 0x45, 0x85, 0xc4, 0xb8, 0xd8, 0x52, 0x73, 0x12, 0x0b, 0x8a, 0x53, 0xc1, 0x46, 0xb1, 0x04,
+	0x41, 0x79, 0x4e, 0x26, 0x17, 0x1e, 0xca, 0x31, 0xdc, 0x78, 0x28, 0xc7, 0xf0, 0xe1, 0xa1, 0x1c,
+	0x63, 0xc3, 0x23, 0x39, 0xc6, 0x15, 0x8f, 0xe4, 0x18, 0x4f, 0x3c, 0x92, 0x63, 0xbc, 0xf0, 0x48,
+	0x8e, 0xf1, 0xc1, 0x23, 0x39, 0xc6, 0x17, 0x8f, 0xe4, 0x18, 0x3e, 0x3c, 0x92, 0x63, 0x9c, 0xf0,
+	0x58, 0x8e, 0xe1, 0xc2, 0x63, 0x39, 0x86, 0x1b, 0x8f, 0xe5, 0x18, 0x92, 0xd8, 0xc0, 0x5e, 0x31,
+	0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xfe, 0x6b, 0x2e, 0xa2, 0xd8, 0x00, 0x00, 0x00,
 }
 
 func (this *ULID) Equal(that interface{}) bool {
@@ -123,6 +178,33 @@ func (this *ULID) Equal(that interface{}) bool {
 	}
 	return true
 }
+func (this *ULIDWithDuration) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*ULIDWithDuration)
+	if !ok {
+		that2, ok := that.(ULIDWithDuration)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Ulid.Equal(that1.Ulid) {
+		return false
+	}
+	if this.Elapse != that1.Elapse {
+		return false
+	}
+	return true
+}
 func (this *ULID) GoString() string {
 	if this == nil {
 		return "nil"
@@ -131,6 +213,19 @@ func (this *ULID) GoString() string {
 	s = append(s, "&pb.ULID{")
 	s = append(s, "Timestamp: "+fmt.Sprintf("%#v", this.Timestamp)+",\n")
 	s = append(s, "Entropy: "+fmt.Sprintf("%#v", this.Entropy)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *ULIDWithDuration) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 6)
+	s = append(s, "&pb.ULIDWithDuration{")
+	if this.Ulid != nil {
+		s = append(s, "Ulid: "+fmt.Sprintf("%#v", this.Ulid)+",\n")
+	}
+	s = append(s, "Elapse: "+fmt.Sprintf("%#v", this.Elapse)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -177,6 +272,46 @@ func (m *ULID) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
+func (m *ULIDWithDuration) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *ULIDWithDuration) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *ULIDWithDuration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.Elapse != 0 {
+		i = encodeVarintUlid(dAtA, i, uint64(m.Elapse))
+		i--
+		dAtA[i] = 0x10
+	}
+	if m.Ulid != nil {
+		{
+			size, err := m.Ulid.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintUlid(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintUlid(dAtA []byte, offset int, v uint64) int {
 	offset -= sovUlid(v)
 	base := offset
@@ -204,6 +339,22 @@ func (m *ULID) Size() (n int) {
 	return n
 }
 
+func (m *ULIDWithDuration) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Ulid != nil {
+		l = m.Ulid.Size()
+		n += 1 + l + sovUlid(uint64(l))
+	}
+	if m.Elapse != 0 {
+		n += 1 + sovUlid(uint64(m.Elapse))
+	}
+	return n
+}
+
 func sovUlid(x uint64) (n int) {
 	return (math_bits.Len64(x|1) + 6) / 7
 }
@@ -217,6 +368,17 @@ func (this *ULID) String() string {
 	s := strings.Join([]string{`&ULID{`,
 		`Timestamp:` + fmt.Sprintf("%v", this.Timestamp) + `,`,
 		`Entropy:` + fmt.Sprintf("%v", this.Entropy) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *ULIDWithDuration) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&ULIDWithDuration{`,
+		`Ulid:` + strings.Replace(this.Ulid.String(), "ULID", "ULID", 1) + `,`,
+		`Elapse:` + fmt.Sprintf("%v", this.Elapse) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -311,6 +473,114 @@ func (m *ULID) Unmarshal(dAtA []byte) error {
 				m.Entropy = []byte{}
 			}
 			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipUlid(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthUlid
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthUlid
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *ULIDWithDuration) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowUlid
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: ULIDWithDuration: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: ULIDWithDuration: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Ulid", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowUlid
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthUlid
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthUlid
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Ulid == nil {
+				m.Ulid = &ULID{}
+			}
+			if err := m.Ulid.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Elapse", wireType)
+			}
+			m.Elapse = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowUlid
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.Elapse |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipUlid(dAtA[iNdEx:])

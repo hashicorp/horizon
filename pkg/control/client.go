@@ -14,6 +14,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/net/http2"
+
 	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -71,8 +73,9 @@ type Client struct {
 	lastLabelMD5 string
 	labelLinks   *pb.LabelLinks
 
-	tlsCert []byte
-	tlsKey  []byte
+	tlsCert  []byte
+	tlsKey   []byte
+	tokenPub ed25519.PublicKey
 }
 
 type ClientConfig struct {
@@ -87,6 +90,9 @@ type ClientConfig struct {
 	Session  *session.Session
 	WorkDir  string
 	TLSPort  int
+
+	// Where hub integrates it's handler for the hzn protocol
+	NextProto map[string]func(hs *http.Server, tlsConn *tls.Conn, h http.Handler)
 }
 
 func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
@@ -149,11 +155,20 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 
 	c.tlsCert = resp.TlsCert
 	c.tlsKey = resp.TlsKey
+	c.tokenPub = resp.TokenPub
 
 	return nil
 }
 
-func (c *Client) RunIngress(ctx context.Context) error {
+func (c *Client) TokenPub() ed25519.PublicKey {
+	return c.tokenPub
+}
+
+type NPNHandler func(hs *http.Server, c *tls.Conn, h http.Handler)
+
+func (c *Client) RunIngress(ctx context.Context, npn map[string]NPNHandler) error {
+	L := ctxlog.L(ctx)
+
 	var cfg tls.Config
 	cfg.Certificates = []tls.Certificate{
 		{
@@ -167,6 +182,24 @@ func (c *Client) RunIngress(ctx context.Context) error {
 		Handler:   c,
 		TLSConfig: &cfg,
 	}
+
+	conf := &http2.Server{
+		NewWriteScheduler: func() http2.WriteScheduler { return http2.NewPriorityWriteScheduler(nil) },
+	}
+
+	http2.ConfigureServer(hs, conf)
+
+	for proto, fn := range c.cfg.NextProto {
+		hs.TLSConfig.NextProtos = append(hs.TLSConfig.NextProtos, proto)
+		hs.TLSNextProto[proto] = fn
+	}
+
+	for proto, fn := range npn {
+		hs.TLSConfig.NextProtos = append(hs.TLSConfig.NextProtos, proto)
+		hs.TLSNextProto[proto] = fn
+	}
+
+	L.Info("client ingress running", "port", c.cfg.TLSPort)
 
 	return hs.ListenAndServeTLS("", "")
 }
