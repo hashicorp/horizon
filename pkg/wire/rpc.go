@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/yamux"
 	"github.com/pkg/errors"
 )
@@ -16,8 +17,8 @@ type RPCClient struct {
 const rpcTag = 20
 
 func (r *RPCClient) Begin(host, path string, req Marshaller) (RPCContext, error) {
-	var wreq Request
-	wreq.Type = RPC
+	var wreq pb.Request
+	wreq.Type = pb.RPC
 	wreq.Path = path
 	wreq.Host = host
 
@@ -50,8 +51,8 @@ func (r *RPCClient) Begin(host, path string, req Marshaller) (RPCContext, error)
 }
 
 func (r *RPCClient) Call(host, path string, req Marshaller, resp Unmarshaller) error {
-	var wreq Request
-	wreq.Type = RPC
+	var wreq pb.Request
+	wreq.Type = pb.RPC
 	wreq.Path = "/query/peers"
 	wreq.Host = "agents.edge"
 
@@ -154,7 +155,7 @@ func (r *rpcCtx) WriteResponse(v Marshaller) error {
 	return r.Context.WriteMarshal(rpcTag, v)
 }
 
-func (r *RPCServer) HandleRequest(ctx context.Context, L hclog.Logger, wctx Context, wreq *Request) error {
+func (r *RPCServer) HandleRequest(ctx context.Context, L hclog.Logger, wctx Context, wreq *pb.Request) error {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 

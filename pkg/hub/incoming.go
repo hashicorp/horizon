@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/pkg/errors"
+	"github.com/y0ssar1an/q"
 )
 
 type pivotAccountContext struct {
@@ -43,27 +44,31 @@ func (h *Hub) handleAgentStream(ctx context.Context, tkn *token.ValidToken, stre
 		if tkn.AllowAccount(req.PivotAccount.Namespace) {
 			wctx = &pivotAccountContext{wctx, req.PivotAccount}
 		} else {
-			var resp wire.Response
+			var resp pb.Response
 			resp.Error = "invalid account pivot"
 			wctx.WriteMarshal(255, &resp)
 			return
 		}
 	}
 
+	q.Q(req)
+
 	routes, err := h.cc.LookupService(ctx, tkn.AccountId(), req.Target)
 	if err != nil {
-		var resp wire.Response
+		var resp pb.Response
 		resp.Error = err.Error()
 		wctx.WriteMarshal(255, &resp)
 		return
 	}
+
+	q.Q(routes)
 
 	for len(routes) > 0 {
 		var target *pb.ServiceRoute
 
 		target, routes, err = h.pickRoute(routes)
 		if err != nil {
-			var resp wire.Response
+			var resp pb.Response
 			resp.Error = err.Error()
 			wctx.WriteMarshal(255, &resp)
 			return
@@ -71,14 +76,14 @@ func (h *Hub) handleAgentStream(ctx context.Context, tkn *token.ValidToken, stre
 
 		err = h.bridgeToTarget(ctx, stream, target, &req, wctx)
 		if err != nil {
-			var resp wire.Response
+			var resp pb.Response
 			resp.Error = err.Error()
 			wctx.WriteMarshal(255, &resp)
 			return
 		}
 	}
 
-	var resp wire.Response
+	var resp pb.Response
 	resp.Error = "no routes available to target"
 	wctx.WriteMarshal(255, &resp)
 }
@@ -96,6 +101,8 @@ func (h *Hub) bridgeToTarget(
 	req *pb.ConnectRequest,
 	wctx wire.Context,
 ) error {
+	q.Q(target.Hub, h.id)
+
 	// Oh look it's for me!
 	if target.Hub.Equal(h.id) {
 		h.mu.RLock()
@@ -104,6 +111,17 @@ func (h *Hub) bridgeToTarget(
 
 		if !ok {
 			return ErrNoSuchSession
+		}
+
+		// transmit a ack back to the opener that the service was found and is
+		// about to start.
+
+		var conack pb.ConnectAck
+		conack.ServiceId = target.Id
+
+		err := wctx.WriteMarshal(1, &conack)
+		if err != nil {
+			return err
 		}
 
 		stream, err := session.OpenStream()
@@ -147,7 +165,7 @@ type frameAccessor struct {
 	*wire.FramingWriter
 }
 
-func (fa *frameAccessor) WriteResponse(resp *wire.Response) error {
+func (fa *frameAccessor) WriteResponse(resp *pb.Response) error {
 	_, err := fa.WriteMarshal(1, resp)
 	return err
 }

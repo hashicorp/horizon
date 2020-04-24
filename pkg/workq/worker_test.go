@@ -371,13 +371,18 @@ func TestWorker(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		var jobs []*Job
+		var (
+			jobs []*Job
+			mu   sync.Mutex
+		)
 
 		go w.Run(ctx, RunConfig{
 			ConnInfo:    connect,
 			PopInterval: time.Minute,
 			Concurrency: 1,
 			Handler: func(j *Job) error {
+				mu.Lock()
+				defer mu.Unlock()
 				jobs = append(jobs, j)
 				return nil
 			},
@@ -397,6 +402,9 @@ func TestWorker(t *testing.T) {
 		require.NoError(t, err)
 
 		time.Sleep(time.Second)
+
+		mu.Lock()
+		defer mu.Unlock()
 
 		require.Equal(t, 1, len(jobs))
 		assert.Equal(t, job.Id, jobs[0].Id)

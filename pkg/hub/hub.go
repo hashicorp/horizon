@@ -50,6 +50,7 @@ type Hub struct {
 	active map[string]*yamux.Session
 
 	// ServiceSorter ServiceSorter
+	wg sync.WaitGroup
 }
 
 func NewHub(L hclog.Logger, client *control.Client) (*Hub, error) {
@@ -66,7 +67,7 @@ func NewHub(L hclog.Logger, client *control.Client) (*Hub, error) {
 		cfg:    cfg,
 		active: make(map[string]*yamux.Session),
 		cc:     client,
-		id:     pb.NewULID(),
+		id:     client.Id(),
 	}
 
 	return h, nil
@@ -83,12 +84,29 @@ func (h *Hub) Serve(ctx context.Context, l net.Listener) error {
 	}
 }
 
-func (hub *Hub) Run(ctx context.Context) error {
+func (hub *Hub) Run(ctx context.Context, li net.Listener) error {
 	npn := map[string]control.NPNHandler{
 		"hzn": hub.handleHZN,
 	}
 
-	return hub.cc.RunIngress(ctx, npn)
+	err := hub.cc.RunIngress(ctx, li, npn)
+	if err != nil {
+		if no, ok := err.(*net.OpError); ok {
+			if no.Err.Error() == "use of closed network connection" {
+				return nil
+			}
+		}
+
+		return err
+	}
+
+	return nil
+}
+
+func (hub *Hub) WaitToDrain() error {
+	hub.wg.Wait()
+
+	return nil
 }
 
 func (hub *Hub) handleHZN(hs *http.Server, tlsConn *tls.Conn, h http.Handler) {
@@ -101,6 +119,9 @@ func (hub *Hub) handleHZN(hs *http.Server, tlsConn *tls.Conn, h http.Handler) {
 	if bc, ok := h.(baseContexter); ok {
 		ctx = bc.BaseContext()
 	}
+
+	hub.wg.Add(1)
+	defer hub.wg.Done()
 
 	hub.handleConn(ctx, tlsConn)
 }
@@ -240,16 +261,18 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	defer sess.Close()
 
-	agentKey := pb.NewULID().String()
-
 	h.mu.Lock()
-	h.active[agentKey] = sess
+	for _, serv := range preamble.Services {
+		h.active[serv.ServiceId.SpecString()] = sess
+	}
 	h.mu.Unlock()
 
 	defer func() {
 		h.mu.Lock()
 		defer h.mu.Unlock()
-		delete(h.active, agentKey)
+		for _, serv := range preamble.Services {
+			delete(h.active, serv.ServiceId.SpecString())
+		}
 	}()
 
 	for {

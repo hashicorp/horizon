@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"cirello.io/dynamolock"
-	"github.com/DATA-DOG/go-txdb"
 	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -25,15 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
 )
-
-func init() {
-	db := os.Getenv("DATABASE_URL")
-	if db != "" {
-		txdb.Register("pgtest", "postgres", db)
-		dialect, _ := gorm.GetDialect("postgres")
-		gorm.RegisterDialect("pgtest", dialect)
-	}
-}
 
 type staticServerStream struct {
 	ctx   context.Context
@@ -75,6 +65,8 @@ func (s *staticServerStream) RecvMsg(m interface{}) error {
 }
 
 func TestServer(t *testing.T) {
+	testutils.SetupDB()
+
 	vt := os.Getenv("VAULT_TOKEN")
 	if vt == "" {
 		t.Skip("no vault token available to test against vault")

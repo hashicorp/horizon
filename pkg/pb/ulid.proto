@@ -1,8 +1,11 @@
 syntax = "proto3";
 
+import "defs/gogo.proto";
+
 package pb;
 
 message ULID {
+  option (gogoproto.stringer) =  false;
   uint64 timestamp = 1;
   bytes entropy = 2;
 }

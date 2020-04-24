@@ -3,6 +3,8 @@ package agent
 import (
 	"context"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -10,21 +12,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
-	"github.com/hashicorp/horizon/pkg/noiseconn"
+	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/oklog/ulid"
+	"github.com/y0ssar1an/q"
 )
 
 type ServiceContext interface {
 	wire.Context
 
-	// Returns the request initially sent to trigger the service handling. The
-	// service is free to use all fields however they would like.
-	Request() *wire.Request
+	ProtocolId() string
 
 	// Returns a reader that reads data on the connection
 	BodyReader() io.Reader
@@ -45,16 +45,16 @@ type ServiceHandler interface {
 type serviceContext struct {
 	wire.Context
 
-	req    *wire.Request
-	fr     *wire.FramingReader
-	stream *yamux.Stream
-	logs   *LogTransmitter
+	protocolId string
+	fr         *wire.FramingReader
+	stream     *yamux.Stream
+	logs       *LogTransmitter
 
 	readHijack  bool
 	writeHijack bool
 }
 
-func (s *serviceContext) AccountId() string {
+func (s *serviceContext) AccountId() *pb.ULID {
 	return s.Context.AccountId()
 }
 
@@ -62,6 +62,10 @@ var (
 	ErrReadHijacked  = errors.New("read hijacked, structured access not available")
 	ErrWriteHijacked = errors.New("write hijacked, structured access not available")
 )
+
+func (s *serviceContext) ProtocolId() string {
+	return s.protocolId
+}
 
 func (s *serviceContext) ReadMarshal(v wire.Unmarshaller) (byte, error) {
 	if s.readHijack {
@@ -79,12 +83,6 @@ func (s *serviceContext) WriteMarshal(tag byte, v wire.Marshaller) error {
 	return s.Context.WriteMarshal(tag, v)
 }
 
-// Returns the request initially sent to trigger the service handling. The
-// service is free to use all fields however they would like.
-func (s *serviceContext) Request() *wire.Request {
-	return s.req
-}
-
 // Returns a reader that reads data on the connection
 func (s *serviceContext) BodyReader() io.Reader {
 	s.readHijack = true
@@ -99,14 +97,15 @@ func (s *serviceContext) BodyWriter() io.Writer {
 
 // Transmit a log message related to this request
 func (s *serviceContext) Log(msg *logs.Message) error {
-	return s.logs.Transmit(msg)
+	return nil
+	// return s.logs.Transmit(msg)
 }
 
 // Describes a service that an agent is advertising. When a client connects to the
 // service, the Handler will be invoked.
 type Service struct {
 	// The identifier for the service, populated when the service is added.
-	Id wire.ULID
+	Id *pb.ULID
 
 	// The type identifer for the service. These identifiers are used by other
 	// agents and hubs to find services of a particular type.
@@ -114,10 +113,11 @@ type Service struct {
 
 	// The unique identifiers for the service. The labels can be anything and are
 	// used by agents and hubs to locate services.
-	Labels [][]Label
+	Labels *pb.LabelSet
 
-	// A description for the service used to help identify it in a catalog
-	Description string
+	// An additional metadata to attach to the service. Peer agents will be able to
+	// see this metadata.
+	Metadata map[string]string
 
 	// The handler to invoke when the service is called.
 	Handler ServiceHandler
@@ -126,8 +126,8 @@ type Service struct {
 type Agent struct {
 	L hclog.Logger
 
-	cfg *yamux.Config
-	key noise.DHKey
+	cfg   *yamux.Config
+	hosts []string
 
 	LocalAddr string
 	Token     string
@@ -140,7 +140,7 @@ type Agent struct {
 	statuses chan hubStatus
 }
 
-func NewAgent(L hclog.Logger, key noise.DHKey) (*Agent, error) {
+func NewAgent(L hclog.Logger) (*Agent, error) {
 	cfg := yamux.DefaultConfig()
 	cfg.EnableKeepAlive = true
 	cfg.KeepAliveInterval = 30 * time.Second
@@ -152,7 +152,6 @@ func NewAgent(L hclog.Logger, key noise.DHKey) (*Agent, error) {
 	agent := &Agent{
 		L:        L,
 		cfg:      cfg,
-		key:      key,
 		services: make(map[string]*Service),
 		statuses: make(chan hubStatus),
 	}
@@ -162,24 +161,20 @@ func NewAgent(L hclog.Logger, key noise.DHKey) (*Agent, error) {
 
 var mread = ulid.Monotonic(rand.Reader, 1)
 
-func (a *Agent) AddService(serv *Service) (string, error) {
+func (a *Agent) AddService(serv *Service) (*pb.ULID, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
-	id, err := ulid.New(ulid.Now(), mread)
-	if err != nil {
-		return "", err
-	}
+	serv.Id = pb.NewULID()
 
-	serv.Id.ULID = id
-
-	a.services[serv.Id.String()] = serv
-	return serv.Id.String(), nil
+	a.services[serv.Id.SpecString()] = serv
+	return serv.Id, nil
 }
 
 type HubConfig struct {
-	Addr      string
-	PublicKey string
+	Addr       string
+	Insecure   bool
+	PinnedCert *x509.Certificate
 }
 
 type hubStatus struct {
@@ -237,7 +232,16 @@ func (a *Agent) Wait(ctx context.Context) error {
 func (a *Agent) connectToHub(ctx context.Context, hub HubConfig, status chan hubStatus) {
 	a.L.Info("connecting to hub", "addr", hub.Addr)
 
-	conn, err := net.Dial("tcp", hub.Addr)
+	var clientTlsConfig tls.Config
+	clientTlsConfig.NextProtos = []string{"hzn"}
+	clientTlsConfig.InsecureSkipVerify = hub.Insecure
+
+	if hub.PinnedCert != nil {
+		clientTlsConfig.RootCAs = x509.NewCertPool()
+		clientTlsConfig.RootCAs.AddCert(hub.PinnedCert)
+	}
+
+	conn, err := tls.Dial("tcp", hub.Addr, &clientTlsConfig)
 	if err != nil {
 		status <- hubStatus{cfg: hub, err: err}
 		return
@@ -255,57 +259,37 @@ func (a *Agent) connectToHub(ctx context.Context, hub HubConfig, status chan hub
 var ErrProtocolError = errors.New("protocol error detected")
 
 func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg HubConfig, status chan hubStatus) error {
-	nconn, err := noiseconn.NewConn(conn)
-	if err != nil {
-		return err
-	}
+	id := pb.NewULID()
 
-	err = nconn.Connect(a.key, hubCfg.PublicKey)
-	if err != nil {
-		return err
-	}
-
-	id, err := ulid.New(ulid.Now(), mread)
-	if err != nil {
-		return err
-	}
-
-	fw, err := wire.NewFramingWriter(nconn)
+	fw, err := wire.NewFramingWriter(conn)
 	if err != nil {
 		return err
 	}
 
 	defer fw.Recycle()
 
-	fr, err := wire.NewFramingReader(nconn)
+	fr, err := wire.NewFramingReader(conn)
 	if err != nil {
 		return err
 	}
 
-	var preamble wire.Preamble
+	var preamble pb.Preamble
 	preamble.Token = a.Token
 	preamble.SessionId = id.String()
 	preamble.Labels = a.Labels
 
 	for _, serv := range a.services {
+		var md []*pb.KVPair
 
-		var set []*wire.Labels
-
-		for _, labels := range serv.Labels {
-			var s []string
-
-			for _, lbl := range labels {
-				s = append(s, lbl.String())
-			}
-
-			set = append(set, &wire.Labels{Label: s})
+		for k, v := range serv.Metadata {
+			md = append(md, &pb.KVPair{Key: k, Value: v})
 		}
 
-		preamble.Services = append(preamble.Services, &wire.ServiceInfo{
-			ServiceId:   serv.Id,
-			Type:        serv.Type,
-			Description: serv.Description,
-			Labels:      set,
+		preamble.Services = append(preamble.Services, &pb.ServiceInfo{
+			ServiceId: serv.Id,
+			Type:      serv.Type,
+			Metadata:  md,
+			Labels:    serv.Labels,
 		})
 	}
 
@@ -316,7 +300,7 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 
 	t := time.Now()
 
-	var wc wire.Confirmation
+	var wc pb.Confirmation
 	tag, _, err := fr.ReadMarshal(&wc)
 	if err != nil {
 		return err
@@ -324,6 +308,10 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 
 	if tag != 1 {
 		return ErrProtocolError
+	}
+
+	if wc.Status != "connected" {
+		return fmt.Errorf("hub rejected connection: %s", wc.Status)
 	}
 
 	latency := time.Since(t)
@@ -336,7 +324,7 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 
 	bc := &wire.ComposedConn{
 		Reader: fr.BufReader(),
-		Writer: nconn,
+		Writer: conn,
 		Closer: conn,
 	}
 
@@ -395,6 +383,10 @@ func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux
 	for {
 		stream, err := session.AcceptStream()
 		if err != nil {
+			if err == yamux.ErrSessionShutdown {
+				return
+			}
+
 			L.Warn("error accepting yamux stream", "error", err)
 			return
 		}
@@ -435,7 +427,7 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 
 	defer fw.Recycle()
 
-	var req wire.Request
+	var req pb.SessionIdentification
 
 	tag, _, err := fr.ReadMarshal(&req)
 	if err != nil {
@@ -448,32 +440,40 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		return
 	}
 
+	targetService := req.ServiceId.SpecString()
+
 	a.mu.RLock()
 
-	serv, ok := a.services[req.TargetService]
+	q.Q(req.ServiceId, a.services)
+
+	serv, ok := a.services[targetService]
 
 	a.mu.RUnlock()
 
 	if !ok {
-		L.Error("request received for unknown service", "service", req.TargetService)
+		L.Error("request received for unknown service", "service", targetService)
 
-		var resp wire.Response
-		resp.Error = fmt.Sprintf("unknown service: %s", req.TargetService)
+		var resp pb.Response
+		resp.Error = fmt.Sprintf("unknown service: %s", targetService)
 
-		_, err = fw.WriteMarshal(1, &resp)
+		_, err = fw.WriteMarshal(255, &resp)
 		if err != nil {
 			L.Error("error marshaling response", "error", err)
 			return
 		}
+
+		return
 	}
 
 	sctx := &serviceContext{
-		Context: wire.NewContext("", fr, fw),
-		fr:      fr,
-		req:     &req,
-		stream:  stream,
-		logs:    ltrans,
+		Context:    wire.NewContext(nil, fr, fw),
+		protocolId: req.ProtocolId,
+		fr:         fr,
+		stream:     stream,
+		logs:       ltrans,
 	}
+
+	q.Q(serv)
 
 	err = serv.Handler.HandleRequest(ctx, L, sctx)
 	if err != nil {

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"io"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/wire"
@@ -15,6 +16,10 @@ func (_ *echoHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Se
 	for {
 		tag, err := sctx.ReadMarshal(&mb)
 		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+
 			return err
 		}
 

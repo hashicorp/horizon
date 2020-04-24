@@ -45,6 +45,10 @@ func (u *ULID) SpecString() string {
 	return u.native().String()
 }
 
+func (u *ULID) String() string {
+	return u.SpecString()
+}
+
 func (u ULID) Bytes() []byte {
 	x := u.native()
 	return x[:]

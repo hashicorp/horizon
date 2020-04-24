@@ -4,9 +4,9 @@ import (
 	context "context"
 	"crypto/ed25519"
 	"crypto/tls"
-	fmt "fmt"
 	io "io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -85,11 +85,9 @@ type ClientConfig struct {
 	Token    string
 	Addr     string
 	Version  string
-	BindPort int
 	S3Bucket string
 	Session  *session.Session
 	WorkDir  string
-	TLSPort  int
 
 	// Where hub integrates it's handler for the hzn protocol
 	NextProto map[string]func(hs *http.Server, tlsConn *tls.Conn, h http.Handler)
@@ -145,6 +143,10 @@ func (c *Client) Close() error {
 	return nil
 }
 
+func (c *Client) Id() *pb.ULID {
+	return c.cfg.Id
+}
+
 func (c *Client) BootstrapConfig(ctx context.Context) error {
 	resp, err := c.client.FetchConfig(ctx, &pb.ConfigRequest{
 		Hub: c.cfg.Id,
@@ -166,7 +168,7 @@ func (c *Client) TokenPub() ed25519.PublicKey {
 
 type NPNHandler func(hs *http.Server, c *tls.Conn, h http.Handler)
 
-func (c *Client) RunIngress(ctx context.Context, npn map[string]NPNHandler) error {
+func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string]NPNHandler) error {
 	L := ctxlog.L(ctx)
 
 	var cfg tls.Config
@@ -178,7 +180,6 @@ func (c *Client) RunIngress(ctx context.Context, npn map[string]NPNHandler) erro
 	}
 
 	hs := &http.Server{
-		Addr:      fmt.Sprintf(":%d", c.cfg.TLSPort),
 		Handler:   c,
 		TLSConfig: &cfg,
 	}
@@ -199,9 +200,9 @@ func (c *Client) RunIngress(ctx context.Context, npn map[string]NPNHandler) erro
 		hs.TLSNextProto[proto] = fn
 	}
 
-	L.Info("client ingress running", "port", c.cfg.TLSPort)
+	L.Info("client ingress running")
 
-	return hs.ListenAndServeTLS("", "")
+	return hs.ServeTLS(li, "", "")
 }
 
 func (c *Client) ServeHTTP(w http.ResponseWriter, req *http.Request) {

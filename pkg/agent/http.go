@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -9,7 +10,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
-	"github.com/hashicorp/horizon/pkg/wire"
+	"github.com/hashicorp/horizon/pkg/pb"
 )
 
 type httpHandler struct {
@@ -25,7 +26,18 @@ func HTTPHandler(url string) ServiceHandler {
 }
 
 func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx ServiceContext) error {
-	req := sctx.Request()
+	proto := sctx.ProtocolId()
+
+	if !(proto == "" || proto == "http") {
+		return fmt.Errorf("unknown protocol: %s", proto)
+	}
+
+	var req pb.Request
+
+	_, err := sctx.ReadMarshal(&req)
+	if err != nil {
+		return err
+	}
 
 	L.Info("request started", "method", req.Method, "path", req.Path)
 
@@ -33,6 +45,7 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Se
 	if err != nil {
 		return err
 	}
+
 	hreq.URL.RawQuery = req.Query
 	hreq.URL.Fragment = req.Fragment
 	if req.Auth != nil {
@@ -46,11 +59,11 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Se
 
 	defer hresp.Body.Close()
 
-	var resp wire.Response
+	var resp pb.Response
 	resp.Code = int32(hresp.StatusCode)
 
 	for k, v := range hresp.Header {
-		resp.Headers = append(resp.Headers, &wire.Header{
+		resp.Headers = append(resp.Headers, &pb.Header{
 			Name:  k,
 			Value: v,
 		})

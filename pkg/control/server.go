@@ -3,6 +3,7 @@ package control
 import (
 	context "context"
 	"crypto/ed25519"
+	"database/sql"
 	"encoding/json"
 	fmt "fmt"
 	"sync"
@@ -572,11 +573,13 @@ func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*
 	ao.ID = req.Account.AccountId.Bytes()
 	ao.Namespace = req.Account.Namespace
 
-	de := s.db.Set("gorm:insert_option", "ON CONFLICT DO NOTHING").Create(&ao)
+	de := s.db.Set("gorm:insert_option", "ON CONFLICT (id) DO UPDATE SET namespace = EXCLUDED.namespace").Create(&ao)
 
 	err = dbx.Check(de)
 	if err != nil {
-		return nil, err
+		if err != sql.ErrNoRows {
+			return nil, errors.Wrapf(err, "creating account record")
+		}
 	}
 
 	var tc token.TokenCreator

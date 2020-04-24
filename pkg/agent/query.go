@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"github.com/hashicorp/horizon/pkg/edgeservices/agents"
 	"github.com/hashicorp/horizon/pkg/wire"
 )
 
@@ -16,6 +15,8 @@ func (a *Agent) RPCClient() (*wire.RPCClient, error) {
 
 	return wire.NewRPCClient(stream), nil
 }
+
+/*
 
 func (a *Agent) QueryPeerService(labels []string) ([]*agents.Service, error) {
 	rpc, err := a.RPCClient()
@@ -54,3 +55,5 @@ func (a *Agent) ConnectToPeer(serv *agents.Service) (wire.Context, error) {
 
 	return wctx, nil
 }
+
+*/

@@ -3,9 +3,11 @@ package wire
 import (
 	"bufio"
 	"encoding/binary"
-	"errors"
 	"io"
 	"sync"
+
+	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/pkg/errors"
 )
 
 var frPool = sync.Pool{
@@ -31,7 +33,7 @@ func NewFramingReader(r io.Reader) (*FramingReader, error) {
 }
 
 func (f *FramingReader) Recycle() {
-	frPool.Put(f)
+	// frPool.Put(f)
 }
 
 func (f *FramingReader) BufReader() *bufio.Reader {
@@ -98,6 +100,8 @@ type Unmarshaller interface {
 	Unmarshal([]byte) error
 }
 
+var ErrRemoteError = errors.New("remote error detected")
+
 func (f *FramingReader) ReadMarshal(v Unmarshaller) (byte, int, error) {
 	tag, sz, err := f.Next()
 	if err != nil {
@@ -114,6 +118,12 @@ func (f *FramingReader) ReadMarshal(v Unmarshaller) (byte, int, error) {
 	_, err = io.ReadFull(f, buf[:sz])
 	if err != nil {
 		return 0, 0, err
+	}
+
+	if tag == 255 {
+		var resp pb.Response
+		resp.Unmarshal(buf[:sz])
+		return 0, 0, errors.Wrapf(ErrRemoteError, resp.Error)
 	}
 
 	err = v.Unmarshal(buf[:sz])
@@ -152,7 +162,7 @@ func NewFramingWriter(w io.Writer) (*FramingWriter, error) {
 }
 
 func (f *FramingWriter) Recycle() {
-	fwPool.Put(f)
+	// fwPool.Put(f)
 }
 
 func (f *FramingWriter) WriteFrame(tag byte, size int) error {

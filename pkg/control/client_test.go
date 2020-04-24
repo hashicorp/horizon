@@ -34,6 +34,8 @@ import (
 )
 
 func TestClient(t *testing.T) {
+	testutils.SetupDB()
+
 	bindPort := 24001
 
 	vt := os.Getenv("VAULT_TOKEN")
@@ -129,12 +131,11 @@ func TestClient(t *testing.T) {
 		id := pb.NewULID()
 
 		client, err := NewClient(ctx, ClientConfig{
-			Id:       id,
-			Token:    ctr.Token,
-			Version:  "test",
-			Client:   gClient,
-			BindPort: bindPort,
-			Session:  sess,
+			Id:      id,
+			Token:   ctr.Token,
+			Version: "test",
+			Client:  gClient,
+			Session: sess,
 		})
 
 		bindPort++
@@ -249,7 +250,6 @@ func TestClient(t *testing.T) {
 			Token:    ctr.Token,
 			Version:  "test",
 			Client:   gClient,
-			BindPort: bindPort,
 			WorkDir:  dir,
 			Session:  sess,
 			S3Bucket: bucket,
@@ -407,7 +407,6 @@ func TestClient(t *testing.T) {
 			Token:    ctr.Token,
 			Version:  "test",
 			Client:   gClient,
-			BindPort: bindPort,
 			WorkDir:  dir,
 			Session:  sess,
 			S3Bucket: bucket,
@@ -533,7 +532,6 @@ func TestClient(t *testing.T) {
 			Id:       id,
 			Token:    hubtoken.Token,
 			Version:  "test",
-			BindPort: bindPort,
 			WorkDir:  dir,
 			Session:  sess,
 			S3Bucket: bucket,
@@ -653,25 +651,26 @@ func TestClient(t *testing.T) {
 
 		id := pb.NewULID()
 
-		tlsPort := bindPort + 1
-
 		client, err := NewClient(ctx, ClientConfig{
-			Id:       id,
-			Token:    ctr.Token,
-			Version:  "test",
-			Client:   gClient,
-			BindPort: bindPort,
-			Session:  sess,
-			TLSPort:  tlsPort,
+			Id:      id,
+			Token:   ctr.Token,
+			Version: "test",
+			Client:  gClient,
+			Session: sess,
 		})
-
-		bindPort += 2
 
 		require.NoError(t, err)
 
 		err = client.BootstrapConfig(ctx)
 
-		go client.RunIngress(ctx, nil)
+		cli, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer cli.Close()
+
+		tlsPort := cli.Addr().(*net.TCPAddr).Port
+
+		go client.RunIngress(ctx, cli, nil)
 
 		parsedHubCert, err := x509.ParseCertificate(derBytes)
 		require.NoError(t, err)

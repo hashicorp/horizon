@@ -54,12 +54,16 @@ message ConnectRequest {
   LabelSet target = 1;
   string type = 2;
   Account pivot_account = 3;
-  int64 protocol_id = 4;
+  string protocol_id = 4;
+}
+
+message ConnectAck {
+  ULID service_id = 1;
 }
 
 message SessionIdentification {
   ULID service_id = 1;
-  int64 protocol_id = 2;
+  string protocol_id = 2;
 }
 
 message Request {

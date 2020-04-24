@@ -70,3 +70,9 @@ func (u ULID) Equal(other ULID) bool {
 func (u ULID) Compare(other ULID) int {
 	return bytes.Compare(u.ULID[0:], other.ULID[0:])
 }
+
+func ULIDFromBytes(b []byte) ULID {
+	var u ULID
+	copy(u.ULID[:], b)
+	return u
+}

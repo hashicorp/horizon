@@ -5,6 +5,7 @@ import (
 	"sync"
 
 	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
+	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 )
@@ -34,7 +35,7 @@ func (l *LogTransmitter) Transmit(msg *logs.Message) error {
 		l.agent.mu.RUnlock()
 	}
 
-	var wreq wire.Request
+	var wreq pb.Request
 	wreq.Method = "POST"
 	wreq.Path = l.path
 	wreq.Host = "logs.edge"
