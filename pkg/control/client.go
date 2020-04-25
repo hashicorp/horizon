@@ -24,7 +24,6 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
-	"github.com/y0ssar1an/q"
 	"google.golang.org/grpc"
 )
 
@@ -254,8 +253,6 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 	var out []*pb.ServiceRoute
 
 	for _, reg := range c.localServices {
-		q.Q(labels, reg.Labels)
-
 		if labels.Matches(reg.Labels) {
 			out = append(out, &pb.ServiceRoute{
 				Id:     reg.Id,
@@ -573,8 +570,6 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.ULID, *pb.LabelSet, e
 	if c.labelLinks == nil {
 		return nil, nil, nil
 	}
-
-	q.Q(c.labelLinks)
 
 	for _, ll := range c.labelLinks.LabelLinks {
 		if ll.Labels.Equal(label) {

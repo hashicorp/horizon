@@ -3,6 +3,7 @@ package token
 import (
 	"crypto/ed25519"
 	"encoding/base64"
+	"fmt"
 	"path/filepath"
 
 	"github.com/hashicorp/vault/api"
@@ -23,6 +24,10 @@ func SetupVault(vc *api.Client, path string) (ed25519.PublicKey, error) {
 		sec, err = vc.Logical().Read(filepath.Join("/transit/keys", path))
 		if err != nil {
 			return nil, err
+		}
+
+		if sec == nil {
+			return nil, fmt.Errorf("vault transit not available")
 		}
 	}
 

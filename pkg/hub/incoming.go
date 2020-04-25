@@ -8,7 +8,6 @@ import (
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/pkg/errors"
-	"github.com/y0ssar1an/q"
 )
 
 type pivotAccountContext struct {
@@ -51,8 +50,6 @@ func (h *Hub) handleAgentStream(ctx context.Context, tkn *token.ValidToken, stre
 		}
 	}
 
-	q.Q(req)
-
 	routes, err := h.cc.LookupService(ctx, tkn.AccountId(), req.Target)
 	if err != nil {
 		var resp pb.Response
@@ -60,8 +57,6 @@ func (h *Hub) handleAgentStream(ctx context.Context, tkn *token.ValidToken, stre
 		wctx.WriteMarshal(255, &resp)
 		return
 	}
-
-	q.Q(routes)
 
 	for len(routes) > 0 {
 		var target *pb.ServiceRoute
@@ -101,8 +96,6 @@ func (h *Hub) bridgeToTarget(
 	req *pb.ConnectRequest,
 	wctx wire.Context,
 ) error {
-	q.Q(target.Hub, h.id)
-
 	// Oh look it's for me!
 	if target.Hub.Equal(h.id) {
 		h.mu.RLock()

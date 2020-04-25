@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
-	"github.com/y0ssar1an/q"
 )
 
 type HostnameChecker interface {
@@ -124,8 +123,6 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		"path", req.URL.Path,
 		"content-length", req.ContentLength,
 	)
-
-	q.Q(target)
 
 	services, err := f.client.LookupService(ctx, accountId, target)
 	if err != nil {

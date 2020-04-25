@@ -18,7 +18,6 @@ import (
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/token"
-	"github.com/hashicorp/vault/api"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,15 +66,7 @@ func (s *staticServerStream) RecvMsg(m interface{}) error {
 func TestServer(t *testing.T) {
 	testutils.SetupDB()
 
-	vt := os.Getenv("VAULT_TOKEN")
-	if vt == "" {
-		t.Skip("no vault token available to test against vault")
-	}
-
-	var cfg api.Config
-	cfg.Address = "http://127.0.0.1:8200"
-	vc, err := api.NewClient(&cfg)
-	require.NoError(t, err)
+	vc := testutils.SetupVault()
 
 	db := os.Getenv("DATABASE_URL")
 	if db == "" {

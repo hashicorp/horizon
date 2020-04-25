@@ -17,7 +17,6 @@ import (
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/oklog/ulid"
-	"github.com/y0ssar1an/q"
 )
 
 type ServiceContext interface {
@@ -414,8 +413,6 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		return
 	}
 
-	q.Q(req)
-
 	targetService := req.ServiceId.SpecString()
 
 	a.mu.RLock()
@@ -445,8 +442,6 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		fr:         fr,
 		stream:     stream,
 	}
-
-	q.Q(serv)
 
 	err = serv.Handler.HandleRequest(ctx, L, sctx)
 	if err != nil {

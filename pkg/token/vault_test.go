@@ -1,25 +1,16 @@
 package token
 
 import (
-	"os"
 	"testing"
 
 	"github.com/hashicorp/horizon/pkg/pb"
-	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestVault(t *testing.T) {
-	token := os.Getenv("VAULT_TOKEN")
-	if token == "" {
-		t.Skip("no vault token available to test against vault")
-	}
-
-	var cfg api.Config
-	cfg.Address = "http://127.0.0.1:8200"
-	vc, err := api.NewClient(&cfg)
-	require.NoError(t, err)
+	vc := testutils.SetupVault()
 
 	t.Run("can setup a key and use it", func(t *testing.T) {
 		id := pb.NewULID().SpecString()
