@@ -140,7 +140,7 @@ func (h *Hub) bridgeToTarget(
 
 		defer fw.Recycle()
 
-		_, err = fw.WriteMarshal(1, &sid)
+		_, err = fw.WriteMarshal(11, &sid)
 		if err != nil {
 			return err
 		}

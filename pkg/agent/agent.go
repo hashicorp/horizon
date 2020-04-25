@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
@@ -31,9 +30,6 @@ type ServiceContext interface {
 
 	// Returns a writer than writes data on the connection
 	BodyWriter() io.Writer
-
-	// Transmit a log message related to this request
-	Log(msg *logs.Message) error
 }
 
 // The implementation of a service. req is the request sent initially. fr and fw are
@@ -48,7 +44,6 @@ type serviceContext struct {
 	protocolId string
 	fr         *wire.FramingReader
 	stream     *yamux.Stream
-	logs       *LogTransmitter
 
 	readHijack  bool
 	writeHijack bool
@@ -93,12 +88,6 @@ func (s *serviceContext) BodyReader() io.Reader {
 func (s *serviceContext) BodyWriter() io.Writer {
 	s.writeHijack = true
 	return s.stream
-}
-
-// Transmit a log message related to this request
-func (s *serviceContext) Log(msg *logs.Message) error {
-	return nil
-	// return s.logs.Transmit(msg)
 }
 
 // Describes a service that an agent is advertising. When a client connects to the
@@ -376,10 +365,6 @@ func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux
 		}
 	}()
 
-	var ltrans LogTransmitter
-	ltrans.path = "foo-bar"
-	ltrans.session = session
-
 	for {
 		stream, err := session.AcceptStream()
 		if err != nil {
@@ -391,22 +376,11 @@ func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux
 			return
 		}
 
-		go a.handleStream(ctx, L, session, stream, &ltrans)
+		go a.handleStream(ctx, L, session, stream)
 	}
 }
 
-func (a *Agent) OpenLogTransmitter(path string) (*LogTransmitter, error) {
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-
-	var ltrans LogTransmitter
-	ltrans.path = path
-	ltrans.agent = a
-
-	return &ltrans, nil
-}
-
-func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux.Session, stream *yamux.Stream, ltrans *LogTransmitter) {
+func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux.Session, stream *yamux.Stream) {
 	defer stream.Close()
 
 	L.Trace("stream accepted", "id", stream.StreamID())
@@ -435,16 +409,16 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		return
 	}
 
-	if tag != 1 {
+	if tag != 11 {
 		L.Error("incorrect message tag", "tag", tag)
 		return
 	}
 
+	q.Q(req)
+
 	targetService := req.ServiceId.SpecString()
 
 	a.mu.RLock()
-
-	q.Q(req.ServiceId, a.services)
 
 	serv, ok := a.services[targetService]
 
@@ -470,7 +444,6 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		protocolId: req.ProtocolId,
 		fr:         fr,
 		stream:     stream,
-		logs:       ltrans,
 	}
 
 	q.Q(serv)

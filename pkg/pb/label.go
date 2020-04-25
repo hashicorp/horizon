@@ -136,3 +136,24 @@ func (ls *LabelSet) Matches(o *LabelSet) bool {
 
 	return true
 }
+
+func (ls *LabelSet) Combine(o *LabelSet) *LabelSet {
+	var out *LabelSet
+
+	out.Labels = append([]*Label{}, ls.Labels...)
+
+outer:
+	for _, outer := range o.Labels {
+		for _, inner := range ls.Labels {
+			if outer.Name == inner.Name && outer.Value == inner.Value {
+				continue outer
+			}
+		}
+
+		out.Labels = append(out.Labels, outer)
+	}
+
+	out.Finalize()
+
+	return out
+}

@@ -64,7 +64,7 @@ func (f *ReadAdapter) Read(b []byte) (int, error) {
 	}
 
 	if tag != adaptTagData {
-		return 0, errors.Wrapf(ErrProtocolError, "wrong tag detected: %d", tag)
+		return 0, errors.Wrapf(ErrProtocolError, "wrong tag detected: %d (wanted %d)", tag, adaptTagData)
 	}
 
 	if sz < len(b) {

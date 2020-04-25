@@ -31,8 +31,6 @@ func TestHub(t *testing.T) {
 
 			go hub.Run(ctx, setup.ClientListener)
 
-			defer hub.WaitToDrain()
-
 			time.Sleep(time.Second)
 
 			var clientTlsConfig tls.Config

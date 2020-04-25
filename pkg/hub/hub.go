@@ -18,24 +18,10 @@ import (
 	"github.com/pkg/errors"
 )
 
-/*
-type Registry interface {
-	AuthAgent(L hclog.Logger, token, pubKey string, labels []string, services []*wire.ServiceInfo) (string, func(), error)
-	ResolveAgent(L hclog.Logger, target string) (registry.ResolvedService, error)
-}
-
-type ServiceSorter interface {
-	NextService(services []registry.ResolvedService) registry.ResolvedService
-}
-
-type randomSorter struct{}
-
-func (_ randomSorter) NextService(services []registry.ResolvedService) registry.ResolvedService {
-	pick := rand.Intn(len(services))
-	return services[pick]
-}
-
-*/
+var (
+	ErrProtocolError = errors.New("protocol error")
+	ErrWrongService  = errors.New("wrong service")
+)
 
 type Hub struct {
 	L   hclog.Logger
@@ -312,63 +298,3 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		go h.handleAgentStream(ctx, vt, stream, wctx)
 	}
 }
-
-/*
-func (h *Hub) findSession(target string) (*yamux.Session, registry.ResolvedService, error) {
-	rs, err := h.reg.ResolveAgent(h.L, target)
-	if err != nil {
-		return nil, rs, err
-	}
-
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	sess, ok := h.active[rs.Agent]
-	if !ok {
-		return nil, rs, io.EOF
-	}
-
-	return sess, rs, nil
-}
-*/
-
-var (
-	ErrProtocolError = errors.New("protocol error")
-	ErrWrongService  = errors.New("wrong service")
-)
-
-/*
-func (h *Hub) ConnectToService(req *wire.Request, accid string, rs registry.ResolvedService) (wire.Context, error) {
-	h.mu.RLock()
-	session, ok := h.active[rs.Agent]
-	h.mu.RUnlock()
-
-	if !ok {
-		return nil, io.EOF
-	}
-
-	req.TargetService = rs.ServiceId
-
-	stream, err := session.OpenStream()
-	if err != nil {
-		return nil, err
-	}
-
-	fw, err := wire.NewFramingWriter(stream)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = fw.WriteMarshal(1, req)
-	if err != nil {
-		return nil, err
-	}
-
-	fr, err := wire.NewFramingReader(stream)
-	if err != nil {
-		return nil, err
-	}
-
-	return wire.NewContext(accid, fr, fw), nil
-}
-*/

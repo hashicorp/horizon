@@ -7,12 +7,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/data"
+	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/hub"
-	"github.com/hashicorp/horizon/pkg/noiseconn"
-	"github.com/hashicorp/horizon/pkg/registry"
+	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 )
@@ -22,8 +22,7 @@ import (
 type Hub struct {
 	cfg HubConfig
 
-	h   *hub.Hub
-	reg *registry.Registry
+	h *hub.Hub
 
 	l     net.Listener
 	acc   ulid.ULID
@@ -34,6 +33,9 @@ type Hub struct {
 type HubConfig struct {
 	// An address to listen on. For instance ":23442"
 	Address string
+
+	// Token to connect to central tier cluster
+	Token string
 
 	// The path on disk to store the hub's configuration
 	Path string
@@ -46,6 +48,9 @@ type HubConfig struct {
 
 	// Logger to use for subcomponents
 	Logger hclog.Logger
+
+	// S3 bucket that will be used for routing updates
+	S3Bucket string
 }
 
 // Check the configuration to make sure it's valid
@@ -89,98 +94,40 @@ func (c HubConfig) Validate() error {
 }
 
 // Create a new Hub instance for use embedded in another program.
-func NewHub(cfg HubConfig) (*Hub, error) {
+func NewHub(ctx context.Context, cfg HubConfig) (*Hub, error) {
 	err := cfg.Validate()
 	if err != nil {
 		return nil, err
 	}
 
-	l, err := net.Listen("tcp", ":0")
+	sess := session.New()
+
+	id := pb.NewULID()
+
+	client, err := control.NewClient(ctx, control.ClientConfig{
+		Id:       id,
+		Token:    cfg.Token,
+		Version:  "test",
+		Session:  sess,
+		S3Bucket: cfg.S3Bucket,
+		WorkDir:  cfg.Path,
+	})
+
+	h, err := hub.NewHub(cfg.Logger.Named("hub"), client)
 	if err != nil {
 		return nil, err
 	}
-
-	db, err := data.NewBolt(filepath.Join(cfg.Path, "db.db"))
-	if err != nil {
-		return nil, err
-	}
-
-	key, err := db.GetConfig("registry-key")
-	if err != nil {
-		return nil, err
-	}
-
-	if key == nil {
-		key = registry.RandomKey()
-		db.SetConfig("registry-key", key)
-	}
-
-	reg, err := registry.NewRegistry(key, "."+cfg.Domain, db)
-	if err != nil {
-		return nil, err
-	}
-
-	bytes, err := db.GetConfig("aid")
-	if err != nil {
-		return nil, err
-	}
-
-	var acc ulid.ULID
-	if bytes != nil {
-		copy(acc[:], bytes)
-	} else {
-		acc, _, err = reg.AddAccount(cfg.Logger)
-		if err != nil {
-			return nil, err
-		}
-
-		db.SetConfig("account-id", acc[:])
-	}
-
-	bkey, err := db.GetConfig("noise-key")
-	if err != nil {
-		return nil, err
-	}
-
-	var dkey noise.DHKey
-
-	if bkey != nil {
-		dkey, err = noiseconn.ParsePrivateKey(string(bkey))
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		dkey, err = noiseconn.GenerateKey()
-		if err != nil {
-			return nil, err
-		}
-
-		db.SetConfig("noise-key", []byte(noiseconn.PrivateKey(dkey)))
-	}
-
-	h, err := hub.NewHub(cfg.Logger.Named("hub"), reg, dkey)
-	if err != nil {
-		return nil, err
-	}
-
-	h.AddDefaultServices()
-
-	h.AddLocalLogging(cfg.LogPath)
 
 	em := &Hub{
 		cfg: cfg,
 
-		h:   h,
-		reg: reg,
-
-		l:     l,
-		acc:   acc,
-		dhkey: dkey,
+		h: h,
 	}
 
 	return em, nil
 }
 
+/*
 // Generate a new token to access this hub
 func (em *Hub) GenerateToken() (string, error) {
 	metadata := map[string]string{
@@ -200,6 +147,7 @@ func (em *Hub) GenerateTokenWithAddress(addr string) (string, error) {
 
 	return em.reg.TokenWithMetadata(em.cfg.Logger, em.acc, metadata)
 }
+*/
 
 // Begin listened for connections
 func (em *Hub) Serve(ctx context.Context) error {

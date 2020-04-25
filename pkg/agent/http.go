@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
 	"github.com/hashicorp/horizon/pkg/pb"
 )
 
@@ -78,27 +77,5 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Se
 
 	L.Info("request ended", "size", n)
 
-	var lm logs.Message
-	lm.Timestamp = logs.Now()
-	lm.Mesg = "performed request"
-	lm.Attrs = []*logs.Attribute{
-		{
-			Key:  "method",
-			Sval: req.Method,
-		},
-		{
-			Key:  "path",
-			Sval: req.Path,
-		},
-		{
-			Key:  "response-code",
-			Ival: int64(hresp.StatusCode),
-		},
-		{
-			Key:  "body-size",
-			Ival: int64(n),
-		},
-	}
-
-	return sctx.Log(&lm)
+	return nil
 }

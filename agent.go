@@ -1,18 +1,14 @@
 package horizon
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
-	"os"
-	"strings"
 
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
-	"github.com/hashicorp/horizon/pkg/edgeservices/logs"
 	"github.com/hashicorp/horizon/pkg/noiseconn"
+	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/pkg/errors"
 )
@@ -41,7 +37,7 @@ type AgentConfig struct {
 	Logger hclog.Logger
 
 	// Labels to add to all registered services
-	DefaultLabels []agent.Label
+	DefaultLabels *pb.LabelSet
 
 	dhKey noise.DHKey
 }
@@ -113,7 +109,7 @@ func NewEmbeddedAgent(cfg AgentConfig) (*Agent, error) {
 		return nil, err
 	}
 
-	agent, err := agent.NewAgent(cfg.Logger.Named("agent"), cfg.dhKey)
+	agent, err := agent.NewAgent(cfg.Logger.Named("agent"))
 	if err != nil {
 		return nil, err
 	}
@@ -129,8 +125,8 @@ func NewEmbeddedAgent(cfg AgentConfig) (*Agent, error) {
 
 // Add a service that will be advertised by this agent
 func (em *Agent) AddService(serv *agent.Service) error {
-	if len(em.cfg.DefaultLabels) > 0 {
-		serv.Labels = CombineLabels(serv.Labels, em.cfg.DefaultLabels)
+	if len(em.cfg.DefaultLabels.Labels) > 0 {
+		serv.Labels = serv.Labels.Combine(em.cfg.DefaultLabels)
 	}
 
 	_, err := em.agent.AddService(serv)
@@ -139,64 +135,29 @@ func (em *Agent) AddService(serv *agent.Service) error {
 
 // Add an HTTP service to be advertised by this agent. HTTP requests are sent to the
 // HTTP server located at +url+.
-func (em *Agent) AddHTTPService(labels []agent.Label, url, description string) error {
+func (em *Agent) AddHTTPService(labels *pb.LabelSet, url, description string) error {
 	var serv agent.Service
 
 	serv.Type = "http"
 	serv.Labels = labels
-	serv.Description = description
 	serv.Handler = agent.HTTPHandler(url)
+	serv.Metadata = map[string]string{
+		"description": description,
+	}
 
-	if len(em.cfg.DefaultLabels) > 0 {
-		serv.Labels = CombineLabels(serv.Labels, em.cfg.DefaultLabels)
+	if len(em.cfg.DefaultLabels.Labels) > 0 {
+		serv.Labels = serv.Labels.Combine(em.cfg.DefaultLabels)
 	}
 
 	_, err := em.agent.AddService(&serv)
 	return err
 }
 
-// Create a new log writer that will transmit each individual line as a log message. The
-// +key+ argument should identify the logs being emitted, be them per agent, per service,
-// or otherwise.
-func (em *Agent) LogWriter(key string) (io.Writer, error) {
-	lt, err := em.agent.OpenLogTransmitter(key)
-	if err != nil {
-		return nil, err
-	}
-
-	pr, pw, err := os.Pipe()
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer pr.Close()
-
-		br := bufio.NewReader(pr)
-
-		for {
-			line, err := br.ReadString('\n')
-			if err != nil {
-				return
-			}
-
-			lt.Transmit(&logs.Message{
-				Timestamp: logs.Now(),
-				Mesg:      strings.TrimRight(line, " \t\n"),
-			})
-		}
-	}()
-
-	return pw, nil
-
-}
-
 // Start the agent by connecting to the hub and processing requests
 func (em *Agent) Start(ctx context.Context) error {
 	return em.agent.Start(ctx, []agent.HubConfig{
 		{
-			Addr:      em.cfg.HubAddress,
-			PublicKey: em.cfg.HubPublicKey,
+			Addr: em.cfg.HubAddress,
 		},
 	})
 }

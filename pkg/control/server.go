@@ -474,7 +474,7 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 	ao.ID = req.Account.AccountId.Bytes()
 	ao.Namespace = req.Account.Namespace
 
-	de := s.db.Set("gorm:insert_option", "ON CONFLICT DO NOTHING").Create(&ao)
+	de := s.db.Set("gorm:insert_option", "ON CONFLICT (id) DO UPDATE SET namespace=EXCLUDED.namespace").Create(&ao)
 
 	err = dbx.Check(de)
 	if err != nil {
