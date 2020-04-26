@@ -121,11 +121,11 @@ type agentConn struct {
 	ID        *pb.ULID
 	AccountId *pb.ULID
 	Start     *pb.Timestamp
+	End       *pb.Timestamp
 	Services  int32
 
-	Messages *int64
-	Bytes    *int64
-	Streams  *int64
+	ActiveStreams *int64
+	TotalStreams  *int64
 }
 
 func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
@@ -274,15 +274,36 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 	}()
 
 	ai := &agentConn{
-		ID:        pb.NewULID(),
-		AccountId: vt.AccountId(),
-		Services:  int32(len(preamble.Services)),
-		Messages:  new(int64),
-		Bytes:     new(int64),
-		Streams:   new(int64),
+		ID:            pb.NewULID(),
+		AccountId:     vt.AccountId(),
+		Services:      int32(len(preamble.Services)),
+		ActiveStreams: new(int64),
+		TotalStreams:  new(int64),
 	}
 
 	h.sendAgentInfoFlow(ai)
+	defer func() {
+		ai.End = pb.NewTimestamp(time.Now())
+		h.sendAgentInfoFlow(ai)
+	}()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	// Send the agent flow every minute as a sort of heartbeat that the
+	// agent is still connected.
+
+	agentHB := time.NewTicker(time.Minute)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-agentHB.C:
+				h.sendAgentInfoFlow(ai)
+			}
+		}
+	}()
 
 	for {
 		stream, err := sess.AcceptStream()
@@ -296,7 +317,10 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 			return
 		}
 
-		atomic.AddInt64(ai.Streams, 1)
+		atomic.AddInt64(ai.ActiveStreams, 1)
+		atomic.AddInt64(ai.TotalStreams, 1)
+
+		h.sendAgentInfoFlow(ai)
 
 		h.L.Trace("stream accepted", "id", stream.StreamID())
 

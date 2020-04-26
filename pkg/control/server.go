@@ -22,7 +22,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/y0ssar1an/q"
 	"google.golang.org/grpc/metadata"
 )
 
@@ -41,6 +40,7 @@ type Server struct {
 	pubKey   ed25519.PublicKey
 
 	registerToken string
+	opsToken      string
 
 	lockMgr   *dynamolock.Client
 	lockTable string
@@ -58,12 +58,15 @@ type Server struct {
 	m *metrics.Metrics
 
 	msink metrics.MetricSink
+
+	flowTop *FlowTop
 }
 
 type ServerConfig struct {
 	DB *gorm.DB
 
 	RegisterToken string
+	OpsToken      string
 
 	VaultClient *api.Client
 	VaultPath   string
@@ -83,12 +86,18 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 
+	flowTop, err := NewFlowTop(DefaultFlowTopSize)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		db:            cfg.DB,
 		vaultClient:   cfg.VaultClient,
 		vaultPath:     cfg.VaultPath,
 		keyId:         cfg.KeyId,
 		registerToken: cfg.RegisterToken,
+		opsToken:      cfg.OpsToken,
 		awsSess:       cfg.AwsSession,
 		bucket:        cfg.Bucket,
 		lockTable:     cfg.LockTable,
@@ -96,6 +105,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		connectedHubs: make(map[string]*connectedHub),
 		m:             me,
 		msink:         msink,
+		flowTop:       flowTop,
 	}
 
 	s.lockMgr, err = dynamolock.New(dynamodb.New(s.awsSess), s.lockTable)
@@ -248,42 +258,67 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 }
 
 func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
-	q.Q(flows)
-
 	var mdiff, bdiff int64
 
 	for _, rec := range flows {
-		if rec.Agent != nil {
-			mdiff += rec.Agent.TotalMessages
-			bdiff += rec.Agent.TotalBytes
+		if rec.Stream != nil {
+			mdiff += rec.Stream.NumMessages
+			bdiff += rec.Stream.NumBytes
 
 			labels := []metrics.Label{
 				{
+					Name:  "flow",
+					Value: rec.Stream.FlowId.SpecString(),
+				},
+				{
+					Name:  "hub",
+					Value: rec.Stream.HubId.SpecString(),
+				},
+				{
 					Name:  "agent",
-					Value: rec.Agent.AgentId.SpecString(),
+					Value: rec.Stream.AgentId.SpecString(),
+				},
+				{
+					Name:  "service",
+					Value: rec.Stream.ServiceId.SpecString(),
+				},
+				{
+					Name:  "account",
+					Value: rec.Stream.AccountId.SpecString(),
 				},
 			}
 
-			s.m.IncrCounterWithLabels([]string{"total-messages"}, float32(mdiff), labels)
-			s.m.IncrCounterWithLabels([]string{"total-bytes"}, float32(bdiff), labels)
+			s.m.IncrCounterWithLabels([]string{"stream", "messages"}, float32(rec.Stream.NumMessages), labels)
+			s.m.IncrCounterWithLabels([]string{"stream", "bytes"}, float32(rec.Stream.NumBytes), labels)
 
-			labels = []metrics.Label{
+			s.flowTop.Add(rec.Stream)
+		}
+
+		if rec.Agent != nil {
+			labels := []metrics.Label{
 				{
 					Name:  "hub",
 					Value: rec.Agent.HubId.SpecString(),
 				},
+				{
+					Name:  "agent",
+					Value: rec.Agent.AgentId.SpecString(),
+				},
+				{
+					Name:  "account",
+					Value: rec.Stream.AccountId.SpecString(),
+				},
 			}
 
-			s.m.IncrCounterWithLabels([]string{"total-messages"}, float32(mdiff), labels)
-			s.m.IncrCounterWithLabels([]string{"total-bytes"}, float32(bdiff), labels)
+			s.m.SetGaugeWithLabels([]string{"hub", "streams"}, float32(rec.Agent.ActiveStreams), labels)
 		}
 	}
 
 	atomic.AddInt64(ch.messages, mdiff)
 	atomic.AddInt64(ch.bytes, bdiff)
 
-	s.m.IncrCounter([]string{"total-messages"}, float32(mdiff))
-	s.m.IncrCounter([]string{"total-bytes"}, float32(bdiff))
+	s.m.IncrCounter([]string{"server", "messages"}, float32(mdiff))
+	s.m.IncrCounter([]string{"server", "bytes"}, float32(bdiff))
 }
 
 func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {

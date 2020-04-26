@@ -36,6 +36,7 @@ require (
 	github.com/hashicorp/go-hclog v0.12.1
 	github.com/hashicorp/go-memdb v1.2.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0
+	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/memberlist v0.2.0
 	github.com/hashicorp/nomad/api v0.0.0-20200414183643-417f50f925b6
 	github.com/hashicorp/serf v0.9.0

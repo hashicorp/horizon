@@ -55,6 +55,7 @@ message ConnectRequest {
   string type = 2;
   Account pivot_account = 3;
   string protocol_id = 4;
+  bytes source_addr = 5;
 }
 
 message ConnectAck {

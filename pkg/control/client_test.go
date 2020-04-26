@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -29,7 +30,6 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/y0ssar1an/q"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -744,14 +744,19 @@ func TestClient(t *testing.T) {
 
 		hubId := pb.NewULID()
 		agentId := pb.NewULID()
+		serviceId := pb.NewULID()
+		flowId := pb.NewULID()
 
 		client.SendFlow(&pb.FlowRecord{
-			Agent: &pb.FlowRecord_AgentConnection{
-				HubId:         hubId,
-				AgentId:       agentId,
-				AccountId:     accountId,
-				TotalMessages: 55,
-				TotalBytes:    113332,
+			Stream: &pb.FlowStream{
+				FlowId:      flowId,
+				StartedAt:   pb.NewTimestamp(time.Now()),
+				HubId:       hubId,
+				AgentId:     agentId,
+				AccountId:   accountId,
+				ServiceId:   serviceId,
+				NumMessages: 55,
+				NumBytes:    113332,
 			},
 		})
 
@@ -759,16 +764,51 @@ func TestClient(t *testing.T) {
 
 		data := s.msink.(*metrics.InmemSink).Data()
 
-		q.Q(data)
+		labels := strings.Join([]string{
+			"flow=" + flowId.SpecString(),
+			"hub=" + hubId.SpecString(),
+			"agent=" + agentId.SpecString(),
+			"service=" + serviceId.SpecString(),
+			"account=" + accountId.SpecString(),
+		}, ";")
 
-		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.total-messages"].Max))
-		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.total-bytes"].Max))
+		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.stream.messages;"+labels].Sum))
+		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.stream.bytes;"+labels].Sum))
 
-		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.total-messages;agent="+agentId.SpecString()].Max))
-		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.total-bytes;agent="+agentId.SpecString()].Max))
+		client.SendFlow(&pb.FlowRecord{
+			Stream: &pb.FlowStream{
+				FlowId:      flowId,
+				StartedAt:   pb.NewTimestamp(time.Now()),
+				HubId:       hubId,
+				AgentId:     agentId,
+				AccountId:   accountId,
+				ServiceId:   serviceId,
+				Labels:      pb.ParseLabelSet("service=echo"),
+				NumMessages: 5,
+				NumBytes:    8,
+			},
+		})
 
-		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.total-messages;hub="+hubId.SpecString()].Max))
-		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.total-bytes;hub="+hubId.SpecString()].Max))
+		time.Sleep(time.Second)
+
+		data = s.msink.(*metrics.InmemSink).Data()
+
+		assert.Equal(t, int64(60), int64(data[0].Counters["control-server.stream.messages;"+labels].Sum))
+		assert.Equal(t, int64(113340), int64(data[0].Counters["control-server.stream.bytes;"+labels].Sum))
+
+		s.opsToken = "opsrocks"
+
+		mdops := metadata.MD{}
+		mdops.Set("authorization", "xyz")
+
+		opsctx := metadata.NewIncomingContext(ctx, mdops)
+
+		snap, err := s.CurrentFlowTop(opsctx, &pb.FlowTopRequest{})
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(snap.Records))
+
+		assert.Equal(t, flowId, snap.Records[0].FlowId)
 	})
 
 }

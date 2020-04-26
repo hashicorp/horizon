@@ -2,8 +2,24 @@ syntax = "proto3";
 
 import "ulid.proto";
 import "timestamp.proto";
+import "label.proto";
 
 package pb;
+
+message FlowStream {
+  ULID flow_id = 1;
+  ULID hub_id = 2;
+  ULID agent_id = 3;
+  ULID service_id = 4;
+  ULID account_id = 5;
+  LabelSet labels = 6;
+
+  Timestamp started_at = 10;
+  Timestamp ended_at = 11;
+
+  int64 num_messages = 12;
+  int64 num_bytes = 13;
+}
 
 message FlowRecord {
   message AgentConnection {
@@ -12,13 +28,15 @@ message FlowRecord {
     ULID account_id = 3;
 
     Timestamp started_at = 10;
-    int32 num_services = 11;
-    int64 total_messages = 12;
-    int64 total_bytes = 13;
-    int64 total_streams = 14;
+    Timestamp ended_at = 11;
+
+    int32 num_services = 12;
+    int64 active_streams = 13;
   }
 
   AgentConnection agent = 1;
+
+  FlowStream stream = 2;
 
 /*
   ULIDWithDuration id = 1;
@@ -40,4 +58,16 @@ message FlowRecord {
 
   // Stats for an agent connection
 */
+}
+
+message FlowTopSnapshot {
+  repeated FlowStream records = 1;
+}
+
+message FlowTopRequest {
+  int32 max_records = 1;
+}
+
+service FlowTopReporter {
+  rpc CurrentFlowTop(FlowTopRequest) returns (FlowTopSnapshot) {}
 }

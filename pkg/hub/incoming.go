@@ -21,15 +21,12 @@ func (p *pivotAccountContext) AccountId() *pb.ULID {
 	return p.pa.AccountId
 }
 
-func (h *Hub) updateAgentConn(ai *agentConn, wctx wire.Context) {
-	messages, bytes := wctx.Accounting()
-
-	atomic.StoreInt64(ai.Messages, messages)
-	atomic.StoreInt64(ai.Bytes, bytes)
-}
-
 func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.ValidToken, stream *yamux.Stream, wctx wire.Context) {
 	defer stream.Close()
+	defer func() {
+		atomic.AddInt64(ai.TotalStreams, -1)
+		h.sendAgentInfoFlow(ai)
+	}()
 
 	L := h.L
 
@@ -59,8 +56,6 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.V
 		}
 	}
 
-	h.updateAgentConn(ai, wctx)
-
 	routes, err := h.cc.LookupService(ctx, tkn.AccountId(), req.Target)
 	if err != nil {
 		var resp pb.Response
@@ -80,7 +75,16 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.V
 			return
 		}
 
-		err = h.bridgeToTarget(ctx, ai, stream, target, &req, wctx)
+		var fs pb.FlowStream
+		fs.FlowId = pb.NewULID()
+		fs.HubId = h.id
+		fs.AgentId = ai.ID
+		fs.ServiceId = target.Id
+		fs.AccountId = tkn.AccountId()
+		fs.Labels = req.Target
+		fs.StartedAt = pb.NewTimestamp(time.Now())
+
+		err = h.bridgeToTarget(ctx, ai, &fs, stream, target, &req, wctx)
 		if err != nil {
 			var resp pb.Response
 			resp.Error = err.Error()
@@ -103,6 +107,7 @@ var ErrNoSuchSession = errors.New("no session found")
 func (h *Hub) bridgeToTarget(
 	ctx context.Context,
 	ai *agentConn,
+	fs *pb.FlowStream,
 	stream *yamux.Stream,
 	target *pb.ServiceRoute,
 	req *pb.ConnectRequest,
@@ -157,8 +162,6 @@ func (h *Hub) bridgeToTarget(
 
 		defer fr.Recycle()
 
-		h.updateAgentConn(ai, wctx)
-
 		dsctx := wire.NewContext(wctx.AccountId(), fr, fw)
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -168,11 +171,17 @@ func (h *Hub) bridgeToTarget(
 		defer statUpdate.Stop()
 
 		go func() {
-			var exit bool
+			var (
+				exit         bool
+				prevBytes    int64
+				prevMessages int64
+			)
+
 			for {
 				select {
 				case <-ctx.Done():
 					exit = true
+					fs.EndedAt = pb.NewTimestamp(time.Now())
 				case <-statUpdate.C:
 					// ok
 				}
@@ -180,10 +189,14 @@ func (h *Hub) bridgeToTarget(
 				ma, ba := wctx.Accounting()
 				mb, bb := dsctx.Accounting()
 
-				atomic.AddInt64(ai.Messages, ma+mb)
-				atomic.AddInt64(ai.Bytes, ba+bb)
+				// We only transmit the number of messages/bytes since the previous update.
+				// This allows the server to treat the value as a counter rather than a gauge.
+				// This is the same as NetFlow does it, where a flow will say how many packets
+				// and the number of bytes those packets are represented by just that flow update.
+				fs.NumMessages = (ma + mb) - prevMessages
+				fs.NumBytes = (ba + bb) - prevBytes
 
-				h.sendAgentInfoFlow(ai)
+				h.cc.SendFlow(&pb.FlowRecord{Stream: fs})
 
 				if exit {
 					return

@@ -14,10 +14,9 @@ func (h *Hub) sendAgentInfoFlow(ai *agentConn) {
 		AgentId:       ai.ID,
 		AccountId:     ai.AccountId,
 		StartedAt:     ai.Start,
+		EndedAt:       ai.End,
 		NumServices:   ai.Services,
-		TotalMessages: atomic.LoadInt64(ai.Messages),
-		TotalBytes:    atomic.LoadInt64(ai.Bytes),
-		TotalStreams:  atomic.LoadInt64(ai.Streams),
+		ActiveStreams: atomic.LoadInt64(ai.ActiveStreams),
 	}
 
 	h.cc.SendFlow(&rec)

@@ -4,8 +4,12 @@
 package pb
 
 import (
+	context "context"
 	fmt "fmt"
 	proto "github.com/gogo/protobuf/proto"
+	grpc "google.golang.org/grpc"
+	codes "google.golang.org/grpc/codes"
+	status "google.golang.org/grpc/status"
 	io "io"
 	math "math"
 	math_bits "math/bits"
@@ -24,14 +28,130 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
+type FlowStream struct {
+	FlowId      *ULID      `protobuf:"bytes,1,opt,name=flow_id,json=flowId,proto3" json:"flow_id,omitempty"`
+	HubId       *ULID      `protobuf:"bytes,2,opt,name=hub_id,json=hubId,proto3" json:"hub_id,omitempty"`
+	AgentId     *ULID      `protobuf:"bytes,3,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	ServiceId   *ULID      `protobuf:"bytes,4,opt,name=service_id,json=serviceId,proto3" json:"service_id,omitempty"`
+	AccountId   *ULID      `protobuf:"bytes,5,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
+	Labels      *LabelSet  `protobuf:"bytes,6,opt,name=labels,proto3" json:"labels,omitempty"`
+	StartedAt   *Timestamp `protobuf:"bytes,10,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
+	EndedAt     *Timestamp `protobuf:"bytes,11,opt,name=ended_at,json=endedAt,proto3" json:"ended_at,omitempty"`
+	NumMessages int64      `protobuf:"varint,12,opt,name=num_messages,json=numMessages,proto3" json:"num_messages,omitempty"`
+	NumBytes    int64      `protobuf:"varint,13,opt,name=num_bytes,json=numBytes,proto3" json:"num_bytes,omitempty"`
+}
+
+func (m *FlowStream) Reset()      { *m = FlowStream{} }
+func (*FlowStream) ProtoMessage() {}
+func (*FlowStream) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bb3fc33c49933823, []int{0}
+}
+func (m *FlowStream) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FlowStream) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FlowStream.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FlowStream) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FlowStream.Merge(m, src)
+}
+func (m *FlowStream) XXX_Size() int {
+	return m.Size()
+}
+func (m *FlowStream) XXX_DiscardUnknown() {
+	xxx_messageInfo_FlowStream.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FlowStream proto.InternalMessageInfo
+
+func (m *FlowStream) GetFlowId() *ULID {
+	if m != nil {
+		return m.FlowId
+	}
+	return nil
+}
+
+func (m *FlowStream) GetHubId() *ULID {
+	if m != nil {
+		return m.HubId
+	}
+	return nil
+}
+
+func (m *FlowStream) GetAgentId() *ULID {
+	if m != nil {
+		return m.AgentId
+	}
+	return nil
+}
+
+func (m *FlowStream) GetServiceId() *ULID {
+	if m != nil {
+		return m.ServiceId
+	}
+	return nil
+}
+
+func (m *FlowStream) GetAccountId() *ULID {
+	if m != nil {
+		return m.AccountId
+	}
+	return nil
+}
+
+func (m *FlowStream) GetLabels() *LabelSet {
+	if m != nil {
+		return m.Labels
+	}
+	return nil
+}
+
+func (m *FlowStream) GetStartedAt() *Timestamp {
+	if m != nil {
+		return m.StartedAt
+	}
+	return nil
+}
+
+func (m *FlowStream) GetEndedAt() *Timestamp {
+	if m != nil {
+		return m.EndedAt
+	}
+	return nil
+}
+
+func (m *FlowStream) GetNumMessages() int64 {
+	if m != nil {
+		return m.NumMessages
+	}
+	return 0
+}
+
+func (m *FlowStream) GetNumBytes() int64 {
+	if m != nil {
+		return m.NumBytes
+	}
+	return 0
+}
+
 type FlowRecord struct {
-	Agent *FlowRecord_AgentConnection `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	Agent  *FlowRecord_AgentConnection `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
+	Stream *FlowStream                 `protobuf:"bytes,2,opt,name=stream,proto3" json:"stream,omitempty"`
 }
 
 func (m *FlowRecord) Reset()      { *m = FlowRecord{} }
 func (*FlowRecord) ProtoMessage() {}
 func (*FlowRecord) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bb3fc33c49933823, []int{0}
+	return fileDescriptor_bb3fc33c49933823, []int{1}
 }
 func (m *FlowRecord) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -67,21 +187,27 @@ func (m *FlowRecord) GetAgent() *FlowRecord_AgentConnection {
 	return nil
 }
 
+func (m *FlowRecord) GetStream() *FlowStream {
+	if m != nil {
+		return m.Stream
+	}
+	return nil
+}
+
 type FlowRecord_AgentConnection struct {
 	HubId         *ULID      `protobuf:"bytes,1,opt,name=hub_id,json=hubId,proto3" json:"hub_id,omitempty"`
 	AgentId       *ULID      `protobuf:"bytes,2,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	AccountId     *ULID      `protobuf:"bytes,3,opt,name=account_id,json=accountId,proto3" json:"account_id,omitempty"`
 	StartedAt     *Timestamp `protobuf:"bytes,10,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
-	NumServices   int32      `protobuf:"varint,11,opt,name=num_services,json=numServices,proto3" json:"num_services,omitempty"`
-	TotalMessages int64      `protobuf:"varint,12,opt,name=total_messages,json=totalMessages,proto3" json:"total_messages,omitempty"`
-	TotalBytes    int64      `protobuf:"varint,13,opt,name=total_bytes,json=totalBytes,proto3" json:"total_bytes,omitempty"`
-	TotalStreams  int64      `protobuf:"varint,14,opt,name=total_streams,json=totalStreams,proto3" json:"total_streams,omitempty"`
+	EndedAt       *Timestamp `protobuf:"bytes,11,opt,name=ended_at,json=endedAt,proto3" json:"ended_at,omitempty"`
+	NumServices   int32      `protobuf:"varint,12,opt,name=num_services,json=numServices,proto3" json:"num_services,omitempty"`
+	ActiveStreams int64      `protobuf:"varint,13,opt,name=active_streams,json=activeStreams,proto3" json:"active_streams,omitempty"`
 }
 
 func (m *FlowRecord_AgentConnection) Reset()      { *m = FlowRecord_AgentConnection{} }
 func (*FlowRecord_AgentConnection) ProtoMessage() {}
 func (*FlowRecord_AgentConnection) Descriptor() ([]byte, []int) {
-	return fileDescriptor_bb3fc33c49933823, []int{0, 0}
+	return fileDescriptor_bb3fc33c49933823, []int{1, 0}
 }
 func (m *FlowRecord_AgentConnection) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -138,6 +264,13 @@ func (m *FlowRecord_AgentConnection) GetStartedAt() *Timestamp {
 	return nil
 }
 
+func (m *FlowRecord_AgentConnection) GetEndedAt() *Timestamp {
+	if m != nil {
+		return m.EndedAt
+	}
+	return nil
+}
+
 func (m *FlowRecord_AgentConnection) GetNumServices() int32 {
 	if m != nil {
 		return m.NumServices
@@ -145,61 +278,199 @@ func (m *FlowRecord_AgentConnection) GetNumServices() int32 {
 	return 0
 }
 
-func (m *FlowRecord_AgentConnection) GetTotalMessages() int64 {
+func (m *FlowRecord_AgentConnection) GetActiveStreams() int64 {
 	if m != nil {
-		return m.TotalMessages
+		return m.ActiveStreams
 	}
 	return 0
 }
 
-func (m *FlowRecord_AgentConnection) GetTotalBytes() int64 {
-	if m != nil {
-		return m.TotalBytes
-	}
-	return 0
+type FlowTopSnapshot struct {
+	Records []*FlowStream `protobuf:"bytes,1,rep,name=records,proto3" json:"records,omitempty"`
 }
 
-func (m *FlowRecord_AgentConnection) GetTotalStreams() int64 {
+func (m *FlowTopSnapshot) Reset()      { *m = FlowTopSnapshot{} }
+func (*FlowTopSnapshot) ProtoMessage() {}
+func (*FlowTopSnapshot) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bb3fc33c49933823, []int{2}
+}
+func (m *FlowTopSnapshot) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FlowTopSnapshot) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FlowTopSnapshot.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FlowTopSnapshot) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FlowTopSnapshot.Merge(m, src)
+}
+func (m *FlowTopSnapshot) XXX_Size() int {
+	return m.Size()
+}
+func (m *FlowTopSnapshot) XXX_DiscardUnknown() {
+	xxx_messageInfo_FlowTopSnapshot.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FlowTopSnapshot proto.InternalMessageInfo
+
+func (m *FlowTopSnapshot) GetRecords() []*FlowStream {
 	if m != nil {
-		return m.TotalStreams
+		return m.Records
+	}
+	return nil
+}
+
+type FlowTopRequest struct {
+	MaxRecords int32 `protobuf:"varint,1,opt,name=max_records,json=maxRecords,proto3" json:"max_records,omitempty"`
+}
+
+func (m *FlowTopRequest) Reset()      { *m = FlowTopRequest{} }
+func (*FlowTopRequest) ProtoMessage() {}
+func (*FlowTopRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_bb3fc33c49933823, []int{3}
+}
+func (m *FlowTopRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *FlowTopRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_FlowTopRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *FlowTopRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_FlowTopRequest.Merge(m, src)
+}
+func (m *FlowTopRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *FlowTopRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_FlowTopRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_FlowTopRequest proto.InternalMessageInfo
+
+func (m *FlowTopRequest) GetMaxRecords() int32 {
+	if m != nil {
+		return m.MaxRecords
 	}
 	return 0
 }
 
 func init() {
+	proto.RegisterType((*FlowStream)(nil), "pb.FlowStream")
 	proto.RegisterType((*FlowRecord)(nil), "pb.FlowRecord")
 	proto.RegisterType((*FlowRecord_AgentConnection)(nil), "pb.FlowRecord.AgentConnection")
+	proto.RegisterType((*FlowTopSnapshot)(nil), "pb.FlowTopSnapshot")
+	proto.RegisterType((*FlowTopRequest)(nil), "pb.FlowTopRequest")
 }
 
 func init() { proto.RegisterFile("flow.proto", fileDescriptor_bb3fc33c49933823) }
 
 var fileDescriptor_bb3fc33c49933823 = []byte{
-	// 361 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x91, 0xcd, 0x4a, 0xf3, 0x40,
-	0x14, 0x40, 0x33, 0x2d, 0xed, 0xd7, 0xde, 0xf4, 0x07, 0x66, 0x15, 0xba, 0x98, 0xf6, 0xb3, 0x88,
-	0x5d, 0x48, 0x16, 0xda, 0x17, 0x68, 0x15, 0x21, 0xa0, 0x9b, 0x54, 0xd7, 0x61, 0x92, 0x8c, 0x6d,
-	0x20, 0xc9, 0x84, 0xcc, 0xc4, 0xe2, 0x4e, 0xf0, 0x05, 0x7c, 0x0c, 0x9f, 0xc2, 0xb5, 0xcb, 0x2e,
-	0xbb, 0xb4, 0xe9, 0xc6, 0x65, 0x1f, 0x41, 0x32, 0x89, 0x08, 0x5d, 0xce, 0x39, 0xe7, 0x5e, 0x18,
-	0x2e, 0xc0, 0x63, 0xc8, 0xd7, 0x66, 0x92, 0x72, 0xc9, 0x71, 0x2d, 0x71, 0x07, 0x90, 0x85, 0x81,
-	0x5f, 0xbe, 0x07, 0x7d, 0x19, 0x44, 0x4c, 0x48, 0x1a, 0x25, 0x25, 0x38, 0x79, 0xad, 0x03, 0xdc,
-	0x84, 0x7c, 0x6d, 0x33, 0x8f, 0xa7, 0x3e, 0x9e, 0x42, 0x83, 0x2e, 0x59, 0x2c, 0x0d, 0x34, 0x42,
-	0x13, 0xfd, 0x82, 0x98, 0x89, 0x6b, 0xfe, 0x69, 0x73, 0x56, 0xb8, 0x2b, 0x1e, 0xc7, 0xcc, 0x93,
-	0x01, 0x8f, 0xed, 0x32, 0x1e, 0x7c, 0xd4, 0xa0, 0x7f, 0xa4, 0xf0, 0x10, 0x9a, 0xab, 0xcc, 0x75,
-	0x02, 0xbf, 0x5a, 0xd5, 0x2a, 0x56, 0x3d, 0xdc, 0x5a, 0xd7, 0x76, 0x63, 0x95, 0xb9, 0x96, 0x8f,
-	0xc7, 0xd0, 0x52, 0xd3, 0x45, 0x52, 0x3b, 0x4a, 0xfe, 0x29, 0x63, 0xf9, 0xf8, 0x0c, 0x80, 0x7a,
-	0x1e, 0xcf, 0xca, 0xac, 0x7e, 0x94, 0xb5, 0x2b, 0x67, 0xf9, 0xf8, 0x1c, 0x40, 0x48, 0x9a, 0x4a,
-	0xe6, 0x3b, 0x54, 0x1a, 0xa0, 0xc2, 0x6e, 0x11, 0xde, 0xff, 0x7e, 0xd8, 0x6e, 0x57, 0xc1, 0x4c,
-	0xe2, 0xff, 0xd0, 0x89, 0xb3, 0xc8, 0x11, 0x2c, 0x7d, 0x0a, 0x3c, 0x26, 0x0c, 0x7d, 0x84, 0x26,
-	0x0d, 0x5b, 0x8f, 0xb3, 0x68, 0x51, 0x21, 0x7c, 0x0a, 0x3d, 0xc9, 0x25, 0x0d, 0x9d, 0x88, 0x09,
-	0x41, 0x97, 0x4c, 0x18, 0x9d, 0x11, 0x9a, 0xd4, 0xed, 0xae, 0xa2, 0x77, 0x15, 0xc4, 0x43, 0xd0,
-	0xcb, 0xcc, 0x7d, 0x96, 0x4c, 0x18, 0x5d, 0xd5, 0x80, 0x42, 0xf3, 0x82, 0xe0, 0x31, 0x94, 0x13,
-	0x8e, 0x90, 0x29, 0xa3, 0x91, 0x30, 0x7a, 0x2a, 0xe9, 0x28, 0xb8, 0x28, 0xd9, 0x7c, 0xba, 0xd9,
-	0x11, 0x6d, 0xbb, 0x23, 0xda, 0x61, 0x47, 0xd0, 0x4b, 0x4e, 0xd0, 0x7b, 0x4e, 0xd0, 0x67, 0x4e,
-	0xd0, 0x26, 0x27, 0xe8, 0x2b, 0x27, 0xe8, 0x3b, 0x27, 0xda, 0x21, 0x27, 0xe8, 0x6d, 0x4f, 0xb4,
-	0xcd, 0x9e, 0x68, 0xdb, 0x3d, 0xd1, 0xdc, 0xa6, 0x3a, 0xe1, 0xe5, 0x4f, 0x00, 0x00, 0x00, 0xff,
-	0xff, 0x36, 0xc7, 0x7f, 0x22, 0xf1, 0x01, 0x00, 0x00,
+	// 549 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x94, 0xbb, 0x6e, 0x13, 0x41,
+	0x14, 0x86, 0x77, 0x6c, 0xbc, 0x76, 0x8e, 0x6f, 0xd2, 0xd0, 0xac, 0x8c, 0x34, 0x71, 0xcc, 0xcd,
+	0x05, 0xb2, 0x44, 0x48, 0x97, 0xca, 0x09, 0x42, 0xb2, 0x14, 0x28, 0xd6, 0xa1, 0xb6, 0x66, 0x77,
+	0x87, 0x78, 0x25, 0xef, 0x85, 0x9d, 0xd9, 0x24, 0x74, 0x34, 0xd4, 0xf0, 0x0c, 0x54, 0x3c, 0x0a,
+	0xa5, 0xcb, 0x94, 0x78, 0xdd, 0x50, 0xe6, 0x11, 0xd0, 0x5c, 0x16, 0x5b, 0x56, 0x80, 0x8a, 0x72,
+	0xce, 0xff, 0xcd, 0x99, 0xe3, 0xf3, 0x59, 0x0b, 0xf0, 0x6e, 0x91, 0x5c, 0x8d, 0xd2, 0x2c, 0x11,
+	0x09, 0xae, 0xa4, 0x5e, 0x0f, 0xf2, 0x45, 0x18, 0xe8, 0x73, 0xaf, 0x2b, 0xc2, 0x88, 0x71, 0x41,
+	0xa3, 0xd4, 0x14, 0x9a, 0x0b, 0xea, 0xb1, 0x85, 0x3e, 0x0c, 0x3e, 0x55, 0x01, 0x5e, 0x2d, 0x92,
+	0xab, 0xa9, 0xc8, 0x18, 0x8d, 0xf0, 0x01, 0xd4, 0x65, 0xab, 0x59, 0x18, 0x38, 0xa8, 0x8f, 0x86,
+	0xcd, 0xc3, 0xc6, 0x28, 0xf5, 0x46, 0x6f, 0xcf, 0x26, 0x2f, 0x5d, 0x5b, 0x06, 0x93, 0x00, 0xef,
+	0x83, 0x3d, 0xcf, 0x3d, 0x49, 0x54, 0x76, 0x88, 0xda, 0x3c, 0xf7, 0x26, 0x01, 0x7e, 0x08, 0x0d,
+	0x7a, 0xc1, 0x62, 0x21, 0x91, 0xea, 0x0e, 0x52, 0x57, 0xc9, 0x24, 0xc0, 0x4f, 0x01, 0x38, 0xcb,
+	0x2e, 0x43, 0x9f, 0x49, 0xec, 0xde, 0x0e, 0xb6, 0x67, 0x32, 0x0d, 0x52, 0xdf, 0x4f, 0x72, 0xdd,
+	0xaf, 0xb6, 0x0b, 0x9a, 0x6c, 0x12, 0xe0, 0x47, 0x60, 0xab, 0x1f, 0xc6, 0x1d, 0x5b, 0x41, 0x2d,
+	0x09, 0x9d, 0xc9, 0xca, 0x94, 0x09, 0xd7, 0x64, 0xf8, 0x19, 0x00, 0x17, 0x34, 0x13, 0x2c, 0x98,
+	0x51, 0xe1, 0x80, 0x22, 0xdb, 0x92, 0x3c, 0x2f, 0xb7, 0xe4, 0xee, 0x19, 0x60, 0x2c, 0xf0, 0x10,
+	0x1a, 0x2c, 0x0e, 0x34, 0xdb, 0xbc, 0x8b, 0xad, 0xab, 0x78, 0x2c, 0xf0, 0x01, 0xb4, 0xe2, 0x3c,
+	0x9a, 0x45, 0x8c, 0x73, 0x7a, 0xc1, 0xb8, 0xd3, 0xea, 0xa3, 0x61, 0xd5, 0x6d, 0xc6, 0x79, 0xf4,
+	0xda, 0x94, 0xf0, 0x03, 0xd8, 0x93, 0x88, 0xf7, 0x41, 0x30, 0xee, 0xb4, 0x55, 0xde, 0x88, 0xf3,
+	0xe8, 0x44, 0x9e, 0x07, 0x9f, 0x8d, 0x07, 0x97, 0xf9, 0x49, 0x16, 0xe0, 0x23, 0xa8, 0xa9, 0x4d,
+	0x19, 0x0b, 0x44, 0xbe, 0xba, 0x89, 0x47, 0x63, 0x99, 0x9d, 0x26, 0x71, 0xcc, 0x7c, 0x11, 0x26,
+	0xb1, 0xab, 0x61, 0xfc, 0x04, 0x6c, 0xae, 0x3c, 0x1a, 0x35, 0x9d, 0xf2, 0x9a, 0xb6, 0xeb, 0x9a,
+	0xb4, 0xf7, 0xb5, 0x02, 0xdd, 0x9d, 0x16, 0x5b, 0x5a, 0xd1, 0xbf, 0xb5, 0x56, 0xfe, 0xa2, 0x75,
+	0xcb, 0x56, 0xf5, 0xcf, 0xb6, 0xfe, 0xb3, 0x07, 0xf3, 0xff, 0xd1, 0x1e, 0x6a, 0xca, 0xc3, 0xd4,
+	0x94, 0xf0, 0x63, 0xe8, 0x50, 0x5f, 0x84, 0x97, 0x6c, 0xa6, 0xd7, 0x51, 0xca, 0x68, 0xeb, 0xaa,
+	0xde, 0x15, 0x1f, 0x1c, 0x43, 0x57, 0xae, 0xee, 0x3c, 0x49, 0xa7, 0x31, 0x4d, 0xf9, 0x3c, 0x91,
+	0x63, 0xd4, 0x33, 0x25, 0x80, 0x3b, 0xa8, 0x5f, 0xbd, 0x63, 0xc1, 0x65, 0x3c, 0x78, 0x0e, 0x1d,
+	0x73, 0xd9, 0x65, 0xef, 0x73, 0xc6, 0x05, 0xde, 0x87, 0x66, 0x44, 0xaf, 0x67, 0x9b, 0xfb, 0x72,
+	0x2e, 0x88, 0xe8, 0xb5, 0x56, 0xca, 0x0f, 0xdf, 0xfc, 0x7e, 0xcf, 0x65, 0x69, 0x92, 0x09, 0x96,
+	0xe1, 0x63, 0xe8, 0x9c, 0xe6, 0x59, 0xc6, 0x62, 0x61, 0x12, 0x8c, 0xcb, 0x07, 0x37, 0x9d, 0x7b,
+	0xf7, 0xb7, 0x6a, 0xe5, 0xa8, 0x03, 0xeb, 0xe4, 0x68, 0xb9, 0x22, 0xd6, 0xcd, 0x8a, 0x58, 0xb7,
+	0x2b, 0x82, 0x3e, 0x16, 0x04, 0x7d, 0x2b, 0x08, 0xfa, 0x5e, 0x10, 0xb4, 0x2c, 0x08, 0xfa, 0x51,
+	0x10, 0xf4, 0xb3, 0x20, 0xd6, 0x6d, 0x41, 0xd0, 0x97, 0x35, 0xb1, 0x96, 0x6b, 0x62, 0xdd, 0xac,
+	0x89, 0xe5, 0xd9, 0xea, 0xb3, 0xf0, 0xe2, 0x57, 0x00, 0x00, 0x00, 0xff, 0xff, 0x67, 0xc0, 0x6a,
+	0xdf, 0x52, 0x04, 0x00, 0x00,
 }
 
+func (this *FlowStream) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*FlowStream)
+	if !ok {
+		that2, ok := that.(FlowStream)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.FlowId.Equal(that1.FlowId) {
+		return false
+	}
+	if !this.HubId.Equal(that1.HubId) {
+		return false
+	}
+	if !this.AgentId.Equal(that1.AgentId) {
+		return false
+	}
+	if !this.ServiceId.Equal(that1.ServiceId) {
+		return false
+	}
+	if !this.AccountId.Equal(that1.AccountId) {
+		return false
+	}
+	if !this.Labels.Equal(that1.Labels) {
+		return false
+	}
+	if !this.StartedAt.Equal(that1.StartedAt) {
+		return false
+	}
+	if !this.EndedAt.Equal(that1.EndedAt) {
+		return false
+	}
+	if this.NumMessages != that1.NumMessages {
+		return false
+	}
+	if this.NumBytes != that1.NumBytes {
+		return false
+	}
+	return true
+}
 func (this *FlowRecord) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -220,6 +491,9 @@ func (this *FlowRecord) Equal(that interface{}) bool {
 		return false
 	}
 	if !this.Agent.Equal(that1.Agent) {
+		return false
+	}
+	if !this.Stream.Equal(that1.Stream) {
 		return false
 	}
 	return true
@@ -255,28 +529,116 @@ func (this *FlowRecord_AgentConnection) Equal(that interface{}) bool {
 	if !this.StartedAt.Equal(that1.StartedAt) {
 		return false
 	}
+	if !this.EndedAt.Equal(that1.EndedAt) {
+		return false
+	}
 	if this.NumServices != that1.NumServices {
 		return false
 	}
-	if this.TotalMessages != that1.TotalMessages {
-		return false
-	}
-	if this.TotalBytes != that1.TotalBytes {
-		return false
-	}
-	if this.TotalStreams != that1.TotalStreams {
+	if this.ActiveStreams != that1.ActiveStreams {
 		return false
 	}
 	return true
+}
+func (this *FlowTopSnapshot) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*FlowTopSnapshot)
+	if !ok {
+		that2, ok := that.(FlowTopSnapshot)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if len(this.Records) != len(that1.Records) {
+		return false
+	}
+	for i := range this.Records {
+		if !this.Records[i].Equal(that1.Records[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *FlowTopRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*FlowTopRequest)
+	if !ok {
+		that2, ok := that.(FlowTopRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.MaxRecords != that1.MaxRecords {
+		return false
+	}
+	return true
+}
+func (this *FlowStream) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 14)
+	s = append(s, "&pb.FlowStream{")
+	if this.FlowId != nil {
+		s = append(s, "FlowId: "+fmt.Sprintf("%#v", this.FlowId)+",\n")
+	}
+	if this.HubId != nil {
+		s = append(s, "HubId: "+fmt.Sprintf("%#v", this.HubId)+",\n")
+	}
+	if this.AgentId != nil {
+		s = append(s, "AgentId: "+fmt.Sprintf("%#v", this.AgentId)+",\n")
+	}
+	if this.ServiceId != nil {
+		s = append(s, "ServiceId: "+fmt.Sprintf("%#v", this.ServiceId)+",\n")
+	}
+	if this.AccountId != nil {
+		s = append(s, "AccountId: "+fmt.Sprintf("%#v", this.AccountId)+",\n")
+	}
+	if this.Labels != nil {
+		s = append(s, "Labels: "+fmt.Sprintf("%#v", this.Labels)+",\n")
+	}
+	if this.StartedAt != nil {
+		s = append(s, "StartedAt: "+fmt.Sprintf("%#v", this.StartedAt)+",\n")
+	}
+	if this.EndedAt != nil {
+		s = append(s, "EndedAt: "+fmt.Sprintf("%#v", this.EndedAt)+",\n")
+	}
+	s = append(s, "NumMessages: "+fmt.Sprintf("%#v", this.NumMessages)+",\n")
+	s = append(s, "NumBytes: "+fmt.Sprintf("%#v", this.NumBytes)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
 }
 func (this *FlowRecord) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 5)
+	s := make([]string, 0, 6)
 	s = append(s, "&pb.FlowRecord{")
 	if this.Agent != nil {
 		s = append(s, "Agent: "+fmt.Sprintf("%#v", this.Agent)+",\n")
+	}
+	if this.Stream != nil {
+		s = append(s, "Stream: "+fmt.Sprintf("%#v", this.Stream)+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -285,7 +647,7 @@ func (this *FlowRecord_AgentConnection) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 12)
+	s := make([]string, 0, 11)
 	s = append(s, "&pb.FlowRecord_AgentConnection{")
 	if this.HubId != nil {
 		s = append(s, "HubId: "+fmt.Sprintf("%#v", this.HubId)+",\n")
@@ -299,10 +661,33 @@ func (this *FlowRecord_AgentConnection) GoString() string {
 	if this.StartedAt != nil {
 		s = append(s, "StartedAt: "+fmt.Sprintf("%#v", this.StartedAt)+",\n")
 	}
+	if this.EndedAt != nil {
+		s = append(s, "EndedAt: "+fmt.Sprintf("%#v", this.EndedAt)+",\n")
+	}
 	s = append(s, "NumServices: "+fmt.Sprintf("%#v", this.NumServices)+",\n")
-	s = append(s, "TotalMessages: "+fmt.Sprintf("%#v", this.TotalMessages)+",\n")
-	s = append(s, "TotalBytes: "+fmt.Sprintf("%#v", this.TotalBytes)+",\n")
-	s = append(s, "TotalStreams: "+fmt.Sprintf("%#v", this.TotalStreams)+",\n")
+	s = append(s, "ActiveStreams: "+fmt.Sprintf("%#v", this.ActiveStreams)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *FlowTopSnapshot) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&pb.FlowTopSnapshot{")
+	if this.Records != nil {
+		s = append(s, "Records: "+fmt.Sprintf("%#v", this.Records)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *FlowTopRequest) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&pb.FlowTopRequest{")
+	s = append(s, "MaxRecords: "+fmt.Sprintf("%#v", this.MaxRecords)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -314,6 +699,216 @@ func valueToGoStringFlow(v interface{}, typ string) string {
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("func(v %v) *%v { return &v } ( %#v )", typ, typ, pv)
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// FlowTopReporterClient is the client API for FlowTopReporter service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type FlowTopReporterClient interface {
+	CurrentFlowTop(ctx context.Context, in *FlowTopRequest, opts ...grpc.CallOption) (*FlowTopSnapshot, error)
+}
+
+type flowTopReporterClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewFlowTopReporterClient(cc *grpc.ClientConn) FlowTopReporterClient {
+	return &flowTopReporterClient{cc}
+}
+
+func (c *flowTopReporterClient) CurrentFlowTop(ctx context.Context, in *FlowTopRequest, opts ...grpc.CallOption) (*FlowTopSnapshot, error) {
+	out := new(FlowTopSnapshot)
+	err := c.cc.Invoke(ctx, "/pb.FlowTopReporter/CurrentFlowTop", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// FlowTopReporterServer is the server API for FlowTopReporter service.
+type FlowTopReporterServer interface {
+	CurrentFlowTop(context.Context, *FlowTopRequest) (*FlowTopSnapshot, error)
+}
+
+// UnimplementedFlowTopReporterServer can be embedded to have forward compatible implementations.
+type UnimplementedFlowTopReporterServer struct {
+}
+
+func (*UnimplementedFlowTopReporterServer) CurrentFlowTop(ctx context.Context, req *FlowTopRequest) (*FlowTopSnapshot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CurrentFlowTop not implemented")
+}
+
+func RegisterFlowTopReporterServer(s *grpc.Server, srv FlowTopReporterServer) {
+	s.RegisterService(&_FlowTopReporter_serviceDesc, srv)
+}
+
+func _FlowTopReporter_CurrentFlowTop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(FlowTopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(FlowTopReporterServer).CurrentFlowTop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.FlowTopReporter/CurrentFlowTop",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(FlowTopReporterServer).CurrentFlowTop(ctx, req.(*FlowTopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _FlowTopReporter_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pb.FlowTopReporter",
+	HandlerType: (*FlowTopReporterServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "CurrentFlowTop",
+			Handler:    _FlowTopReporter_CurrentFlowTop_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "flow.proto",
+}
+
+func (m *FlowStream) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FlowStream) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FlowStream) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.NumBytes != 0 {
+		i = encodeVarintFlow(dAtA, i, uint64(m.NumBytes))
+		i--
+		dAtA[i] = 0x68
+	}
+	if m.NumMessages != 0 {
+		i = encodeVarintFlow(dAtA, i, uint64(m.NumMessages))
+		i--
+		dAtA[i] = 0x60
+	}
+	if m.EndedAt != nil {
+		{
+			size, err := m.EndedAt.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
+	}
+	if m.StartedAt != nil {
+		{
+			size, err := m.StartedAt.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x52
+	}
+	if m.Labels != nil {
+		{
+			size, err := m.Labels.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x32
+	}
+	if m.AccountId != nil {
+		{
+			size, err := m.AccountId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x2a
+	}
+	if m.ServiceId != nil {
+		{
+			size, err := m.ServiceId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x22
+	}
+	if m.AgentId != nil {
+		{
+			size, err := m.AgentId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x1a
+	}
+	if m.HubId != nil {
+		{
+			size, err := m.HubId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.FlowId != nil {
+		{
+			size, err := m.FlowId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
 func (m *FlowRecord) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -334,6 +929,18 @@ func (m *FlowRecord) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
+	if m.Stream != nil {
+		{
+			size, err := m.Stream.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
 	if m.Agent != nil {
 		{
 			size, err := m.Agent.MarshalToSizedBuffer(dAtA[:i])
@@ -369,25 +976,27 @@ func (m *FlowRecord_AgentConnection) MarshalToSizedBuffer(dAtA []byte) (int, err
 	_ = i
 	var l int
 	_ = l
-	if m.TotalStreams != 0 {
-		i = encodeVarintFlow(dAtA, i, uint64(m.TotalStreams))
-		i--
-		dAtA[i] = 0x70
-	}
-	if m.TotalBytes != 0 {
-		i = encodeVarintFlow(dAtA, i, uint64(m.TotalBytes))
+	if m.ActiveStreams != 0 {
+		i = encodeVarintFlow(dAtA, i, uint64(m.ActiveStreams))
 		i--
 		dAtA[i] = 0x68
-	}
-	if m.TotalMessages != 0 {
-		i = encodeVarintFlow(dAtA, i, uint64(m.TotalMessages))
-		i--
-		dAtA[i] = 0x60
 	}
 	if m.NumServices != 0 {
 		i = encodeVarintFlow(dAtA, i, uint64(m.NumServices))
 		i--
-		dAtA[i] = 0x58
+		dAtA[i] = 0x60
+	}
+	if m.EndedAt != nil {
+		{
+			size, err := m.EndedAt.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintFlow(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x5a
 	}
 	if m.StartedAt != nil {
 		{
@@ -440,6 +1049,71 @@ func (m *FlowRecord_AgentConnection) MarshalToSizedBuffer(dAtA []byte) (int, err
 	return len(dAtA) - i, nil
 }
 
+func (m *FlowTopSnapshot) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FlowTopSnapshot) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FlowTopSnapshot) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Records) > 0 {
+		for iNdEx := len(m.Records) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Records[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintFlow(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0xa
+		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *FlowTopRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *FlowTopRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *FlowTopRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.MaxRecords != 0 {
+		i = encodeVarintFlow(dAtA, i, uint64(m.MaxRecords))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
 func encodeVarintFlow(dAtA []byte, offset int, v uint64) int {
 	offset -= sovFlow(v)
 	base := offset
@@ -451,6 +1125,53 @@ func encodeVarintFlow(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
+func (m *FlowStream) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.FlowId != nil {
+		l = m.FlowId.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.HubId != nil {
+		l = m.HubId.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.AgentId != nil {
+		l = m.AgentId.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.ServiceId != nil {
+		l = m.ServiceId.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.AccountId != nil {
+		l = m.AccountId.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.Labels != nil {
+		l = m.Labels.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.StartedAt != nil {
+		l = m.StartedAt.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.EndedAt != nil {
+		l = m.EndedAt.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.NumMessages != 0 {
+		n += 1 + sovFlow(uint64(m.NumMessages))
+	}
+	if m.NumBytes != 0 {
+		n += 1 + sovFlow(uint64(m.NumBytes))
+	}
+	return n
+}
+
 func (m *FlowRecord) Size() (n int) {
 	if m == nil {
 		return 0
@@ -459,6 +1180,10 @@ func (m *FlowRecord) Size() (n int) {
 	_ = l
 	if m.Agent != nil {
 		l = m.Agent.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
+	if m.Stream != nil {
+		l = m.Stream.Size()
 		n += 1 + l + sovFlow(uint64(l))
 	}
 	return n
@@ -486,17 +1211,42 @@ func (m *FlowRecord_AgentConnection) Size() (n int) {
 		l = m.StartedAt.Size()
 		n += 1 + l + sovFlow(uint64(l))
 	}
+	if m.EndedAt != nil {
+		l = m.EndedAt.Size()
+		n += 1 + l + sovFlow(uint64(l))
+	}
 	if m.NumServices != 0 {
 		n += 1 + sovFlow(uint64(m.NumServices))
 	}
-	if m.TotalMessages != 0 {
-		n += 1 + sovFlow(uint64(m.TotalMessages))
+	if m.ActiveStreams != 0 {
+		n += 1 + sovFlow(uint64(m.ActiveStreams))
 	}
-	if m.TotalBytes != 0 {
-		n += 1 + sovFlow(uint64(m.TotalBytes))
+	return n
+}
+
+func (m *FlowTopSnapshot) Size() (n int) {
+	if m == nil {
+		return 0
 	}
-	if m.TotalStreams != 0 {
-		n += 1 + sovFlow(uint64(m.TotalStreams))
+	var l int
+	_ = l
+	if len(m.Records) > 0 {
+		for _, e := range m.Records {
+			l = e.Size()
+			n += 1 + l + sovFlow(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *FlowTopRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.MaxRecords != 0 {
+		n += 1 + sovFlow(uint64(m.MaxRecords))
 	}
 	return n
 }
@@ -507,12 +1257,32 @@ func sovFlow(x uint64) (n int) {
 func sozFlow(x uint64) (n int) {
 	return sovFlow(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
+func (this *FlowStream) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&FlowStream{`,
+		`FlowId:` + strings.Replace(fmt.Sprintf("%v", this.FlowId), "ULID", "ULID", 1) + `,`,
+		`HubId:` + strings.Replace(fmt.Sprintf("%v", this.HubId), "ULID", "ULID", 1) + `,`,
+		`AgentId:` + strings.Replace(fmt.Sprintf("%v", this.AgentId), "ULID", "ULID", 1) + `,`,
+		`ServiceId:` + strings.Replace(fmt.Sprintf("%v", this.ServiceId), "ULID", "ULID", 1) + `,`,
+		`AccountId:` + strings.Replace(fmt.Sprintf("%v", this.AccountId), "ULID", "ULID", 1) + `,`,
+		`Labels:` + strings.Replace(fmt.Sprintf("%v", this.Labels), "LabelSet", "LabelSet", 1) + `,`,
+		`StartedAt:` + strings.Replace(fmt.Sprintf("%v", this.StartedAt), "Timestamp", "Timestamp", 1) + `,`,
+		`EndedAt:` + strings.Replace(fmt.Sprintf("%v", this.EndedAt), "Timestamp", "Timestamp", 1) + `,`,
+		`NumMessages:` + fmt.Sprintf("%v", this.NumMessages) + `,`,
+		`NumBytes:` + fmt.Sprintf("%v", this.NumBytes) + `,`,
+		`}`,
+	}, "")
+	return s
+}
 func (this *FlowRecord) String() string {
 	if this == nil {
 		return "nil"
 	}
 	s := strings.Join([]string{`&FlowRecord{`,
 		`Agent:` + strings.Replace(fmt.Sprintf("%v", this.Agent), "FlowRecord_AgentConnection", "FlowRecord_AgentConnection", 1) + `,`,
+		`Stream:` + strings.Replace(this.Stream.String(), "FlowStream", "FlowStream", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -526,10 +1296,34 @@ func (this *FlowRecord_AgentConnection) String() string {
 		`AgentId:` + strings.Replace(fmt.Sprintf("%v", this.AgentId), "ULID", "ULID", 1) + `,`,
 		`AccountId:` + strings.Replace(fmt.Sprintf("%v", this.AccountId), "ULID", "ULID", 1) + `,`,
 		`StartedAt:` + strings.Replace(fmt.Sprintf("%v", this.StartedAt), "Timestamp", "Timestamp", 1) + `,`,
+		`EndedAt:` + strings.Replace(fmt.Sprintf("%v", this.EndedAt), "Timestamp", "Timestamp", 1) + `,`,
 		`NumServices:` + fmt.Sprintf("%v", this.NumServices) + `,`,
-		`TotalMessages:` + fmt.Sprintf("%v", this.TotalMessages) + `,`,
-		`TotalBytes:` + fmt.Sprintf("%v", this.TotalBytes) + `,`,
-		`TotalStreams:` + fmt.Sprintf("%v", this.TotalStreams) + `,`,
+		`ActiveStreams:` + fmt.Sprintf("%v", this.ActiveStreams) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *FlowTopSnapshot) String() string {
+	if this == nil {
+		return "nil"
+	}
+	repeatedStringForRecords := "[]*FlowStream{"
+	for _, f := range this.Records {
+		repeatedStringForRecords += strings.Replace(f.String(), "FlowStream", "FlowStream", 1) + ","
+	}
+	repeatedStringForRecords += "}"
+	s := strings.Join([]string{`&FlowTopSnapshot{`,
+		`Records:` + repeatedStringForRecords + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *FlowTopRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&FlowTopRequest{`,
+		`MaxRecords:` + fmt.Sprintf("%v", this.MaxRecords) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -541,6 +1335,385 @@ func valueToStringFlow(v interface{}) string {
 	}
 	pv := reflect.Indirect(rv).Interface()
 	return fmt.Sprintf("*%v", pv)
+}
+func (m *FlowStream) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFlow
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FlowStream: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FlowStream: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FlowId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.FlowId == nil {
+				m.FlowId = &ULID{}
+			}
+			if err := m.FlowId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field HubId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.HubId == nil {
+				m.HubId = &ULID{}
+			}
+			if err := m.HubId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AgentId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AgentId == nil {
+				m.AgentId = &ULID{}
+			}
+			if err := m.AgentId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ServiceId == nil {
+				m.ServiceId = &ULID{}
+			}
+			if err := m.ServiceId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field AccountId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.AccountId == nil {
+				m.AccountId = &ULID{}
+			}
+			if err := m.AccountId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Labels", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Labels == nil {
+				m.Labels = &LabelSet{}
+			}
+			if err := m.Labels.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 10:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StartedAt", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StartedAt == nil {
+				m.StartedAt = &Timestamp{}
+			}
+			if err := m.StartedAt.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EndedAt", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.EndedAt == nil {
+				m.EndedAt = &Timestamp{}
+			}
+			if err := m.EndedAt.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 12:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NumMessages", wireType)
+			}
+			m.NumMessages = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NumMessages |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		case 13:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field NumBytes", wireType)
+			}
+			m.NumBytes = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.NumBytes |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFlow(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
 }
 func (m *FlowRecord) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
@@ -604,6 +1777,42 @@ func (m *FlowRecord) Unmarshal(dAtA []byte) error {
 				m.Agent = &FlowRecord_AgentConnection{}
 			}
 			if err := m.Agent.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Stream", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Stream == nil {
+				m.Stream = &FlowStream{}
+			}
+			if err := m.Stream.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -805,6 +2014,42 @@ func (m *FlowRecord_AgentConnection) Unmarshal(dAtA []byte) error {
 			}
 			iNdEx = postIndex
 		case 11:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field EndedAt", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.EndedAt == nil {
+				m.EndedAt = &Timestamp{}
+			}
+			if err := m.EndedAt.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 12:
 			if wireType != 0 {
 				return fmt.Errorf("proto: wrong wireType = %d for field NumServices", wireType)
 			}
@@ -823,30 +2068,11 @@ func (m *FlowRecord_AgentConnection) Unmarshal(dAtA []byte) error {
 					break
 				}
 			}
-		case 12:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TotalMessages", wireType)
-			}
-			m.TotalMessages = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowFlow
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.TotalMessages |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 		case 13:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TotalBytes", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field ActiveStreams", wireType)
 			}
-			m.TotalBytes = 0
+			m.ActiveStreams = 0
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowFlow
@@ -856,16 +2082,69 @@ func (m *FlowRecord_AgentConnection) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.TotalBytes |= int64(b&0x7F) << shift
+				m.ActiveStreams |= int64(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-		case 14:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field TotalStreams", wireType)
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFlow(dAtA[iNdEx:])
+			if err != nil {
+				return err
 			}
-			m.TotalStreams = 0
+			if skippy < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FlowTopSnapshot) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFlow
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FlowTopSnapshot: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FlowTopSnapshot: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Records", wireType)
+			}
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowFlow
@@ -875,7 +2154,94 @@ func (m *FlowRecord_AgentConnection) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				m.TotalStreams |= int64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthFlow
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Records = append(m.Records, &FlowStream{})
+			if err := m.Records[len(m.Records)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipFlow(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthFlow
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *FlowTopRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowFlow
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: FlowTopRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: FlowTopRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field MaxRecords", wireType)
+			}
+			m.MaxRecords = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowFlow
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.MaxRecords |= int32(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
