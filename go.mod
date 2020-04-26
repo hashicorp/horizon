@@ -10,6 +10,7 @@ require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/SAP/go-hdb v0.14.4 // indirect
 	github.com/SermoDigital/jose v0.9.1 // indirect
+	github.com/armon/go-metrics v0.3.3
 	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496 // indirect
 	github.com/aws/aws-sdk-go v1.25.12
 	github.com/aws/aws-sdk-go-v2 v0.20.0

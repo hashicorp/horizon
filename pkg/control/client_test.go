@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"cirello.io/dynamolock"
+	"github.com/armon/go-metrics"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
@@ -28,14 +29,13 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/y0ssar1an/q"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
 
 func TestClient(t *testing.T) {
 	testutils.SetupDB()
-
-	bindPort := 24001
 
 	vc := testutils.SetupVault()
 
@@ -128,8 +128,6 @@ func TestClient(t *testing.T) {
 			Client:  gClient,
 			Session: sess,
 		})
-
-		bindPort++
 
 		require.NoError(t, err)
 
@@ -245,8 +243,6 @@ func TestClient(t *testing.T) {
 			Session:  sess,
 			S3Bucket: bucket,
 		})
-
-		bindPort++
 
 		require.NoError(t, err)
 
@@ -403,8 +399,6 @@ func TestClient(t *testing.T) {
 			S3Bucket: bucket,
 		})
 
-		bindPort++
-
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(ctx)
@@ -527,8 +521,6 @@ func TestClient(t *testing.T) {
 			Session:  sess,
 			S3Bucket: bucket,
 		})
-
-		bindPort++
 
 		require.NoError(t, err)
 
@@ -680,6 +672,103 @@ func TestClient(t *testing.T) {
 		resp, err := httpc.Get(fmt.Sprintf("https://127.0.0.1:%d/_healthz", tlsPort))
 		require.NoError(t, err)
 		assert.Equal(t, 200, resp.StatusCode)
+	})
+
+	t.Run("transmit a flow record up to the server", func(t *testing.T) {
+		db, err := gorm.Open("pgtest", "server")
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
+		require.NoError(t, err)
+
+		top, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		accountId := pb.NewULID()
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		gs := grpc.NewServer()
+		pb.RegisterControlServicesServer(gs, s)
+
+		li, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		gcc, err := grpc.Dial(li.Addr().String(),
+			grpc.WithInsecure(),
+			grpc.WithPerRPCCredentials(Token(ctr.Token)))
+
+		require.NoError(t, err)
+
+		defer gcc.Close()
+
+		gClient := pb.NewControlServicesClient(gcc)
+
+		id := pb.NewULID()
+
+		client, err := NewClient(ctx, ClientConfig{
+			Id:      id,
+			Token:   ctr.Token,
+			Version: "test",
+			Client:  gClient,
+			Session: sess,
+		})
+
+		require.NoError(t, err)
+
+		go client.Run(ctx)
+
+		hubId := pb.NewULID()
+		agentId := pb.NewULID()
+
+		client.SendFlow(&pb.FlowRecord{
+			Agent: &pb.FlowRecord_AgentConnection{
+				HubId:         hubId,
+				AgentId:       agentId,
+				AccountId:     accountId,
+				TotalMessages: 55,
+				TotalBytes:    113332,
+			},
+		})
+
+		time.Sleep(time.Second)
+
+		data := s.msink.(*metrics.InmemSink).Data()
+
+		q.Q(data)
+
+		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.total-messages"].Max))
+		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.total-bytes"].Max))
+
+		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.total-messages;agent="+agentId.SpecString()].Max))
+		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.total-bytes;agent="+agentId.SpecString()].Max))
+
+		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.total-messages;hub="+hubId.SpecString()].Max))
+		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.total-bytes;hub="+hubId.SpecString()].Max))
 	})
 
 }

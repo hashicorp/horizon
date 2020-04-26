@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+import "ulid.proto";
+import "timestamp.proto";
+
+package pb;
+
+message FlowRecord {
+  message AgentConnection {
+    ULID hub_id = 1;
+    ULID agent_id = 2;
+    ULID account_id = 3;
+
+    Timestamp started_at = 10;
+    int32 num_services = 11;
+    int64 total_messages = 12;
+    int64 total_bytes = 13;
+    int64 total_streams = 14;
+  }
+
+  AgentConnection agent = 1;
+
+/*
+  ULIDWithDuration id = 1;
+  ULID hub_id = 2;
+  ULID agent_id = 3;
+
+  ULID service_id = 10;
+  string service_type = 11;
+
+  bytes source_ip = 20;
+  int64 num_packets = 21;
+  int64 num_bytes = 22;
+
+  // Stats for a hub itself
+  int64 connected_agents = 30;
+  int64 total_messages = 31;
+  int64 total_bytes = 32;
+  Timestamp start_time = 33;
+
+  // Stats for an agent connection
+*/
+}

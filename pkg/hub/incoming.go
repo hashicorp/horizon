@@ -2,6 +2,8 @@ package hub
 
 import (
 	"context"
+	"sync/atomic"
+	"time"
 
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
@@ -19,7 +21,14 @@ func (p *pivotAccountContext) AccountId() *pb.ULID {
 	return p.pa.AccountId
 }
 
-func (h *Hub) handleAgentStream(ctx context.Context, tkn *token.ValidToken, stream *yamux.Stream, wctx wire.Context) {
+func (h *Hub) updateAgentConn(ai *agentConn, wctx wire.Context) {
+	messages, bytes := wctx.Accounting()
+
+	atomic.StoreInt64(ai.Messages, messages)
+	atomic.StoreInt64(ai.Bytes, bytes)
+}
+
+func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.ValidToken, stream *yamux.Stream, wctx wire.Context) {
 	defer stream.Close()
 
 	L := h.L
@@ -50,6 +59,8 @@ func (h *Hub) handleAgentStream(ctx context.Context, tkn *token.ValidToken, stre
 		}
 	}
 
+	h.updateAgentConn(ai, wctx)
+
 	routes, err := h.cc.LookupService(ctx, tkn.AccountId(), req.Target)
 	if err != nil {
 		var resp pb.Response
@@ -69,7 +80,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, tkn *token.ValidToken, stre
 			return
 		}
 
-		err = h.bridgeToTarget(ctx, stream, target, &req, wctx)
+		err = h.bridgeToTarget(ctx, ai, stream, target, &req, wctx)
 		if err != nil {
 			var resp pb.Response
 			resp.Error = err.Error()
@@ -91,6 +102,7 @@ var ErrNoSuchSession = errors.New("no session found")
 
 func (h *Hub) bridgeToTarget(
 	ctx context.Context,
+	ai *agentConn,
 	stream *yamux.Stream,
 	target *pb.ServiceRoute,
 	req *pb.ConnectRequest,
@@ -145,7 +157,39 @@ func (h *Hub) bridgeToTarget(
 
 		defer fr.Recycle()
 
+		h.updateAgentConn(ai, wctx)
+
 		dsctx := wire.NewContext(wctx.AccountId(), fr, fw)
+
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+
+		statUpdate := time.NewTicker(time.Minute)
+		defer statUpdate.Stop()
+
+		go func() {
+			var exit bool
+			for {
+				select {
+				case <-ctx.Done():
+					exit = true
+				case <-statUpdate.C:
+					// ok
+				}
+
+				ma, ba := wctx.Accounting()
+				mb, bb := dsctx.Accounting()
+
+				atomic.AddInt64(ai.Messages, ma+mb)
+				atomic.AddInt64(ai.Bytes, ba+bb)
+
+				h.sendAgentInfoFlow(ai)
+
+				if exit {
+					return
+				}
+			}
+		}()
 
 		return wctx.BridgeTo(dsctx)
 	}

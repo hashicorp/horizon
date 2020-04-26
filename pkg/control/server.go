@@ -7,9 +7,11 @@ import (
 	"encoding/json"
 	fmt "fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"cirello.io/dynamolock"
+	"github.com/armon/go-metrics"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
@@ -20,11 +22,14 @@ import (
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
+	"github.com/y0ssar1an/q"
 	"google.golang.org/grpc/metadata"
 )
 
 type connectedHub struct {
-	xmit chan *pb.CentralActivity
+	xmit     chan *pb.CentralActivity
+	messages *int64
+	bytes    *int64
 }
 
 type Server struct {
@@ -49,6 +54,10 @@ type Server struct {
 
 	mu            sync.RWMutex
 	connectedHubs map[string]*connectedHub
+
+	m *metrics.Metrics
+
+	msink metrics.MetricSink
 }
 
 type ServerConfig struct {
@@ -66,6 +75,14 @@ type ServerConfig struct {
 }
 
 func NewServer(cfg ServerConfig) (*Server, error) {
+	mcfg := metrics.DefaultConfig("control-server")
+	msink := metrics.NewInmemSink(time.Minute, time.Hour)
+
+	me, err := metrics.New(mcfg, msink)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Server{
 		db:            cfg.DB,
 		vaultClient:   cfg.VaultClient,
@@ -77,9 +94,9 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		lockTable:     cfg.LockTable,
 
 		connectedHubs: make(map[string]*connectedHub),
+		m:             me,
+		msink:         msink,
 	}
-
-	var err error
 
 	s.lockMgr, err = dynamolock.New(dynamodb.New(s.awsSess), s.lockTable)
 	if err != nil {
@@ -230,6 +247,45 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 	return resp, nil
 }
 
+func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
+	q.Q(flows)
+
+	var mdiff, bdiff int64
+
+	for _, rec := range flows {
+		if rec.Agent != nil {
+			mdiff += rec.Agent.TotalMessages
+			bdiff += rec.Agent.TotalBytes
+
+			labels := []metrics.Label{
+				{
+					Name:  "agent",
+					Value: rec.Agent.AgentId.SpecString(),
+				},
+			}
+
+			s.m.IncrCounterWithLabels([]string{"total-messages"}, float32(mdiff), labels)
+			s.m.IncrCounterWithLabels([]string{"total-bytes"}, float32(bdiff), labels)
+
+			labels = []metrics.Label{
+				{
+					Name:  "hub",
+					Value: rec.Agent.HubId.SpecString(),
+				},
+			}
+
+			s.m.IncrCounterWithLabels([]string{"total-messages"}, float32(mdiff), labels)
+			s.m.IncrCounterWithLabels([]string{"total-bytes"}, float32(bdiff), labels)
+		}
+	}
+
+	atomic.AddInt64(ch.messages, mdiff)
+	atomic.AddInt64(ch.bytes, bdiff)
+
+	s.m.IncrCounter([]string{"total-messages"}, float32(mdiff))
+	s.m.IncrCounter([]string{"total-bytes"}, float32(bdiff))
+}
+
 func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {
 	msg, err := stream.Recv()
 	if err != nil {
@@ -239,12 +295,28 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 	key := msg.Hub.SpecString()
 
 	ch := &connectedHub{
-		xmit: make(chan *pb.CentralActivity),
+		xmit:     make(chan *pb.CentralActivity),
+		messages: new(int64),
+		bytes:    new(int64),
 	}
 
 	s.mu.Lock()
 	s.connectedHubs[key] = ch
 	s.mu.Unlock()
+
+	ctx, cancel := context.WithCancel(stream.Context())
+	defer cancel()
+
+	go func() {
+		for {
+			msg, err := stream.Recv()
+			if err != nil {
+				return
+			}
+
+			s.processFlows(ch, msg.Flow)
+		}
+	}()
 
 	defer func() {
 		s.mu.Lock()
@@ -265,8 +337,8 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 
 	for {
 		select {
-		case <-stream.Context().Done():
-			return stream.Context().Err()
+		case <-ctx.Done():
+			return ctx.Err()
 		case act, ok := <-ch.xmit:
 			if !ok {
 				return nil

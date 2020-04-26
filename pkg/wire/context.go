@@ -3,6 +3,7 @@ package wire
 import (
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/pkg/errors"
@@ -21,12 +22,20 @@ type Context interface {
 
 	// Returns a reader that recieves traffic as framed messages
 	Reader() io.Reader
+
+	// Returns the total number of messages and bytes, respectively, that the
+	// context has transmitted.
+	Accounting() (int64, int64)
 }
 
 type ctx struct {
 	accountId *pb.ULID
 	fr        *FramingReader
 	fw        *FramingWriter
+
+	// accounting
+	messages *int64
+	bytes    *int64
 }
 
 func NewContext(accountId *pb.ULID, fr *FramingReader, fw *FramingWriter) Context {
@@ -34,11 +43,17 @@ func NewContext(accountId *pb.ULID, fr *FramingReader, fw *FramingWriter) Contex
 		accountId: accountId,
 		fr:        fr,
 		fw:        fw,
+		messages:  new(int64),
+		bytes:     new(int64),
 	}
 }
 
 func (c *ctx) AccountId() *pb.ULID {
 	return c.accountId
+}
+
+func (c *ctx) Accounting() (int64, int64) {
+	return atomic.LoadInt64(c.messages), atomic.LoadInt64(c.bytes)
 }
 
 func (c *ctx) ReadMarshal(v Unmarshaller) (byte, error) {
@@ -83,6 +98,9 @@ func (c *ctx) copyTo(octx *ctx) error {
 		if err != nil {
 			return err
 		}
+
+		atomic.AddInt64(c.messages, 1)
+		atomic.AddInt64(c.bytes, int64(sz))
 	}
 }
 

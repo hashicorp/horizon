@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -114,6 +115,17 @@ func (hub *Hub) handleHZN(hs *http.Server, tlsConn *tls.Conn, h http.Handler) {
 
 func (h *Hub) ValidateToken(stoken string) (*token.ValidToken, error) {
 	return token.CheckTokenED25519(stoken, h.cc.TokenPub())
+}
+
+type agentConn struct {
+	ID        *pb.ULID
+	AccountId *pb.ULID
+	Start     *pb.Timestamp
+	Services  int32
+
+	Messages *int64
+	Bytes    *int64
+	Streams  *int64
 }
 
 func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
@@ -261,6 +273,17 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		}
 	}()
 
+	ai := &agentConn{
+		ID:        pb.NewULID(),
+		AccountId: vt.AccountId(),
+		Services:  int32(len(preamble.Services)),
+		Messages:  new(int64),
+		Bytes:     new(int64),
+		Streams:   new(int64),
+	}
+
+	h.sendAgentInfoFlow(ai)
+
 	for {
 		stream, err := sess.AcceptStream()
 		if err != nil {
@@ -272,6 +295,8 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 			return
 		}
+
+		atomic.AddInt64(ai.Streams, 1)
 
 		h.L.Trace("stream accepted", "id", stream.StreamID())
 
@@ -295,6 +320,6 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 		h.L.Trace("accepted yamux session", "id", stream.StreamID())
 
-		go h.handleAgentStream(ctx, vt, stream, wctx)
+		go h.handleAgentStream(ctx, ai, vt, stream, wctx)
 	}
 }

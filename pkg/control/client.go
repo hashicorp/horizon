@@ -76,6 +76,8 @@ type Client struct {
 	tlsCert  []byte
 	tlsKey   []byte
 	tokenPub ed25519.PublicKey
+
+	hubActivity chan *pb.HubActivity
 }
 
 type ClientConfig struct {
@@ -126,6 +128,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		workDir:         cfg.WorkDir,
 		bucket:          cfg.S3Bucket,
 		cancel:          cancel,
+		hubActivity:     make(chan *pb.HubActivity, 10),
 	}
 
 	// go client.keepLabelLinksUpdated(ctx, cfg.Logger)
@@ -454,8 +457,13 @@ func (c *Client) Run(ctx context.Context) error {
 		case <-ticker.C:
 			c.checkAccounts(L)
 			c.updateLabelLinks(ctx, L)
-		case ev := <-activityChan:
+		case ev, ok := <-activityChan:
+			if !ok {
+				break
+			}
 			c.processCentralActivity(ctx, L, ev)
+		case act := <-c.hubActivity:
+			activity.Send(act)
 		}
 	}
 }
@@ -477,6 +485,12 @@ func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev 
 		}
 
 		info.Recent = append(info.Recent, acc.Services...)
+	}
+}
+
+func (c *Client) SendFlow(rec *pb.FlowRecord) {
+	c.hubActivity <- &pb.HubActivity{
+		Flow: []*pb.FlowRecord{rec},
 	}
 }
 
