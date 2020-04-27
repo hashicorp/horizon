@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
+	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"google.golang.org/grpc"
 )
@@ -107,7 +108,10 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 
 	gClient := cfg.Client
 	if gClient == nil && cfg.Addr != "" {
-		gcc, err = grpc.Dial(cfg.Addr, grpc.WithPerRPCCredentials(Token(cfg.Token)))
+		gcc, err = grpc.Dial(cfg.Addr,
+			grpc.WithPerRPCCredentials(Token(cfg.Token)),
+			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+		)
 		if err != nil {
 			return nil, err
 		}

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/horizon/pkg/control"
+	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/jinzhu/gorm"
@@ -60,6 +61,9 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 	require.NoError(t, err)
 
 	defer db.Close()
+
+	defer db.Exec("TRUNCATE management_clients CASCADE")
+	defer db.Exec("TRUNCATE accounts CASCADE")
 
 	s, err := control.NewServer(control.ServerConfig{
 		DB:            db,
@@ -126,7 +130,9 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 
 	gcc, err := grpc.Dial(li.Addr().String(),
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(control.Token(ctr.Token)))
+		grpc.WithPerRPCCredentials(control.Token(ctr.Token)),
+		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+	)
 
 	require.NoError(t, err)
 

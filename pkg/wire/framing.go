@@ -142,8 +142,13 @@ var fwPool = sync.Pool{
 	},
 }
 
+type flusher interface {
+	Flush() error
+}
+
 type FramingWriter struct {
-	bw *bufio.Writer
+	bw    *bufio.Writer
+	flush flusher
 
 	sz        []byte
 	writeLeft int
@@ -156,6 +161,12 @@ func NewFramingWriter(w io.Writer) (*FramingWriter, error) {
 		fw.bw = bufio.NewWriter(w)
 	} else {
 		fw.bw.Reset(w)
+	}
+
+	if f, ok := w.(flusher); ok {
+		fw.flush = f
+	} else {
+		fw.flush = nil
 	}
 
 	return fw, nil
@@ -175,6 +186,9 @@ func (f *FramingWriter) WriteFrame(tag byte, size int) error {
 
 	if size == 0 {
 		f.bw.Flush()
+		if f.flush != nil {
+			f.flush.Flush()
+		}
 	} else {
 		f.writeLeft = size
 	}
@@ -202,6 +216,9 @@ func (f *FramingWriter) Write(b []byte) (int, error) {
 
 	if f.writeLeft == 0 {
 		err = f.bw.Flush()
+		if f.flush != nil {
+			f.flush.Flush()
+		}
 	}
 
 	return n, err

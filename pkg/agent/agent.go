@@ -17,6 +17,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/oklog/ulid"
+	"github.com/pierrec/lz4/v3"
 )
 
 type ServiceContext interface {
@@ -42,7 +43,7 @@ type serviceContext struct {
 
 	protocolId string
 	fr         *wire.FramingReader
-	stream     *yamux.Stream
+	stream     io.Writer
 
 	readHijack  bool
 	writeHijack bool
@@ -265,6 +266,7 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 	preamble.Token = a.Token
 	preamble.SessionId = id.String()
 	preamble.Labels = a.Labels
+	preamble.Compression = "lz4"
 
 	for _, serv := range a.services {
 		var md []*pb.KVPair
@@ -302,6 +304,8 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 		return fmt.Errorf("hub rejected connection: %s", wc.Status)
 	}
 
+	useLZ4 := wc.Compression == "lz4"
+
 	latency := time.Since(t)
 
 	L.Debug("connection latency", "latency", latency)
@@ -328,12 +332,12 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 
 	L.Info("connected successfully", "status", wc.Status, "latency", latency, "skew", skew)
 
-	go a.watchSession(ctx, L, session, fr, hubCfg, status)
+	go a.watchSession(ctx, L, session, fr, hubCfg, status, useLZ4)
 
 	return nil
 }
 
-func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux.Session, fr *wire.FramingReader, hubCfg HubConfig, status chan hubStatus) {
+func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux.Session, fr *wire.FramingReader, hubCfg HubConfig, status chan hubStatus, useLZ4 bool) {
 	defer fr.Recycle()
 	defer func() {
 		status <- hubStatus{
@@ -375,16 +379,26 @@ func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux
 			return
 		}
 
-		go a.handleStream(ctx, L, session, stream)
+		go a.handleStream(ctx, L, session, stream, useLZ4)
 	}
 }
 
-func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux.Session, stream *yamux.Stream) {
+func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux.Session, stream *yamux.Stream, useLZ4 bool) {
 	defer stream.Close()
 
-	L.Trace("stream accepted", "id", stream.StreamID())
+	L.Trace("stream accepted", "id", stream.StreamID(), "lz4", useLZ4)
 
-	fr, err := wire.NewFramingReader(stream)
+	var (
+		r io.Reader = stream
+		w io.Writer = stream
+	)
+
+	if useLZ4 {
+		r = lz4.NewReader(stream)
+		w = lz4.NewWriter(stream)
+	}
+
+	fr, err := wire.NewFramingReader(r)
 	if err != nil {
 		L.Error("error creating frame reader", "error", err)
 		return
@@ -392,7 +406,7 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 
 	defer fr.Recycle()
 
-	fw, err := wire.NewFramingWriter(stream)
+	fw, err := wire.NewFramingWriter(w)
 	if err != nil {
 		L.Error("error creating framing writer", "error", err)
 		return
@@ -440,7 +454,7 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 		Context:    wire.NewContext(nil, fr, fw),
 		protocolId: req.ProtocolId,
 		fr:         fr,
-		stream:     stream,
+		stream:     w,
 	}
 
 	err = serv.Handler.HandleRequest(ctx, L, sctx)

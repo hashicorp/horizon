@@ -33,11 +33,14 @@ message Preamble {
   // These are labels that identify the agent. IE location, etc.
   repeated string labels = 3;
   repeated ServiceInfo services = 4;
+
+  string compression = 5;
 }
 
 message Confirmation {
   Timestamp time = 1;
   string status = 2;
+  string compression = 3;
 }
 
 message Header {

@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/horizon/pkg/dbx"
+	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/token"
@@ -111,7 +112,9 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)))
+			grpc.WithPerRPCCredentials(Token(ctr.Token)),
+			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+		)
 
 		require.NoError(t, err)
 

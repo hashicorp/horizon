@@ -16,6 +16,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
+	"github.com/pierrec/lz4"
 	"github.com/pkg/errors"
 )
 
@@ -23,6 +24,11 @@ var (
 	ErrProtocolError = errors.New("protocol error")
 	ErrWrongService  = errors.New("wrong service")
 )
+
+type agentConnection struct {
+	useLZ4  bool
+	session *yamux.Session
+}
 
 type Hub struct {
 	L   hclog.Logger
@@ -34,7 +40,7 @@ type Hub struct {
 	// services edgeservices.Services
 
 	mu     sync.RWMutex
-	active map[string]*yamux.Session
+	active map[string]*agentConnection
 
 	// ServiceSorter ServiceSorter
 	wg sync.WaitGroup
@@ -52,7 +58,7 @@ func NewHub(L hclog.Logger, client *control.Client) (*Hub, error) {
 	h := &Hub{
 		L:      L,
 		cfg:    cfg,
-		active: make(map[string]*yamux.Session),
+		active: make(map[string]*agentConnection),
 		cc:     client,
 		id:     client.Id(),
 	}
@@ -162,6 +168,13 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	wc.Status = "connected"
 
+	var useLZ4 bool
+
+	if preamble.Compression == "lz4" {
+		wc.Compression = "lz4"
+		useLZ4 = true
+	}
+
 	fw, err := wire.NewFramingWriter(conn)
 	if err != nil {
 		h.L.Error("error creating frame writer", "error", err)
@@ -261,7 +274,10 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	h.mu.Lock()
 	for _, serv := range preamble.Services {
-		h.active[serv.ServiceId.SpecString()] = sess
+		h.active[serv.ServiceId.SpecString()] = &agentConnection{
+			useLZ4:  useLZ4,
+			session: sess,
+		}
 	}
 	h.mu.Unlock()
 
@@ -322,9 +338,19 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 		h.sendAgentInfoFlow(ai)
 
-		h.L.Trace("stream accepted", "id", stream.StreamID())
+		h.L.Trace("stream accepted", "id", stream.StreamID(), "lz4", useLZ4)
 
-		fr, err := wire.NewFramingReader(stream)
+		var (
+			r io.Reader = stream
+			w io.Writer = stream
+		)
+
+		if useLZ4 {
+			r = lz4.NewReader(stream)
+			w = lz4.NewWriter(stream)
+		}
+
+		fr, err := wire.NewFramingReader(r)
 		if err != nil {
 			h.L.Error("error creating frame reader", "error", err)
 			continue
@@ -332,7 +358,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 		defer fr.Recycle()
 
-		fw, err := wire.NewFramingWriter(stream)
+		fw, err := wire.NewFramingWriter(w)
 		if err != nil {
 			h.L.Error("error creating framing writer", "error", err)
 			continue

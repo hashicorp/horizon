@@ -7,7 +7,6 @@ import (
 	"github.com/flynn/noise"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
-	"github.com/hashicorp/horizon/pkg/noiseconn"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/pkg/errors"
@@ -44,22 +43,6 @@ type AgentConfig struct {
 
 // Validate the configuration
 func (cfg AgentConfig) Validate() error {
-	if cfg.Key != "" {
-		key, err := noiseconn.ParsePrivateKey(cfg.Key)
-		if err != nil {
-			return err
-		}
-
-		cfg.dhKey = key
-	} else {
-		key, err := noiseconn.GenerateKey()
-		if err != nil {
-			return err
-		}
-
-		cfg.dhKey = key
-	}
-
 	if cfg.Logger == nil {
 		cfg.Logger = hclog.L()
 	}
@@ -90,16 +73,6 @@ func (cfg AgentConfig) Validate() error {
 	}
 
 	return nil
-}
-
-// Generate a new, random key used to encrypt traffic to the hub
-func GenerateKey() (string, error) {
-	key, err := noiseconn.GenerateKey()
-	if err != nil {
-		return "", err
-	}
-
-	return noiseconn.PrivateKey(key), nil
 }
 
 // Create a new agent using the given configuration

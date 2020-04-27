@@ -22,8 +22,12 @@ func TestAgent(t *testing.T) {
 	t.Run("can connect and have a service connected to", func(t *testing.T) {
 		central.Dev(t, func(setup *central.DevSetup) {
 
-			L := hclog.L()
-			h, err := hub.NewHub(L, setup.ControlClient)
+			L := hclog.New(&hclog.LoggerOptions{
+				Name:  "dev",
+				Level: hclog.Trace,
+			})
+
+			h, err := hub.NewHub(L.Named("hub"), setup.ControlClient)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -36,7 +40,7 @@ func TestAgent(t *testing.T) {
 
 			time.Sleep(time.Second)
 
-			agent, err := NewAgent(L)
+			agent, err := NewAgent(L.Named("agent"))
 			require.NoError(t, err)
 
 			agent.Token = setup.AgentToken
