@@ -19,6 +19,10 @@ import (
 	"github.com/hashicorp/horizon/pkg/pb"
 )
 
+// URL that will return a json document with ip, asn, asn_org, country_iso, latittude, longitude
+// for the ip in question.
+var LookupURL = "https://ifconfig.co/json"
+
 func ec2MetaClient(endpoint string, timeout time.Duration) (*ec2metadata.EC2Metadata, error) {
 	client := &http.Client{
 		Timeout:   timeout,
@@ -272,7 +276,7 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 		Longitude json.Number `json:"longitude"`
 	}
 
-	resp, err := client.Get("https://ifconfig.co/json")
+	resp, err := client.Get(LookupURL)
 	if err == nil {
 		defer resp.Body.Close()
 
@@ -311,7 +315,7 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 						Transport: tp,
 					}
 
-					resp, err := client.Get("https://ifconfig.co/json")
+					resp, err := client.Get(LookupURL)
 					if err == nil {
 						defer resp.Body.Close()
 

@@ -32,6 +32,7 @@ require (
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/mr-tron/base58 v1.1.3
 	github.com/oklog/ulid v1.3.1
+	github.com/oschwald/geoip2-golang v1.4.0
 	github.com/pierrec/lz4 v2.2.6+incompatible
 	github.com/pierrec/lz4/v3 v3.3.2
 	github.com/pkg/errors v0.9.1

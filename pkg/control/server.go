@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	fmt "fmt"
+	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
+	"github.com/oschwald/geoip2-golang"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/metadata"
 )
@@ -61,6 +63,9 @@ type Server struct {
 	msink metrics.MetricSink
 
 	flowTop *FlowTop
+
+	mux   *http.ServeMux
+	asnDB *geoip2.Reader
 }
 
 type ServerConfig struct {
@@ -76,6 +81,8 @@ type ServerConfig struct {
 	AwsSession *session.Session
 	Bucket     string
 	LockTable  string
+
+	ASNDB string
 }
 
 func NewServer(cfg ServerConfig) (*Server, error) {
@@ -107,6 +114,16 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		m:             me,
 		msink:         msink,
 		flowTop:       flowTop,
+		mux:           http.NewServeMux(),
+	}
+
+	s.setupRoutes()
+
+	if cfg.ASNDB != "" {
+		r, err := geoip2.Open(cfg.ASNDB)
+		if err == nil {
+			s.asnDB = r
+		}
 	}
 
 	s.lockMgr, err = dynamolock.New(dynamodb.New(s.awsSess), s.lockTable)
