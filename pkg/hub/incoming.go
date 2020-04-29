@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -212,6 +213,42 @@ func isPublic(labels *pb.LabelSet) bool {
 	return true
 }
 
+func findPrio(loc *pb.NetworkLocation) int {
+	if loc.Labels == nil {
+		return 0
+	}
+
+	for _, lbl := range loc.Labels.Labels {
+		if lbl.Name == "priority" {
+			if i, err := strconv.Atoi(lbl.Value); err == nil {
+				return i
+			}
+		}
+	}
+
+	return 0
+}
+
+func pickBestOf(locs []*pb.NetworkLocation) (string, error) {
+	if len(locs) == 1 {
+		return locs[0].Addresses[0], nil
+	}
+
+	prio := 0
+	var pick *pb.NetworkLocation
+
+	for _, loc := range locs {
+		tp := findPrio(loc)
+
+		if pick == nil || tp > prio {
+			pick = loc
+			prio = tp
+		}
+	}
+
+	return pick.Addresses[0], nil
+}
+
 var ErrNoAvailableAddresses = errors.New("no addresses available for hub")
 
 // Given a list of network locations, pick one to connect to and return
@@ -258,19 +295,21 @@ func (h *Hub) pickAddress(locs []*pb.NetworkLocation) (string, error) {
 		}
 	}
 
-	if len(candidate) == 1 {
-		return candidate[0].Addresses[0], nil
+	if len(candidate) > 0 {
+		return pickBestOf(candidate)
 	}
 
 	if len(fallback) > 0 {
-		return fallback[0].Addresses[0], nil
+		return pickBestOf(fallback)
 	}
 
 	if len(publics) > 0 {
-		return publics[0].Addresses[0], nil
+		return pickBestOf(publics)
 	}
 
-	return "", ErrNoAvailableAddresses
+	// if all else fails, just pick the first one.
+
+	return locs[0].Addresses[0], nil
 }
 
 func (h *Hub) forwardToTarget(

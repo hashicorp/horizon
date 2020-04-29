@@ -95,4 +95,22 @@ func TestHubUtil(t *testing.T) {
 
 		assert.Equal(t, "2.2.2.2", addr)
 	})
+
+	t.Run("considers a priority label when picking between equal private addresses", func(t *testing.T) {
+		var h Hub
+
+		h.location = mkLocs("192.168.2.1", "10.0.1.1")
+		h.location[0].Labels = pb.ParseLabelSet("type=private,dc=test,priority=1")
+		h.location[1].Labels = pb.ParseLabelSet("type=private,dc=test2,priority=10")
+
+		tgt := mkLocs("192.168.2.2", "10.0.1.2")
+		tgt[0].Labels = h.location[0].Labels
+		tgt[1].Labels = h.location[1].Labels
+
+		addr, err := h.pickAddress(tgt)
+		require.NoError(t, err)
+
+		assert.Equal(t, "10.0.1.2", addr)
+	})
+
 }
