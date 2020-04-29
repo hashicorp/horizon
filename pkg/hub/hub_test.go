@@ -3,10 +3,15 @@ package hub
 import (
 	"context"
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/pkg/agent"
+	"github.com/hashicorp/horizon/pkg/connect"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -19,6 +24,50 @@ import (
 
 func TestHub(t *testing.T) {
 	testutils.SetupDB()
+
+	t.Run("is registered in control server database", func(t *testing.T) {
+		central.Dev(t, func(setup *central.DevSetup) {
+			L := hclog.L()
+			hub, err := NewHub(L, setup.ControlClient)
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			go hub.Run(ctx, setup.ClientListener)
+
+			var netloc []*pb.NetworkLocation
+
+			netloc = append(netloc, &pb.NetworkLocation{
+				Addresses: []string{"127.0.0.1"},
+				Labels:    pb.ParseLabelSet("dc=test"),
+			})
+
+			setup.ControlClient.SetLocations(netloc)
+
+			ts := time.Now()
+			go setup.ControlClient.Run(ctx)
+
+			time.Sleep(time.Second)
+
+			var hr control.Hub
+
+			err = dbx.Check(setup.DB.First(&hr))
+			require.NoError(t, err)
+
+			assert.Equal(t, setup.ControlClient.Id(), pb.ULIDFromBytes(hr.ID))
+			assert.True(t, hr.LastCheckin.After(ts))
+
+			var outloc []*pb.NetworkLocation
+
+			err = json.Unmarshal(hr.ConnectionInfo, &outloc)
+			require.NoError(t, err)
+
+			require.Equal(t, 1, len(outloc))
+
+			assert.Equal(t, "127.0.0.1", outloc[0].Addresses[0])
+		})
+	})
 
 	t.Run("can create and remove a service", func(t *testing.T) {
 		central.Dev(t, func(setup *central.DevSetup) {
@@ -167,6 +216,114 @@ func TestHub(t *testing.T) {
 			assert.Error(t, err)
 		})
 
+	})
+
+	t.Run("can send connections to other hubs", func(t *testing.T) {
+		central.Dev(t, func(setup *central.DevSetup) {
+			L := hclog.L()
+			L.SetLevel(hclog.Trace)
+
+			hub1, err := NewHub(L.Named("hub1"), setup.ControlClient)
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			go hub1.Run(ctx, setup.ClientListener)
+
+			var netloc []*pb.NetworkLocation
+
+			netloc = append(netloc, &pb.NetworkLocation{
+				Addresses: []string{
+					fmt.Sprintf("127.0.0.1:%d", setup.ClientListener.Addr().(*net.TCPAddr).Port),
+				},
+				Labels: pb.ParseLabelSet("dc=test"),
+			})
+
+			setup.ControlClient.SetLocations(netloc)
+
+			go setup.ControlClient.Run(ctx)
+
+			time.Sleep(time.Second)
+
+			go func() {
+				err := hub1.Run(ctx, setup.ClientListener)
+				require.NoError(t, err)
+			}()
+
+			time.Sleep(time.Second)
+
+			g, err := agent.NewAgent(L.Named("agent"))
+			require.NoError(t, err)
+
+			g.Token = setup.AgentToken
+
+			serviceId, err := g.AddService(&agent.Service{
+				Type:    "test",
+				Labels:  pb.ParseLabelSet("env=test,service=echo"),
+				Handler: agent.EchoHandler(),
+			})
+
+			require.NoError(t, err)
+
+			err = g.Start(ctx, []agent.HubConfig{
+				{
+					Addr:     setup.HubAddr,
+					Insecure: true,
+				},
+			})
+			require.NoError(t, err)
+
+			go g.Wait(ctx)
+
+			time.Sleep(time.Second)
+
+			setup.NewControlClient(t, func(nc *control.Client, li net.Listener) {
+				L = L.Named("testtest")
+
+				L.Info("configuring second hub and agent")
+
+				hub2, err := NewHub(L.Named("hub2"), nc)
+				require.NoError(t, err)
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				go hub2.Run(ctx, li)
+
+				go nc.Run(ctx)
+
+				time.Sleep(time.Second)
+
+				go func() {
+					err := hub2.Run(ctx, li)
+					require.NoError(t, err)
+				}()
+
+				sess, err := connect.Connect(L, li.Addr().String(), setup.AgentToken)
+				require.NoError(t, err)
+
+				L.Info("connecting to service")
+
+				c, err := sess.ConnecToService(pb.ParseLabelSet("service=echo"))
+				require.NoError(t, err)
+
+				assert.Equal(t, serviceId, c.ServiceId())
+
+				mb := wire.MarshalBytes("hello hzn from fed")
+
+				err = c.WriteMarshal(30, &mb)
+				require.NoError(t, err)
+
+				var mb2 wire.MarshalBytes
+
+				tag, err := c.ReadMarshal(&mb2)
+				require.NoError(t, err)
+
+				assert.Equal(t, byte(30), tag)
+				assert.Equal(t, wire.MarshalBytes("hello hzn from fed"), mb2)
+			})
+		})
 	})
 
 }

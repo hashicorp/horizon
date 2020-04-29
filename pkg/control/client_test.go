@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	fmt "fmt"
 	"io/ioutil"
 	"math/big"
@@ -812,6 +813,100 @@ func TestClient(t *testing.T) {
 		require.Equal(t, 1, len(snap.Records))
 
 		assert.Equal(t, flowId, snap.Records[0].FlowId)
+	})
+
+	t.Run("can get a list of all hubs and locations", func(t *testing.T) {
+		db, err := gorm.Open("pgtest", "server")
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
+		require.NoError(t, err)
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		gs := grpc.NewServer()
+		pb.RegisterControlServicesServer(gs, s)
+
+		li, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		gcc, err := grpc.Dial(li.Addr().String(),
+			grpc.WithInsecure(),
+			grpc.WithPerRPCCredentials(Token(ctr.Token)),
+			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+		)
+
+		require.NoError(t, err)
+
+		defer gcc.Close()
+
+		gClient := pb.NewControlServicesClient(gcc)
+
+		id := pb.NewULID()
+
+		client, err := NewClient(ctx, ClientConfig{
+			Id:      id,
+			Token:   ctr.Token,
+			Version: "test",
+			Client:  gClient,
+			Session: sess,
+		})
+
+		require.NoError(t, err)
+
+		netlocs := []*pb.NetworkLocation{
+			{
+				Addresses: []string{"1.1.1.1"},
+				Labels:    pb.ParseLabelSet("dc=test"),
+			},
+		}
+
+		data, err := json.Marshal(netlocs)
+		require.NoError(t, err)
+
+		hubId := pb.NewULID()
+
+		var hr Hub
+		hr.ID = hubId.Bytes()
+		hr.ConnectionInfo = data
+		hr.LastCheckin = time.Now()
+		hr.CreatedAt = time.Now()
+
+		err = dbx.Check(s.db.Create(&hr))
+
+		hubs, err := client.AllHubs(ctx)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(hubs))
+
+		assert.Equal(t, hubId, hubs[0].Id)
+
 	})
 
 }

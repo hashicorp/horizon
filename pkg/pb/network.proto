@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+import "label.proto";
+
+package pb;
+
+message NetworkLocation {
+  repeated string addresses = 1;
+  LabelSet labels = 2;
+}

@@ -10,6 +10,13 @@ import (
 
 var dbOnce sync.Once
 
+var Tables = []string{
+	"activity_logs",
+	"accounts",
+	"management_clients",
+	"hubs",
+}
+
 func SetupDB() {
 	dbOnce.Do(func() {
 		db := os.Getenv("DATABASE_URL")
@@ -19,4 +26,18 @@ func SetupDB() {
 			gorm.RegisterDialect("pgtest", dialect)
 		}
 	})
+}
+
+func CleanupDB() {
+	db := os.Getenv("DATABASE_URL")
+	if db != "" {
+		db, err := gorm.Open("postgres", db)
+		if err != nil {
+			return
+		}
+
+		for _, t := range Tables {
+			db.Exec("TRUNCATE " + t)
+		}
+	}
 }

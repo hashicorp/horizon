@@ -6,11 +6,11 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
+	"github.com/hashicorp/horizon/pkg/connect"
+	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/hashicorp/horizon/pkg/wire"
-	"github.com/hashicorp/horizon/pkg/x"
 	"github.com/hashicorp/yamux"
 	"github.com/pierrec/lz4/v3"
 	"github.com/pkg/errors"
@@ -34,7 +34,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.V
 
 	L := h.L
 
-	L.Trace("stream accepted", "id", stream.StreamID())
+	L.Trace("stream accepted", "hub", h.id, "id", stream.StreamID())
 
 	var req pb.ConnectRequest
 
@@ -116,115 +116,219 @@ func (h *Hub) bridgeToTarget(
 	req *pb.ConnectRequest,
 	wctx wire.Context,
 ) error {
+	L := ctxlog.L(ctx)
+
+	L.Trace("bridging connection to hub", "from", h.id, "to", target.Hub)
+
 	// Oh look it's for me!
-	if target.Hub.Equal(h.id) {
-		h.mu.RLock()
-		ac, ok := h.active[target.Id.SpecString()]
-		h.mu.RUnlock()
-
-		if !ok {
-			return ErrNoSuchSession
-		}
-
-		// transmit a ack back to the opener that the service was found and is
-		// about to start.
-
-		var conack pb.ConnectAck
-		conack.ServiceId = target.Id
-
-		err := wctx.WriteMarshal(1, &conack)
-		if err != nil {
-			return err
-		}
-
-		stream, err := ac.session.OpenStream()
-		if err != nil {
-			return err
-		}
-
-		h.L.Trace("connecting to agent", "agent", ai.ID, "service", target.Id, "lz4", ac.useLZ4)
-
-		var (
-			r io.Reader = stream
-			w io.Writer = stream
-		)
-
-		if ac.useLZ4 {
-			r = lz4.NewReader(stream)
-			w = lz4.NewWriter(x.DebugWriter{W: stream})
-		}
-
-		var sid pb.SessionIdentification
-		sid.ServiceId = target.Id
-		sid.ProtocolId = req.ProtocolId
-
-		fw, err := wire.NewFramingWriter(w)
-		if err != nil {
-			return err
-		}
-
-		defer fw.Recycle()
-
-		_, err = fw.WriteMarshal(11, &sid)
-		if err != nil {
-			return err
-		}
-
-		spew.Dump("wrote sid")
-
-		fr, err := wire.NewFramingReader(r)
-		if err != nil {
-			return err
-		}
-
-		defer fr.Recycle()
-
-		dsctx := wire.NewContext(wctx.AccountId(), fr, fw)
-
-		ctx, cancel := context.WithCancel(ctx)
-		defer cancel()
-
-		statUpdate := time.NewTicker(time.Minute)
-		defer statUpdate.Stop()
-
-		go func() {
-			var (
-				exit         bool
-				prevBytes    int64
-				prevMessages int64
-			)
-
-			for {
-				select {
-				case <-ctx.Done():
-					exit = true
-					fs.EndedAt = pb.NewTimestamp(time.Now())
-				case <-statUpdate.C:
-					// ok
-				}
-
-				ma, ba := wctx.Accounting()
-				mb, bb := dsctx.Accounting()
-
-				// We only transmit the number of messages/bytes since the previous update.
-				// This allows the server to treat the value as a counter rather than a gauge.
-				// This is the same as NetFlow does it, where a flow will say how many packets
-				// and the number of bytes those packets are represented by just that flow update.
-				fs.NumMessages = (ma + mb) - prevMessages
-				fs.NumBytes = (ba + bb) - prevBytes
-
-				h.cc.SendFlow(&pb.FlowRecord{Stream: fs})
-
-				if exit {
-					return
-				}
-			}
-		}()
-
-		return wctx.BridgeTo(dsctx)
+	if !target.Hub.Equal(h.id) {
+		return h.forwardToTarget(ctx, ai, fs, target, req, wctx)
 	}
 
-	return ErrNoSuchSession
+	h.mu.RLock()
+	ac, ok := h.active[target.Id.SpecString()]
+	h.mu.RUnlock()
+
+	if !ok {
+		return ErrNoSuchSession
+	}
+
+	// transmit a ack back to the opener that the service was found and is
+	// about to start.
+
+	var conack pb.ConnectAck
+	conack.ServiceId = target.Id
+
+	err := wctx.WriteMarshal(1, &conack)
+	if err != nil {
+		return err
+	}
+
+	stream, err := ac.session.OpenStream()
+	if err != nil {
+		return err
+	}
+
+	h.L.Trace("connecting to agent", "agent", ai.ID, "service", target.Id, "lz4", ac.useLZ4)
+
+	var (
+		r io.Reader = stream
+		w io.Writer = stream
+	)
+
+	if ac.useLZ4 {
+		r = lz4.NewReader(stream)
+		w = lz4.NewWriter(stream)
+	}
+
+	var sid pb.SessionIdentification
+	sid.ServiceId = target.Id
+	sid.ProtocolId = req.ProtocolId
+
+	fw, err := wire.NewFramingWriter(w)
+	if err != nil {
+		return err
+	}
+
+	defer fw.Recycle()
+
+	_, err = fw.WriteMarshal(11, &sid)
+	if err != nil {
+		return err
+	}
+
+	fr, err := wire.NewFramingReader(r)
+	if err != nil {
+		return err
+	}
+
+	defer fr.Recycle()
+
+	dsctx := wire.NewContext(wctx.AccountId(), fr, fw)
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	statUpdate := time.NewTicker(time.Minute)
+	defer statUpdate.Stop()
+
+	go func() {
+		var (
+			exit         bool
+			prevBytes    int64
+			prevMessages int64
+		)
+
+		for {
+			select {
+			case <-ctx.Done():
+				exit = true
+				fs.EndedAt = pb.NewTimestamp(time.Now())
+			case <-statUpdate.C:
+				// ok
+			}
+
+			ma, ba := wctx.Accounting()
+			mb, bb := dsctx.Accounting()
+
+			// We only transmit the number of messages/bytes since the previous update.
+			// This allows the server to treat the value as a counter rather than a gauge.
+			// This is the same as NetFlow does it, where a flow will say how many packets
+			// and the number of bytes those packets are represented by just that flow update.
+			fs.NumMessages = (ma + mb) - prevMessages
+			fs.NumBytes = (ba + bb) - prevBytes
+
+			h.cc.SendFlow(&pb.FlowRecord{Stream: fs})
+
+			if exit {
+				return
+			}
+		}
+	}()
+
+	return wctx.BridgeTo(dsctx)
+}
+
+func (h *Hub) forwardToTarget(
+	ctx context.Context,
+	ai *agentConn,
+	fs *pb.FlowStream,
+	target *pb.ServiceRoute,
+	req *pb.ConnectRequest,
+	wctx wire.Context,
+) error {
+	L := ctxlog.L(ctx)
+
+	locs, err := h.cc.GetHubAddresses(ctx, target.Hub)
+	if err != nil {
+		L.Error("error fetching locations for target hub", "hub", target.Hub)
+		return err
+	}
+
+	if len(locs) == 0 {
+		L.Error("no locations for target hub", "hub", target.Hub)
+		return ErrNoSuchSession
+	}
+
+	L.Trace("locations for target hub", "hub", target.Hub, "locations", locs)
+
+	addr := locs[0].Addresses[0]
+
+	L.Trace("spawning connection to peer hub", "hub", target.Hub, "addr", addr)
+
+	session, err := connect.Connect(L, addr, ai.stoken)
+	if err != nil {
+		return err
+	}
+
+	// We're allowing the target hub to do it's own lookup again rather than
+	// passing the service id we calculated here. The advantage is that things
+	// might have changed and the target has a better target (which would result
+	// in multiple relays).
+	conn, err := session.ConnecToService(req.Target)
+	if err != nil {
+		return err
+	}
+
+	dsctx := conn.WireContext(wctx.AccountId())
+
+	// transmit a ack back to the opener that the service was found and is
+	// about to start.
+
+	var conack pb.ConnectAck
+	conack.ServiceId = target.Id
+
+	err = wctx.WriteMarshal(1, &conack)
+	if err != nil {
+		return err
+	}
+
+	// We don't send a SessionIdentification here because the target
+	// hub will send it's own when connecting to the agent.
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	statUpdate := time.NewTicker(time.Minute)
+	defer statUpdate.Stop()
+
+	L.Trace("forwarding data from agent to peer hub")
+
+	go func() {
+		var (
+			exit         bool
+			prevBytes    int64
+			prevMessages int64
+		)
+
+		for {
+			select {
+			case <-ctx.Done():
+				exit = true
+				fs.EndedAt = pb.NewTimestamp(time.Now())
+			case <-statUpdate.C:
+				// ok
+			}
+
+			ma, ba := wctx.Accounting()
+			mb, bb := dsctx.Accounting()
+
+			// We only transmit the number of messages/bytes since the previous update.
+			// This allows the server to treat the value as a counter rather than a gauge.
+			// This is the same as NetFlow does it, where a flow will say how many packets
+			// and the number of bytes those packets are represented by just that flow update.
+			fs.NumMessages = (ma + mb) - prevMessages
+			fs.NumBytes = (ba + bb) - prevBytes
+
+			h.cc.SendFlow(&pb.FlowRecord{Stream: fs})
+
+			if exit {
+				return
+			}
+		}
+	}()
+
+	return wctx.BridgeTo(dsctx)
 }
 
 type frameAccessor struct {

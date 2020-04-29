@@ -23,15 +23,19 @@ import (
 )
 
 type DevSetup struct {
+	Top            context.Context
 	DB             *gorm.DB
 	ControlClient  *control.Client
 	ControlServer  *control.Server
+	ServerAddr     string
 	AgentToken     string
 	HubToken       string
 	HubAddr        string
 	AccountId      *pb.ULID
 	MgmtCtx        context.Context
 	ClientListener net.Listener
+	AwsSession     *session.Session
+	S3Bucket       string
 }
 
 func Dev(t *testing.T, f func(setup *DevSetup)) {
@@ -170,14 +174,63 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 	defer ln.Close()
 
 	f(&DevSetup{
+		Top:            top,
 		DB:             db,
 		ControlClient:  client,
 		ControlServer:  s,
+		ServerAddr:     li.Addr().String(),
 		HubToken:       ctr.Token,
 		HubAddr:        fmt.Sprintf("127.0.0.1:%d", ln.Addr().(*net.TCPAddr).Port),
 		AgentToken:     agentToken.Token,
 		AccountId:      accountId,
 		MgmtCtx:        metadata.NewIncomingContext(top, md2),
 		ClientListener: ln,
+		AwsSession:     sess,
+		S3Bucket:       bucket,
 	})
+}
+
+func (s *DevSetup) NewControlClient(t *testing.T, f func(c *control.Client, li net.Listener)) {
+	gcc, err := grpc.Dial(s.ServerAddr,
+		grpc.WithInsecure(),
+		grpc.WithPerRPCCredentials(control.Token(s.HubToken)),
+		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+	)
+
+	require.NoError(t, err)
+
+	defer gcc.Close()
+
+	gClient := pb.NewControlServicesClient(gcc)
+
+	id := pb.NewULID()
+
+	tmpdir, err := ioutil.TempDir("", "hzn")
+	require.NoError(t, err)
+
+	defer os.RemoveAll(tmpdir)
+
+	client, err := control.NewClient(s.Top, control.ClientConfig{
+		Id:       id,
+		Token:    s.HubToken,
+		Version:  "test",
+		Client:   gClient,
+		Session:  s.AwsSession,
+		S3Bucket: s.S3Bucket,
+		WorkDir:  tmpdir,
+	})
+
+	require.NoError(t, err)
+
+	defer client.Close()
+
+	err = client.BootstrapConfig(s.Top)
+	require.NoError(t, err)
+
+	ln, err := net.Listen("tcp", ":0")
+	require.NoError(t, err)
+
+	defer ln.Close()
+
+	f(client, ln)
 }

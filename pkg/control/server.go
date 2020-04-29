@@ -307,7 +307,7 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 				},
 				{
 					Name:  "account",
-					Value: rec.Stream.AccountId.SpecString(),
+					Value: rec.Agent.AccountId.SpecString(),
 				},
 			}
 
@@ -328,7 +328,35 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 		return err
 	}
 
-	key := msg.Hub.SpecString()
+	if msg.HubReg == nil {
+		return nil
+	}
+
+	key := msg.HubReg.Hub.SpecString()
+
+	data, err := json.Marshal(msg.HubReg.Locations)
+	if err != nil {
+		return err
+	}
+
+	L := ctxlog.L(stream.Context())
+
+	L.Info("creating/updating hub record", "id", key)
+
+	var hr Hub
+	hr.ID = msg.HubReg.Hub.Bytes()
+	hr.ConnectionInfo = data
+	hr.LastCheckin = time.Now()
+
+	de := s.db.Set(
+		"gorm:insert_option",
+		`ON CONFLICT (id) DO UPDATE SET connection_info=EXCLUDED.connection_info, last_checkin=EXCLUDED.last_checkin`,
+	).Create(&hr)
+
+	err = dbx.Check(de)
+	if err != nil {
+		return err
+	}
 
 	ch := &connectedHub{
 		xmit:     make(chan *pb.CentralActivity),
@@ -386,6 +414,15 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 			}
 		}
 	}
+}
+
+type Hub struct {
+	ID []byte `gorm:"primary_key"`
+
+	ConnectionInfo []byte
+	LastCheckin    time.Time
+
+	CreatedAt time.Time
 }
 
 func (s *Server) StartActivityReader(ctx context.Context, dbtype, conn string) error {
@@ -702,4 +739,31 @@ func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*
 	}
 
 	return &pb.CreateTokenResponse{Token: token}, nil
+}
+
+func (s *Server) AllHubs(ctx context.Context, _ *pb.Noop) (*pb.ListOfHubs, error) {
+	var hubs []*Hub
+
+	err := dbx.Check(s.db.Find(&hubs))
+	if err != nil {
+		return nil, err
+	}
+
+	var out pb.ListOfHubs
+
+	for _, h := range hubs {
+		var locs []*pb.NetworkLocation
+
+		err = json.Unmarshal(h.ConnectionInfo, &locs)
+		if err != nil {
+			return nil, err
+		}
+
+		out.Hubs = append(out.Hubs, &pb.HubInfo{
+			Id:        pb.ULIDFromBytes(h.ID),
+			Locations: locs,
+		})
+	}
+
+	return &out, nil
 }

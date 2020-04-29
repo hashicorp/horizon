@@ -667,11 +667,7 @@ func TestServer(t *testing.T) {
 
 		defer db.Close()
 
-		defer func() {
-			db.Exec("TRUNCATE activity_logs")
-			db.Exec("TRUNCATE accounts")
-			db.Exec("TRUNCATE management_clients")
-		}()
+		defer testutils.CleanupDB()
 
 		cfg := scfg
 		cfg.DB = db
@@ -712,7 +708,9 @@ func TestServer(t *testing.T) {
 		stream.RecvC = make(chan *pb.HubActivity, 1)
 
 		stream.RecvC <- &pb.HubActivity{
-			Hub: pb.NewULID(),
+			HubReg: &pb.HubActivity_HubRegistration{
+				Hub: pb.NewULID(),
+			},
 		}
 
 		go s.StreamActivity(&stream)

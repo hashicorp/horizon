@@ -132,6 +132,8 @@ type agentConn struct {
 
 	ActiveStreams *int64
 	TotalStreams  *int64
+
+	stoken string
 }
 
 func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
@@ -227,6 +229,8 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 			h.L.Error("error adding services", "error", err)
 			return
 		}
+
+		h.L.Debug("adding service", "hub", h.id, "service", serv.ServiceId, "labels", serv.Labels.SpecString)
 	}
 
 	defer func() {
@@ -295,6 +299,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		Services:      int32(len(preamble.Services)),
 		ActiveStreams: new(int64),
 		TotalStreams:  new(int64),
+		stoken:        preamble.Token,
 	}
 
 	h.sendAgentInfoFlow(ai)

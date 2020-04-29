@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
+	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"google.golang.org/grpc"
 )
@@ -79,6 +80,8 @@ type Client struct {
 	tokenPub ed25519.PublicKey
 
 	hubActivity chan *pb.HubActivity
+
+	netloc []*pb.NetworkLocation
 }
 
 type ClientConfig struct {
@@ -135,8 +138,6 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		hubActivity:     make(chan *pb.HubActivity, 10),
 	}
 
-	// go client.keepLabelLinksUpdated(ctx, cfg.Logger)
-
 	return client, nil
 }
 
@@ -152,6 +153,21 @@ func (c *Client) Close() error {
 
 func (c *Client) Id() *pb.ULID {
 	return c.cfg.Id
+}
+
+func (c *Client) SetLocations(netloc []*pb.NetworkLocation) {
+	c.netloc = netloc
+}
+
+func (c *Client) LearnLocations(def *pb.LabelSet) ([]*pb.NetworkLocation, error) {
+	locs, err := netloc.Locate(def)
+	if err != nil {
+		return nil, err
+	}
+
+	c.netloc = append(c.netloc, locs...)
+
+	return locs, nil
 }
 
 func (c *Client) BootstrapConfig(ctx context.Context) error {
@@ -421,7 +437,10 @@ func (c *Client) Run(ctx context.Context) error {
 		}
 
 		err = activity.Send(&pb.HubActivity{
-			Hub:    c.cfg.Id,
+			HubReg: &pb.HubActivity_HubRegistration{
+				Hub:       c.cfg.Id,
+				Locations: c.netloc,
+			},
 			SentAt: pb.NewTimestamp(time.Now()),
 		})
 
@@ -596,4 +615,28 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.ULID, *pb.LabelSet, e
 	}
 
 	return nil, nil, nil
+}
+
+func (c *Client) AllHubs(ctx context.Context) ([]*pb.HubInfo, error) {
+	list, err := c.client.AllHubs(ctx, &pb.Noop{})
+	if err != nil {
+		return nil, err
+	}
+
+	return list.Hubs, nil
+}
+
+func (c *Client) GetHubAddresses(ctx context.Context, id *pb.ULID) ([]*pb.NetworkLocation, error) {
+	list, err := c.client.AllHubs(ctx, &pb.Noop{})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, hub := range list.Hubs {
+		if hub.Id.Equal(id) {
+			return hub.Locations, nil
+		}
+	}
+
+	return nil, nil
 }

@@ -8,6 +8,7 @@ import "ulid.proto";
 import "token.proto";
 import "timestamp.proto";
 import "flow.proto";
+import "network.proto";
 
 package pb;
 
@@ -68,9 +69,14 @@ message CentralActivity {
 }
 
 message HubActivity {
-  ULID hub = 1;
-  Timestamp sent_at = 2;
+  message HubRegistration {
+    ULID hub = 1;
+    repeated NetworkLocation locations = 2;
+  }
 
+  HubRegistration hub_reg = 1;
+
+  Timestamp sent_at = 2;
   message HubStats {
     int64 agent_connections = 1;
     int64 accounts_seen = 2;
@@ -85,11 +91,21 @@ message HubActivity {
   repeated FlowRecord flow = 4;
 }
 
+message HubInfo {
+  ULID id = 1;
+  repeated NetworkLocation locations = 2;
+}
+
+message ListOfHubs {
+  repeated HubInfo hubs = 1;
+}
+
 service ControlServices {
   rpc AddService(ServiceRequest) returns (ServiceResponse) {}
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
   rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
   rpc StreamActivity(stream HubActivity) returns (stream CentralActivity) {}
+  rpc AllHubs(Noop) returns (ListOfHubs) {}
 }
 
 message AddLabelLinkRequest {

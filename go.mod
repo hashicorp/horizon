@@ -17,6 +17,7 @@ require (
 	github.com/go-sql-driver/mysql v1.5.0 // indirect
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.0 // indirect
+	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/hashicorp/go-hclog v0.12.1
 	github.com/hashicorp/go-immutable-radix v1.2.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0
@@ -45,6 +46,7 @@ require (
 	google.golang.org/grpc v1.28.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
+	gotest.tools v2.2.0+incompatible
 )
 
 replace (
