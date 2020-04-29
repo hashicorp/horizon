@@ -703,7 +703,7 @@ func TestServer(t *testing.T) {
 		md3.Set("authorization", ctr.Token)
 
 		var stream staticServerStream
-		stream.ctx = ctx
+		stream.ctx = metadata.NewIncomingContext(ctx, md3)
 		stream.SendC = make(chan *pb.CentralActivity, 1)
 		stream.RecvC = make(chan *pb.HubActivity, 1)
 

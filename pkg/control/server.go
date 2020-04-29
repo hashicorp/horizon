@@ -301,6 +301,11 @@ type Hub struct {
 }
 
 func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.ConfigResponse, error) {
+	_, err := s.checkFromHub(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	L := ctxlog.L(ctx)
 
 	L.Info("fetching configuration", "hub", req.StableId.SpecString())
@@ -375,6 +380,18 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 	return resp, nil
 }
 
+func (s *Server) HubDisconnect(ctx context.Context, req *pb.HubDisconnectRequest) (*pb.Noop, error) {
+	_, err := s.checkFromHub(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Leave the record, just nukes its services. We'll have a background task cleanup the old hub records.
+	// Those records are useful to be able to track the fluxation of hubs.
+
+	return &pb.Noop{}, s.removeHubServices(ctx, s.db, req.InstanceId)
+}
+
 func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 	var mdiff, bdiff int64
 
@@ -440,6 +457,12 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 }
 
 func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {
+	ctx := stream.Context()
+	_, err := s.checkFromHub(ctx)
+	if err != nil {
+		return err
+	}
+
 	msg, err := stream.Recv()
 	if err != nil {
 		return err
@@ -487,7 +510,7 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 	s.connectedHubs[key] = ch
 	s.mu.Unlock()
 
-	ctx, cancel := context.WithCancel(stream.Context())
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	go func() {

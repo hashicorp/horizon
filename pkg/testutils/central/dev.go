@@ -163,7 +163,7 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 
 	require.NoError(t, err)
 
-	defer client.Close()
+	defer client.Close(ctx)
 
 	err = client.BootstrapConfig(ctx)
 	require.NoError(t, err)
@@ -222,7 +222,7 @@ func (s *DevSetup) NewControlClient(t *testing.T, f func(c *control.Client, li n
 
 	require.NoError(t, err)
 
-	defer client.Close()
+	defer client.Close(s.Top)
 
 	err = client.BootstrapConfig(s.Top)
 	require.NoError(t, err)

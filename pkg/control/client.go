@@ -144,7 +144,14 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	return client, nil
 }
 
-func (c *Client) Close() error {
+func (c *Client) Close(ctx context.Context) error {
+	// If this errors out, c'est la vie.
+
+	c.client.HubDisconnect(ctx, &pb.HubDisconnectRequest{
+		StableId:   c.cfg.Id,
+		InstanceId: c.instanceId,
+	})
+
 	c.cancel()
 
 	if c.gcc != nil {

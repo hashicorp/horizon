@@ -121,12 +121,18 @@ message HubRegisterResponse {
   Timestamp control_time = 1;
 }
 
+message HubDisconnectRequest {
+  ULID stable_id = 1;
+  ULID instance_id = 2;
+}
+
 service ControlServices {
   rpc AddService(ServiceRequest) returns (ServiceResponse) {}
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
   rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
   rpc StreamActivity(stream HubActivity) returns (stream CentralActivity) {}
   rpc SyncHub(HubSync) returns (HubSyncResponse) {}
+  rpc HubDisconnect(HubDisconnectRequest) returns (Noop) {}
   rpc AllHubs(Noop) returns (ListOfHubs) {}
 }
 
