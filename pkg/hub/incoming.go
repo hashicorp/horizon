@@ -384,6 +384,8 @@ func (h *Hub) forwardToTarget(
 }
 
 func (h *Hub) copyBetweenContexts(ctx context.Context, wctx, dsctx wire.Context, fs *pb.FlowStream) error {
+	start := time.Now()
+
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -415,6 +417,8 @@ func (h *Hub) copyBetweenContexts(ctx context.Context, wctx, dsctx wire.Context,
 			// and the number of bytes those packets are represented by just that flow update.
 			fs.NumMessages = (ma + mb) - prevMessages
 			fs.NumBytes = (ba + bb) - prevBytes
+
+			fs.Duration = int64(time.Since(start))
 
 			h.cc.SendFlow(&pb.FlowRecord{Stream: fs})
 

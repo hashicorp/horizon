@@ -19,6 +19,8 @@ message FlowStream {
 
   int64 num_messages = 12;
   int64 num_bytes = 13;
+
+  int64 duration = 14;
 }
 
 message FlowRecord {
