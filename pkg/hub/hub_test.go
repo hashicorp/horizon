@@ -46,7 +46,7 @@ func TestHub(t *testing.T) {
 			setup.ControlClient.SetLocations(netloc)
 
 			ts := time.Now()
-			go setup.ControlClient.Run(ctx)
+			setup.ControlClient.BootstrapConfig(ctx)
 
 			time.Sleep(time.Second)
 
@@ -55,7 +55,7 @@ func TestHub(t *testing.T) {
 			err = dbx.Check(setup.DB.First(&hr))
 			require.NoError(t, err)
 
-			assert.Equal(t, setup.ControlClient.Id(), pb.ULIDFromBytes(hr.ID))
+			assert.Equal(t, setup.ControlClient.Id(), pb.ULIDFromBytes(hr.InstanceID))
 			assert.True(t, hr.LastCheckin.After(ts))
 
 			var outloc []*pb.NetworkLocation
@@ -242,6 +242,8 @@ func TestHub(t *testing.T) {
 
 			setup.ControlClient.SetLocations(netloc)
 
+			setup.ControlClient.BootstrapConfig(ctx)
+
 			go setup.ControlClient.Run(ctx)
 
 			time.Sleep(time.Second)
@@ -325,5 +327,4 @@ func TestHub(t *testing.T) {
 			})
 		})
 	})
-
 }

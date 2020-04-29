@@ -21,7 +21,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (s *Server) calculateAccountRouting(ctx context.Context, account []byte) ([]byte, error) {
+func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, account []byte) ([]byte, error) {
 	var u ulid.ULID
 	copy(u[:], account)
 
@@ -43,7 +43,7 @@ func (s *Server) calculateAccountRouting(ctx context.Context, account []byte) ([
 		default:
 		}
 
-		err := dbx.Check(s.db.Where("account_id = ?", account).Where("id > ?", lastId).Limit(100).Find(&services))
+		err := dbx.Check(db.Where("account_id = ?", account).Where("id > ?", lastId).Limit(100).Find(&services))
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				break
@@ -83,11 +83,11 @@ func (s *Server) calculateAccountRouting(ctx context.Context, account []byte) ([
 	return zstd.Compress(nil, data)
 }
 
-func (s *Server) updateAccountRouting(ctx context.Context, account []byte) error {
+func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account []byte) error {
 	var u ulid.ULID
 	copy(u[:], account)
 
-	outData, err := s.calculateAccountRouting(ctx, account)
+	outData, err := s.calculateAccountRouting(ctx, db, account)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (s *Server) updateAccountRouting(ctx context.Context, account []byte) error
 
 		time.Sleep(5 * time.Second)
 
-		outData, err := s.calculateAccountRouting(ctx, account)
+		outData, err := s.calculateAccountRouting(ctx, db, account)
 		if err != nil {
 			return err
 		}

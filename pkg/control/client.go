@@ -54,6 +54,8 @@ type Client struct {
 
 	cfg ClientConfig
 
+	instanceId *pb.ULID
+
 	cancel func()
 
 	mu    sync.RWMutex
@@ -127,6 +129,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	client := &Client{
 		L:               cfg.Logger,
 		cfg:             cfg,
+		instanceId:      pb.NewULID(),
 		client:          gClient,
 		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
@@ -152,6 +155,10 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) Id() *pb.ULID {
+	return c.instanceId
+}
+
+func (c *Client) StableId() *pb.ULID {
 	return c.cfg.Id
 }
 
@@ -172,7 +179,9 @@ func (c *Client) LearnLocations(def *pb.LabelSet) ([]*pb.NetworkLocation, error)
 
 func (c *Client) BootstrapConfig(ctx context.Context) error {
 	resp, err := c.client.FetchConfig(ctx, &pb.ConfigRequest{
-		Hub: c.cfg.Id,
+		StableId:   c.StableId(),
+		InstanceId: c.instanceId,
+		Locations:  c.netloc,
 	})
 	if err != nil {
 		return err
@@ -233,7 +242,7 @@ func (c *Client) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (c *Client) AddService(ctx context.Context, serv *pb.ServiceRequest) error {
-	serv.Hub = c.cfg.Id
+	serv.Hub = c.instanceId
 	_, err := c.client.AddService(ctx, serv)
 	if err != nil {
 		return err
@@ -305,7 +314,7 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 
 	for _, service := range info.Recent {
 		// Skip yourself, you already got those.
-		if service.Hub.Equal(c.cfg.Id) {
+		if service.Hub.Equal(c.instanceId) {
 			continue
 		}
 
@@ -317,7 +326,7 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 	if info.Services != nil {
 		for _, service := range info.Services.Services {
 			// Skip yourself, you already got those.
-			if service.Hub.Equal(c.cfg.Id) {
+			if service.Hub.Equal(c.instanceId) {
 				continue
 			}
 
@@ -438,7 +447,8 @@ func (c *Client) Run(ctx context.Context) error {
 
 		err = activity.Send(&pb.HubActivity{
 			HubReg: &pb.HubActivity_HubRegistration{
-				Hub:       c.cfg.Id,
+				Hub:       c.instanceId,
+				StableHub: c.cfg.Id,
 				Locations: c.netloc,
 			},
 			SentAt: pb.NewTimestamp(time.Now()),

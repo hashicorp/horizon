@@ -420,9 +420,9 @@ func (m *ActivityEntry) GetRouteRemoved() *ULID {
 }
 
 type ConfigRequest struct {
-	Hub       *ULID  `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	PublicIp  string `protobuf:"bytes,2,opt,name=public_ip,json=publicIp,proto3" json:"public_ip,omitempty"`
-	PrivateIp string `protobuf:"bytes,3,opt,name=private_ip,json=privateIp,proto3" json:"private_ip,omitempty"`
+	StableId   *ULID              `protobuf:"bytes,1,opt,name=stable_id,json=stableId,proto3" json:"stable_id,omitempty"`
+	InstanceId *ULID              `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	Locations  []*NetworkLocation `protobuf:"bytes,3,rep,name=locations,proto3" json:"locations,omitempty"`
 }
 
 func (m *ConfigRequest) Reset()      { *m = ConfigRequest{} }
@@ -457,25 +457,25 @@ func (m *ConfigRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_ConfigRequest proto.InternalMessageInfo
 
-func (m *ConfigRequest) GetHub() *ULID {
+func (m *ConfigRequest) GetStableId() *ULID {
 	if m != nil {
-		return m.Hub
+		return m.StableId
 	}
 	return nil
 }
 
-func (m *ConfigRequest) GetPublicIp() string {
+func (m *ConfigRequest) GetInstanceId() *ULID {
 	if m != nil {
-		return m.PublicIp
+		return m.InstanceId
 	}
-	return ""
+	return nil
 }
 
-func (m *ConfigRequest) GetPrivateIp() string {
+func (m *ConfigRequest) GetLocations() []*NetworkLocation {
 	if m != nil {
-		return m.PrivateIp
+		return m.Locations
 	}
-	return ""
+	return nil
 }
 
 type ConfigResponse struct {
@@ -665,7 +665,8 @@ func (m *HubActivity) GetFlow() []*FlowRecord {
 
 type HubActivity_HubRegistration struct {
 	Hub       *ULID              `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	Locations []*NetworkLocation `protobuf:"bytes,2,rep,name=locations,proto3" json:"locations,omitempty"`
+	StableHub *ULID              `protobuf:"bytes,2,opt,name=stable_hub,json=stableHub,proto3" json:"stable_hub,omitempty"`
+	Locations []*NetworkLocation `protobuf:"bytes,3,rep,name=locations,proto3" json:"locations,omitempty"`
 }
 
 func (m *HubActivity_HubRegistration) Reset()      { *m = HubActivity_HubRegistration{} }
@@ -703,6 +704,13 @@ var xxx_messageInfo_HubActivity_HubRegistration proto.InternalMessageInfo
 func (m *HubActivity_HubRegistration) GetHub() *ULID {
 	if m != nil {
 		return m.Hub
+	}
+	return nil
+}
+
+func (m *HubActivity_HubRegistration) GetStableHub() *ULID {
+	if m != nil {
+		return m.StableHub
 	}
 	return nil
 }
@@ -891,6 +899,210 @@ func (m *ListOfHubs) GetHubs() []*HubInfo {
 	return nil
 }
 
+type HubSync struct {
+	Id       *ULID             `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	StableId *ULID             `protobuf:"bytes,2,opt,name=stable_id,json=stableId,proto3" json:"stable_id,omitempty"`
+	Services []*ServiceRequest `protobuf:"bytes,3,rep,name=services,proto3" json:"services,omitempty"`
+}
+
+func (m *HubSync) Reset()      { *m = HubSync{} }
+func (*HubSync) ProtoMessage() {}
+func (*HubSync) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{13}
+}
+func (m *HubSync) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HubSync) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HubSync.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HubSync) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubSync.Merge(m, src)
+}
+func (m *HubSync) XXX_Size() int {
+	return m.Size()
+}
+func (m *HubSync) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubSync.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HubSync proto.InternalMessageInfo
+
+func (m *HubSync) GetId() *ULID {
+	if m != nil {
+		return m.Id
+	}
+	return nil
+}
+
+func (m *HubSync) GetStableId() *ULID {
+	if m != nil {
+		return m.StableId
+	}
+	return nil
+}
+
+func (m *HubSync) GetServices() []*ServiceRequest {
+	if m != nil {
+		return m.Services
+	}
+	return nil
+}
+
+type HubSyncResponse struct {
+	ServiceCount int64 `protobuf:"varint,1,opt,name=service_count,json=serviceCount,proto3" json:"service_count,omitempty"`
+}
+
+func (m *HubSyncResponse) Reset()      { *m = HubSyncResponse{} }
+func (*HubSyncResponse) ProtoMessage() {}
+func (*HubSyncResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{14}
+}
+func (m *HubSyncResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HubSyncResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HubSyncResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HubSyncResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubSyncResponse.Merge(m, src)
+}
+func (m *HubSyncResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *HubSyncResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubSyncResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HubSyncResponse proto.InternalMessageInfo
+
+func (m *HubSyncResponse) GetServiceCount() int64 {
+	if m != nil {
+		return m.ServiceCount
+	}
+	return 0
+}
+
+type HubRegisterRequest struct {
+	StableId   *ULID              `protobuf:"bytes,1,opt,name=stable_id,json=stableId,proto3" json:"stable_id,omitempty"`
+	InstanceId *ULID              `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
+	Locations  []*NetworkLocation `protobuf:"bytes,3,rep,name=locations,proto3" json:"locations,omitempty"`
+}
+
+func (m *HubRegisterRequest) Reset()      { *m = HubRegisterRequest{} }
+func (*HubRegisterRequest) ProtoMessage() {}
+func (*HubRegisterRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{15}
+}
+func (m *HubRegisterRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HubRegisterRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HubRegisterRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HubRegisterRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubRegisterRequest.Merge(m, src)
+}
+func (m *HubRegisterRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *HubRegisterRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubRegisterRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HubRegisterRequest proto.InternalMessageInfo
+
+func (m *HubRegisterRequest) GetStableId() *ULID {
+	if m != nil {
+		return m.StableId
+	}
+	return nil
+}
+
+func (m *HubRegisterRequest) GetInstanceId() *ULID {
+	if m != nil {
+		return m.InstanceId
+	}
+	return nil
+}
+
+func (m *HubRegisterRequest) GetLocations() []*NetworkLocation {
+	if m != nil {
+		return m.Locations
+	}
+	return nil
+}
+
+type HubRegisterResponse struct {
+	ControlTime *Timestamp `protobuf:"bytes,1,opt,name=control_time,json=controlTime,proto3" json:"control_time,omitempty"`
+}
+
+func (m *HubRegisterResponse) Reset()      { *m = HubRegisterResponse{} }
+func (*HubRegisterResponse) ProtoMessage() {}
+func (*HubRegisterResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{16}
+}
+func (m *HubRegisterResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HubRegisterResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HubRegisterResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HubRegisterResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubRegisterResponse.Merge(m, src)
+}
+func (m *HubRegisterResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *HubRegisterResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubRegisterResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HubRegisterResponse proto.InternalMessageInfo
+
+func (m *HubRegisterResponse) GetControlTime() *Timestamp {
+	if m != nil {
+		return m.ControlTime
+	}
+	return nil
+}
+
 type AddLabelLinkRequest struct {
 	Labels  *LabelSet `protobuf:"bytes,1,opt,name=labels,proto3" json:"labels,omitempty"`
 	Account *Account  `protobuf:"bytes,2,opt,name=account,proto3" json:"account,omitempty"`
@@ -900,7 +1112,7 @@ type AddLabelLinkRequest struct {
 func (m *AddLabelLinkRequest) Reset()      { *m = AddLabelLinkRequest{} }
 func (*AddLabelLinkRequest) ProtoMessage() {}
 func (*AddLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{13}
+	return fileDescriptor_0c5120591600887d, []int{17}
 }
 func (m *AddLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -956,7 +1168,7 @@ type Noop struct {
 func (m *Noop) Reset()      { *m = Noop{} }
 func (*Noop) ProtoMessage() {}
 func (*Noop) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{14}
+	return fileDescriptor_0c5120591600887d, []int{18}
 }
 func (m *Noop) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -993,7 +1205,7 @@ type RemoveLabelLinkRequest struct {
 func (m *RemoveLabelLinkRequest) Reset()      { *m = RemoveLabelLinkRequest{} }
 func (*RemoveLabelLinkRequest) ProtoMessage() {}
 func (*RemoveLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{15}
+	return fileDescriptor_0c5120591600887d, []int{19}
 }
 func (m *RemoveLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1045,7 +1257,7 @@ type CreateTokenRequest struct {
 func (m *CreateTokenRequest) Reset()      { *m = CreateTokenRequest{} }
 func (*CreateTokenRequest) ProtoMessage() {}
 func (*CreateTokenRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{16}
+	return fileDescriptor_0c5120591600887d, []int{20}
 }
 func (m *CreateTokenRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1102,7 +1314,7 @@ type CreateTokenResponse struct {
 func (m *CreateTokenResponse) Reset()      { *m = CreateTokenResponse{} }
 func (*CreateTokenResponse) ProtoMessage() {}
 func (*CreateTokenResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{17}
+	return fileDescriptor_0c5120591600887d, []int{21}
 }
 func (m *CreateTokenResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1145,7 +1357,7 @@ type ControlRegister struct {
 func (m *ControlRegister) Reset()      { *m = ControlRegister{} }
 func (*ControlRegister) ProtoMessage() {}
 func (*ControlRegister) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{18}
+	return fileDescriptor_0c5120591600887d, []int{22}
 }
 func (m *ControlRegister) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1188,7 +1400,7 @@ type ControlToken struct {
 func (m *ControlToken) Reset()      { *m = ControlToken{} }
 func (*ControlToken) ProtoMessage() {}
 func (*ControlToken) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{19}
+	return fileDescriptor_0c5120591600887d, []int{23}
 }
 func (m *ControlToken) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1240,6 +1452,10 @@ func init() {
 	proto.RegisterType((*HubActivity_HubStats)(nil), "pb.HubActivity.HubStats")
 	proto.RegisterType((*HubInfo)(nil), "pb.HubInfo")
 	proto.RegisterType((*ListOfHubs)(nil), "pb.ListOfHubs")
+	proto.RegisterType((*HubSync)(nil), "pb.HubSync")
+	proto.RegisterType((*HubSyncResponse)(nil), "pb.HubSyncResponse")
+	proto.RegisterType((*HubRegisterRequest)(nil), "pb.HubRegisterRequest")
+	proto.RegisterType((*HubRegisterResponse)(nil), "pb.HubRegisterResponse")
 	proto.RegisterType((*AddLabelLinkRequest)(nil), "pb.AddLabelLinkRequest")
 	proto.RegisterType((*Noop)(nil), "pb.Noop")
 	proto.RegisterType((*RemoveLabelLinkRequest)(nil), "pb.RemoveLabelLinkRequest")
@@ -1252,91 +1468,98 @@ func init() {
 func init() { proto.RegisterFile("control.proto", fileDescriptor_0c5120591600887d) }
 
 var fileDescriptor_0c5120591600887d = []byte{
-	// 1329 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x57, 0x4b, 0x73, 0xd3, 0xd6,
-	0x17, 0xb7, 0x6c, 0xe3, 0xd8, 0xc7, 0x76, 0x9c, 0xdc, 0xf0, 0x07, 0xff, 0xdd, 0xd6, 0x50, 0x95,
-	0xd2, 0xcc, 0x50, 0x42, 0x1b, 0x32, 0xf4, 0x31, 0xb4, 0x53, 0x63, 0xca, 0x24, 0x43, 0x4a, 0x99,
-	0x1b, 0x60, 0xab, 0x5e, 0x49, 0x27, 0x8e, 0x26, 0xb2, 0xa4, 0x4a, 0x57, 0xc9, 0x78, 0xc3, 0x74,
-	0xd9, 0x65, 0xbf, 0x43, 0x37, 0x5d, 0x75, 0xf8, 0x18, 0xec, 0xca, 0x92, 0x55, 0xa7, 0x98, 0x4d,
-	0x97, 0x7c, 0x84, 0xce, 0x7d, 0x48, 0x7e, 0xc4, 0x64, 0xa0, 0x33, 0xdd, 0xf9, 0xfe, 0xce, 0xef,
-	0x9e, 0xf7, 0x39, 0x57, 0x86, 0xa6, 0x13, 0x06, 0x3c, 0x0e, 0xfd, 0x8d, 0x28, 0x0e, 0x79, 0x48,
-	0x8a, 0x91, 0xdd, 0x69, 0xb9, 0xb8, 0x9f, 0x5c, 0x1b, 0x84, 0x83, 0x50, 0x81, 0x9d, 0xea, 0xe1,
-	0x91, 0xfe, 0x55, 0xf7, 0x99, 0x8d, 0x9a, 0xdb, 0x69, 0x32, 0xc7, 0x09, 0xd3, 0x80, 0xeb, 0x23,
-	0xa4, 0xbe, 0xe7, 0x66, 0x3c, 0x1e, 0x1e, 0x62, 0xa0, 0x0f, 0x2d, 0xee, 0x0d, 0x31, 0xe1, 0x6c,
-	0x18, 0x65, 0xcc, 0x7d, 0x3f, 0x3c, 0xce, 0x94, 0x04, 0xc8, 0x8f, 0xc3, 0xf8, 0x50, 0x1d, 0xcd,
-	0x3f, 0x0c, 0x58, 0xde, 0xc3, 0xf8, 0xc8, 0x73, 0x90, 0xe2, 0x8f, 0x29, 0x26, 0x9c, 0x7c, 0x08,
-	0x4b, 0xda, 0x50, 0xdb, 0xb8, 0x68, 0xac, 0xd7, 0x37, 0xeb, 0x1b, 0x91, 0xbd, 0xd1, 0x53, 0x10,
-	0xcd, 0x64, 0xa4, 0x03, 0xa5, 0x83, 0xd4, 0x6e, 0x17, 0x25, 0xa5, 0x2a, 0x28, 0x0f, 0x77, 0x77,
-	0x6e, 0x53, 0x01, 0x92, 0x36, 0x14, 0x3d, 0xb7, 0x5d, 0x9a, 0x13, 0x15, 0x3d, 0x97, 0x10, 0x28,
-	0xf3, 0x51, 0x84, 0xed, 0xf2, 0x45, 0x63, 0xbd, 0x46, 0xe5, 0x6f, 0x72, 0x09, 0x2a, 0x32, 0xcc,
-	0xa4, 0x7d, 0x46, 0xde, 0x68, 0x88, 0x1b, 0xbb, 0x02, 0xd9, 0x43, 0x4e, 0xb5, 0x8c, 0x5c, 0x86,
-	0xea, 0x10, 0x39, 0x73, 0x19, 0x67, 0xed, 0xca, 0xc5, 0xd2, 0x7a, 0x7d, 0x13, 0x04, 0xef, 0xee,
-	0xa3, 0xfb, 0xcc, 0x8b, 0x69, 0x2e, 0x33, 0x57, 0xa1, 0x95, 0x07, 0x94, 0x44, 0x61, 0x90, 0xa0,
-	0xf9, 0x18, 0x6a, 0x52, 0xdd, 0xae, 0x17, 0x1c, 0xbe, 0x69, 0x78, 0x13, 0xa7, 0x8a, 0xa7, 0x38,
-	0x75, 0x09, 0x2a, 0x9c, 0xc5, 0x03, 0xe4, 0x3a, 0xd8, 0x39, 0x96, 0x92, 0x99, 0x37, 0x01, 0x72,
-	0xfb, 0x09, 0xd9, 0x00, 0x55, 0x55, 0xcb, 0x17, 0xc7, 0xb6, 0x21, 0x63, 0x69, 0xe6, 0x17, 0x05,
-	0x89, 0x82, 0x9f, 0xf3, 0xcd, 0xc7, 0xd0, 0xc8, 0x02, 0x0a, 0x53, 0x8e, 0x59, 0xe2, 0x8d, 0xd7,
-	0x27, 0xbe, 0x78, 0x4a, 0xe2, 0x4b, 0x0b, 0x13, 0x5f, 0x7e, 0x7d, 0x8c, 0xe6, 0x3e, 0xb4, 0x74,
-	0x76, 0xb4, 0x1b, 0xc9, 0x9b, 0xe6, 0xf0, 0x63, 0xa8, 0x26, 0xfa, 0x4a, 0xbb, 0x28, 0xc3, 0x5c,
-	0x11, 0xbc, 0xe9, 0x68, 0x68, 0xce, 0x30, 0x39, 0x34, 0x7b, 0x0e, 0xf7, 0x8e, 0x3c, 0x3e, 0xfa,
-	0x36, 0xe0, 0xf1, 0x88, 0x6c, 0x41, 0x3d, 0x16, 0x1c, 0x8b, 0xb9, 0x2e, 0xba, 0xda, 0xd2, 0xda,
-	0x94, 0xa5, 0xcc, 0x1f, 0x0a, 0x92, 0xd7, 0x13, 0x34, 0x72, 0x15, 0x9a, 0xea, 0x56, 0x8c, 0xc3,
-	0xf0, 0x08, 0x4f, 0x66, 0xa3, 0x21, 0xc5, 0x54, 0x49, 0xcd, 0x01, 0x34, 0xfb, 0x61, 0xb0, 0xef,
-	0x0d, 0xb2, 0xf6, 0x3f, 0x2d, 0xbd, 0xef, 0x40, 0x2d, 0x4a, 0x6d, 0xdf, 0x73, 0x2c, 0x2f, 0x92,
-	0x7a, 0x6b, 0xb4, 0xaa, 0x80, 0x9d, 0x88, 0xbc, 0x07, 0x10, 0xc5, 0xde, 0x11, 0xe3, 0x28, 0xa4,
-	0x2a, 0xcf, 0x35, 0x8d, 0xec, 0x44, 0x26, 0x83, 0xe5, 0xcc, 0x90, 0x6a, 0x4b, 0x72, 0x1e, 0x96,
-	0xb8, 0x9f, 0x58, 0x87, 0x38, 0x92, 0xd6, 0x1a, 0xb4, 0xc2, 0xfd, 0xe4, 0x2e, 0x8e, 0xc8, 0xff,
-	0xa1, 0x2a, 0x04, 0x0e, 0xc6, 0x5c, 0x5a, 0x69, 0x50, 0x41, 0xec, 0x63, 0xcc, 0x85, 0x07, 0x72,
-	0xd4, 0xad, 0x28, 0xb5, 0xa5, 0x8d, 0x06, 0xad, 0x4a, 0xe0, 0x7e, 0x6a, 0x9b, 0xbf, 0x1b, 0xd0,
-	0xea, 0x63, 0xc0, 0x63, 0xe6, 0x67, 0x99, 0x24, 0x5f, 0xc3, 0x8a, 0x2e, 0x87, 0x95, 0xd7, 0x42,
-	0xb5, 0xdc, 0xc2, 0x4c, 0xb6, 0xd8, 0x5c, 0xa9, 0x3f, 0x80, 0x66, 0xac, 0x32, 0x63, 0x25, 0x9c,
-	0x71, 0x35, 0x0e, 0x55, 0xda, 0xd0, 0xe0, 0x9e, 0xc0, 0xc8, 0x0d, 0x68, 0x05, 0x78, 0x6c, 0x4d,
-	0xb7, 0xb5, 0x9a, 0x87, 0xe5, 0x99, 0xb6, 0x4e, 0x68, 0x33, 0xc0, 0xe3, 0xc9, 0xd1, 0x7c, 0x5e,
-	0x86, 0xfa, 0x76, 0x6a, 0xe7, 0xce, 0x7e, 0x0e, 0x4b, 0x07, 0xa9, 0x6d, 0xc5, 0x38, 0xd0, 0xf9,
-	0xbf, 0x20, 0xee, 0x4f, 0x31, 0xc4, 0x6f, 0x8a, 0x03, 0x2f, 0xe1, 0x31, 0xe3, 0x5e, 0x18, 0xd0,
-	0xca, 0x81, 0x04, 0xc8, 0x65, 0x58, 0x4a, 0x30, 0xe0, 0x16, 0xe3, 0xba, 0xde, 0x72, 0xa0, 0x1e,
-	0x64, 0x8b, 0x90, 0x56, 0x84, 0xb4, 0xc7, 0xc9, 0x06, 0x9c, 0x51, 0x61, 0x28, 0xff, 0xda, 0x0b,
-	0xf4, 0xcb, 0x90, 0xa8, 0xa2, 0x11, 0x13, 0xca, 0x62, 0x79, 0xb6, 0xcb, 0x32, 0x65, 0x32, 0x9c,
-	0x3b, 0x7e, 0x78, 0x4c, 0xd1, 0x09, 0x63, 0x97, 0x4a, 0x59, 0xe7, 0x07, 0x68, 0xcd, 0xb9, 0x75,
-	0x6a, 0x13, 0x7d, 0x0a, 0x35, 0x3f, 0x74, 0x24, 0x2f, 0x1b, 0x0b, 0x59, 0x8a, 0x7b, 0x6a, 0x31,
-	0xef, 0x6a, 0x19, 0x9d, 0xb0, 0x3a, 0x4f, 0x8a, 0x50, 0xcd, 0x3c, 0x23, 0x57, 0x60, 0x95, 0x0d,
-	0x44, 0xac, 0x4e, 0x18, 0x04, 0xe8, 0x28, 0x3d, 0xc2, 0x52, 0x89, 0xae, 0x48, 0x41, 0x7f, 0x82,
-	0x8b, 0xf2, 0xe9, 0x8a, 0x26, 0x56, 0x82, 0x18, 0xc8, 0xec, 0x94, 0x68, 0x23, 0x03, 0xf7, 0x10,
-	0x03, 0xf2, 0x11, 0xb4, 0x72, 0x92, 0xc3, 0x9c, 0x03, 0x54, 0xbb, 0xbb, 0x44, 0x97, 0x33, 0xb8,
-	0x2f, 0x51, 0xf2, 0x3e, 0x34, 0x94, 0xdc, 0xb2, 0x47, 0x1c, 0xd5, 0xda, 0x28, 0xd1, 0xba, 0xc2,
-	0x6e, 0x09, 0x88, 0xf4, 0xe1, 0x9c, 0xcf, 0x44, 0xb3, 0xa4, 0x8e, 0x83, 0x49, 0xb2, 0x9f, 0xfa,
-	0x56, 0x1a, 0xb9, 0x8c, 0xa3, 0x5e, 0xee, 0x73, 0x75, 0x39, 0x2b, 0xc8, 0x7b, 0x39, 0xf7, 0xa1,
-	0xa4, 0x92, 0x1e, 0xfc, 0x4f, 0x2a, 0x61, 0x9c, 0xe3, 0x30, 0xe2, 0xe8, 0x66, 0x3a, 0x2a, 0x8b,
-	0x74, 0xac, 0x09, 0x6e, 0x2f, 0xa3, 0x2a, 0x15, 0xe6, 0x23, 0x58, 0xda, 0x4e, 0xed, 0x9d, 0x60,
-	0x3f, 0xd4, 0x4b, 0xd1, 0x58, 0xb0, 0x14, 0xdf, 0xbe, 0x14, 0xe6, 0x55, 0x80, 0x5d, 0x2f, 0xe1,
-	0xdf, 0xef, 0x6f, 0xa7, 0x76, 0x42, 0x2e, 0x40, 0xf9, 0x20, 0xb5, 0xb3, 0x89, 0xaa, 0xeb, 0x6e,
-	0x12, 0x56, 0xa9, 0x14, 0x98, 0x3f, 0x1b, 0xb0, 0xd6, 0x73, 0xdd, 0xc9, 0x66, 0xd7, 0x5b, 0x66,
-	0xb2, 0x7a, 0x8d, 0x53, 0x9e, 0x97, 0xa9, 0x3d, 0x5b, 0x3c, 0xfd, 0xad, 0x7a, 0x83, 0x57, 0xa8,
-	0x02, 0xe5, 0x7b, 0x61, 0x18, 0x99, 0x08, 0xe7, 0xd4, 0xf2, 0xfb, 0x4f, 0x9d, 0x32, 0x9f, 0x18,
-	0x40, 0xfa, 0x31, 0x32, 0x8e, 0x0f, 0xc4, 0x7e, 0x7a, 0xcb, 0xaf, 0x8b, 0xaf, 0x44, 0xa7, 0x45,
-	0xcc, 0xf6, 0x7c, 0x8f, 0x7b, 0x38, 0x53, 0x1c, 0xa9, 0xae, 0x9f, 0x09, 0x47, 0xb7, 0xca, 0x4f,
-	0xff, 0xbc, 0x50, 0xa0, 0x33, 0x74, 0xb2, 0x05, 0xcb, 0x47, 0xcc, 0xf7, 0x5c, 0xcb, 0x4d, 0xd5,
-	0x44, 0xea, 0xcc, 0xcc, 0x75, 0x4e, 0x53, 0x92, 0x6e, 0x6b, 0x8e, 0x79, 0x05, 0xd6, 0x66, 0x3c,
-	0xd6, 0x7b, 0xfa, 0x2c, 0x9c, 0x91, 0x2b, 0x56, 0x3a, 0x5c, 0xa3, 0xea, 0x60, 0x5e, 0x83, 0x56,
-	0x5f, 0x7d, 0xca, 0xa9, 0xc9, 0xc7, 0x98, 0xbc, 0x0b, 0xb5, 0x80, 0x0d, 0x31, 0x89, 0x98, 0x83,
-	0x9a, 0x3c, 0x01, 0xcc, 0x4b, 0xd0, 0xd0, 0x17, 0xa4, 0xfa, 0xc5, 0x6a, 0x37, 0x7f, 0x2d, 0xe6,
-	0x7a, 0xf3, 0x1d, 0xfc, 0x19, 0x40, 0xcf, 0x75, 0xf5, 0x91, 0x90, 0xe9, 0x37, 0x54, 0x65, 0xb5,
-	0xb3, 0x36, 0x83, 0xe9, 0xcf, 0x9e, 0x02, 0xf9, 0x12, 0x9a, 0xaa, 0xd4, 0xff, 0xe2, 0xee, 0x0d,
-	0xa8, 0xdf, 0x41, 0xee, 0x1c, 0xa8, 0x47, 0x8b, 0xac, 0x0a, 0xd6, 0xcc, 0x4b, 0xd9, 0x21, 0xd3,
-	0x50, 0x7e, 0xef, 0x26, 0x2c, 0xef, 0xf1, 0x18, 0xd9, 0x30, 0xdf, 0xea, 0xad, 0xb9, 0x25, 0xab,
-	0x2c, 0xce, 0x3d, 0x54, 0x66, 0x61, 0xdd, 0xf8, 0xc4, 0x10, 0xed, 0xd1, 0xf3, 0x7d, 0x39, 0x5b,
-	0x72, 0x54, 0x45, 0xc7, 0x76, 0xd4, 0x2b, 0x92, 0x4f, 0x9d, 0x59, 0xd8, 0x7c, 0x52, 0x84, 0x55,
-	0x9d, 0xa5, 0xef, 0x58, 0xc0, 0x06, 0x38, 0xc4, 0x80, 0x93, 0xeb, 0x50, 0xcd, 0x6b, 0xb1, 0xa6,
-	0x9d, 0x9b, 0x2e, 0x50, 0x67, 0x65, 0x0a, 0x94, 0x45, 0x30, 0x0b, 0xe4, 0x3a, 0x34, 0xa6, 0x07,
-	0x94, 0x9c, 0x97, 0xfd, 0x78, 0x72, 0x64, 0x3b, 0xb9, 0x3f, 0x66, 0x81, 0x7c, 0x01, 0xad, 0xb9,
-	0x19, 0x22, 0x1d, 0x21, 0x5e, 0x3c, 0x58, 0x33, 0x57, 0xbf, 0x81, 0xfa, 0x54, 0x93, 0x91, 0x73,
-	0xd2, 0xa5, 0x13, 0x73, 0xd2, 0x39, 0x7f, 0x02, 0xcf, 0x33, 0xbc, 0x05, 0xcd, 0x9d, 0x24, 0x49,
-	0x71, 0x3b, 0xb5, 0x95, 0x8e, 0x49, 0xa6, 0x5e, 0x7f, 0xeb, 0xd6, 0xd6, 0xb3, 0x17, 0xdd, 0xc2,
-	0xf3, 0x17, 0xdd, 0xc2, 0xab, 0x17, 0x5d, 0xe3, 0xa7, 0x71, 0xd7, 0xf8, 0x6d, 0xdc, 0x35, 0x9e,
-	0x8e, 0xbb, 0xc6, 0xb3, 0x71, 0xd7, 0xf8, 0x6b, 0xdc, 0x35, 0xfe, 0x1e, 0x77, 0x0b, 0xaf, 0xc6,
-	0x5d, 0xe3, 0x97, 0x97, 0xdd, 0xc2, 0xb3, 0x97, 0xdd, 0xc2, 0xf3, 0x97, 0xdd, 0x82, 0x5d, 0x91,
-	0x7f, 0x13, 0xae, 0xff, 0x13, 0x00, 0x00, 0xff, 0xff, 0x59, 0xf9, 0x7e, 0xc6, 0xb7, 0x0c, 0x00,
-	0x00,
+	// 1453 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x57, 0xcd, 0x6f, 0x1b, 0x45,
+	0x14, 0xf7, 0xda, 0x8e, 0xe3, 0x3c, 0xdb, 0x71, 0x32, 0x2e, 0xad, 0x31, 0xc8, 0x2d, 0xdb, 0xd2,
+	0x06, 0x95, 0xa6, 0x25, 0x8d, 0xca, 0x87, 0x0a, 0xc2, 0x75, 0x29, 0x89, 0x1a, 0x4a, 0x35, 0x6e,
+	0x7b, 0x5d, 0xcd, 0xee, 0x8e, 0x9d, 0x55, 0xd6, 0xbb, 0x66, 0x67, 0x36, 0x91, 0x39, 0x54, 0x88,
+	0x13, 0xdc, 0x38, 0x70, 0xe1, 0x3f, 0xe0, 0x84, 0xfa, 0x67, 0xf4, 0x46, 0xc5, 0xa9, 0x27, 0x44,
+	0xdd, 0x0b, 0xc7, 0xfe, 0x09, 0x68, 0x3e, 0x76, 0xfd, 0x11, 0x27, 0x0a, 0x95, 0x90, 0xb8, 0x79,
+	0xdf, 0xfb, 0xbd, 0x37, 0xef, 0xfb, 0x3d, 0x43, 0xc5, 0x09, 0x03, 0x1e, 0x85, 0xfe, 0xfa, 0x20,
+	0x0a, 0x79, 0x88, 0xb2, 0x03, 0xbb, 0x51, 0x75, 0x69, 0x97, 0x5d, 0xed, 0x85, 0xbd, 0x50, 0x11,
+	0x1b, 0xc5, 0xbd, 0x7d, 0xfd, 0xab, 0xe4, 0x13, 0x9b, 0x6a, 0x6c, 0xa3, 0x42, 0x1c, 0x27, 0x8c,
+	0x03, 0xae, 0x3f, 0x21, 0xf6, 0x3d, 0x37, 0xc1, 0xf1, 0x70, 0x8f, 0x06, 0xfa, 0xa3, 0xca, 0xbd,
+	0x3e, 0x65, 0x9c, 0xf4, 0x07, 0x09, 0xb2, 0xeb, 0x87, 0x07, 0x89, 0x92, 0x80, 0xf2, 0x83, 0x30,
+	0xda, 0x53, 0x9f, 0xe6, 0xef, 0x06, 0x2c, 0x77, 0x68, 0xb4, 0xef, 0x39, 0x14, 0xd3, 0x6f, 0x62,
+	0xca, 0x38, 0x7a, 0x17, 0x16, 0xf5, 0x43, 0x75, 0xe3, 0x9c, 0xb1, 0x56, 0xda, 0x28, 0xad, 0x0f,
+	0xec, 0xf5, 0x96, 0x22, 0xe1, 0x84, 0x87, 0x1a, 0x90, 0xdb, 0x8d, 0xed, 0x7a, 0x56, 0x42, 0x8a,
+	0x02, 0xf2, 0x70, 0x67, 0xfb, 0x36, 0x16, 0x44, 0x54, 0x87, 0xac, 0xe7, 0xd6, 0x73, 0x33, 0xac,
+	0xac, 0xe7, 0x22, 0x04, 0x79, 0x3e, 0x1c, 0xd0, 0x7a, 0xfe, 0x9c, 0xb1, 0xb6, 0x84, 0xe5, 0x6f,
+	0x74, 0x01, 0x0a, 0xd2, 0x4d, 0x56, 0x5f, 0x90, 0x12, 0x65, 0x21, 0xb1, 0x23, 0x28, 0x1d, 0xca,
+	0xb1, 0xe6, 0xa1, 0x8b, 0x50, 0xec, 0x53, 0x4e, 0x5c, 0xc2, 0x49, 0xbd, 0x70, 0x2e, 0xb7, 0x56,
+	0xda, 0x00, 0x81, 0xbb, 0xfb, 0xe8, 0x3e, 0xf1, 0x22, 0x9c, 0xf2, 0xcc, 0x55, 0xa8, 0xa6, 0x0e,
+	0xb1, 0x41, 0x18, 0x30, 0x6a, 0x3e, 0x86, 0x25, 0xa9, 0x6e, 0xc7, 0x0b, 0xf6, 0x4e, 0xea, 0xde,
+	0xd8, 0xa8, 0xec, 0x31, 0x46, 0x5d, 0x80, 0x02, 0x27, 0x51, 0x8f, 0x72, 0xed, 0xec, 0x0c, 0x4a,
+	0xf1, 0xcc, 0x9b, 0x00, 0xe9, 0xfb, 0x0c, 0xad, 0x83, 0xca, 0xaa, 0xe5, 0x8b, 0xcf, 0xba, 0x21,
+	0x7d, 0xa9, 0xa4, 0x82, 0x02, 0x84, 0xc1, 0x4f, 0xf1, 0xe6, 0x63, 0x28, 0x27, 0x0e, 0x85, 0x31,
+	0xa7, 0x49, 0xe0, 0x8d, 0xa3, 0x03, 0x9f, 0x3d, 0x26, 0xf0, 0xb9, 0xb9, 0x81, 0xcf, 0x1f, 0xed,
+	0xa3, 0xd9, 0x85, 0xaa, 0x8e, 0x8e, 0x36, 0x83, 0x9d, 0x34, 0x86, 0xef, 0x43, 0x91, 0x69, 0x91,
+	0x7a, 0x56, 0xba, 0xb9, 0x22, 0x70, 0x93, 0xde, 0xe0, 0x14, 0x61, 0x72, 0xa8, 0xb4, 0x1c, 0xee,
+	0xed, 0x7b, 0x7c, 0xf8, 0x45, 0xc0, 0xa3, 0x21, 0xda, 0x84, 0x52, 0x24, 0x30, 0x16, 0x71, 0x5d,
+	0xea, 0xea, 0x97, 0x6a, 0x13, 0x2f, 0x25, 0xf6, 0x60, 0x90, 0xb8, 0x96, 0x80, 0xa1, 0x2b, 0x50,
+	0x51, 0x52, 0x11, 0xed, 0x87, 0xfb, 0xf4, 0x70, 0x34, 0xca, 0x92, 0x8d, 0x15, 0xd7, 0xfc, 0xd9,
+	0x80, 0x4a, 0x3b, 0x0c, 0xba, 0x5e, 0x6f, 0x5c, 0xff, 0x4b, 0x8c, 0x13, 0xdb, 0xa7, 0x96, 0xe7,
+	0x1e, 0x8a, 0x72, 0x51, 0xb1, 0xb6, 0x5d, 0xf4, 0x1e, 0x94, 0xbc, 0x80, 0x71, 0x12, 0x38, 0x12,
+	0x38, 0xfb, 0x0a, 0x24, 0xcc, 0x6d, 0x17, 0x7d, 0x00, 0x4b, 0x7e, 0xe8, 0x10, 0xee, 0x85, 0x01,
+	0xab, 0xe7, 0x64, 0x20, 0xa4, 0x1b, 0xf7, 0x54, 0x2b, 0xee, 0x68, 0x1e, 0x1e, 0xa3, 0x4c, 0x02,
+	0xcb, 0x89, 0x55, 0xaa, 0x88, 0xd1, 0x19, 0x58, 0xe4, 0x3e, 0xb3, 0xf6, 0xe8, 0x50, 0x1a, 0x55,
+	0xc6, 0x05, 0xee, 0xb3, 0xbb, 0x74, 0x88, 0xde, 0x84, 0xa2, 0x60, 0x38, 0x34, 0xe2, 0xd2, 0x8a,
+	0x32, 0x16, 0xc0, 0x36, 0x8d, 0x38, 0x7a, 0x0b, 0x96, 0xe4, 0x60, 0xb0, 0x06, 0xb1, 0x2d, 0x33,
+	0x5f, 0xc6, 0x45, 0x49, 0xb8, 0x1f, 0xdb, 0xe6, 0x6f, 0x06, 0x54, 0xdb, 0x34, 0xe0, 0x11, 0xf1,
+	0x93, 0xb8, 0xa3, 0xcf, 0x60, 0x45, 0x27, 0xcf, 0x4a, 0x33, 0x67, 0x8c, 0x0d, 0x9e, 0x8d, 0x7b,
+	0x95, 0xcc, 0x14, 0xc6, 0x79, 0xa8, 0x44, 0x2a, 0x8c, 0x16, 0xe3, 0x84, 0xab, 0xe6, 0x29, 0xe2,
+	0xb2, 0x26, 0x76, 0x04, 0x0d, 0xdd, 0x80, 0x6a, 0x40, 0x0f, 0xac, 0xc9, 0x26, 0x50, 0xdd, 0xb3,
+	0x3c, 0xd5, 0x04, 0x0c, 0x57, 0x02, 0x7a, 0x30, 0xfe, 0x34, 0xbf, 0x5f, 0x80, 0xd2, 0x56, 0x6c,
+	0xa7, 0xc6, 0x7e, 0x04, 0x8b, 0xbb, 0xb1, 0x6d, 0x45, 0xb4, 0xa7, 0xd3, 0x74, 0x56, 0xc8, 0x4f,
+	0x20, 0xc4, 0x6f, 0x4c, 0x7b, 0x1e, 0xe3, 0x91, 0x0a, 0x70, 0x61, 0x57, 0x12, 0xd0, 0x45, 0x58,
+	0x64, 0x34, 0xe0, 0x16, 0xe1, 0x3a, 0x6f, 0xb2, 0xfd, 0x1e, 0x24, 0x63, 0x13, 0x17, 0x04, 0xb7,
+	0xc5, 0xd1, 0x3a, 0x2c, 0x28, 0x37, 0x94, 0x7d, 0xf5, 0x39, 0xfa, 0xa5, 0x4b, 0x58, 0xc1, 0x90,
+	0x09, 0x79, 0x31, 0x6a, 0xeb, 0x79, 0x19, 0x32, 0xe9, 0xce, 0x1d, 0x3f, 0x3c, 0xc0, 0xd4, 0x09,
+	0x23, 0x17, 0x4b, 0x5e, 0xe3, 0x47, 0x03, 0xaa, 0x33, 0x76, 0x1d, 0xdb, 0xd2, 0x97, 0x00, 0x74,
+	0x39, 0xce, 0x1b, 0xb7, 0xba, 0x54, 0xb7, 0x62, 0xfb, 0x35, 0xaa, 0xac, 0xf1, 0x24, 0x0b, 0xc5,
+	0xc4, 0x07, 0x74, 0x19, 0x56, 0x49, 0x4f, 0x44, 0xc5, 0x09, 0x83, 0x80, 0x3a, 0x4a, 0x8f, 0x30,
+	0x29, 0x87, 0x57, 0x24, 0xa3, 0x3d, 0xa6, 0x8b, 0x44, 0xeb, 0xdc, 0x33, 0x8b, 0x51, 0x1a, 0x48,
+	0xc3, 0x72, 0xb8, 0x9c, 0x10, 0x3b, 0x94, 0x06, 0xe8, 0x12, 0x54, 0x53, 0x90, 0x43, 0x9c, 0x5d,
+	0xaa, 0x76, 0x42, 0x0e, 0x2f, 0x27, 0xe4, 0xb6, 0xa4, 0xa2, 0x77, 0xa0, 0xac, 0xf8, 0x96, 0x3d,
+	0xe4, 0x54, 0x8d, 0xa3, 0x1c, 0x2e, 0x29, 0xda, 0x2d, 0x41, 0x42, 0x6d, 0x38, 0xed, 0x13, 0x51,
+	0x56, 0xb1, 0xe3, 0x50, 0xc6, 0xba, 0xb1, 0x6f, 0xc5, 0x03, 0x97, 0x70, 0xaa, 0x97, 0xc6, 0x4c,
+	0x06, 0x4f, 0x09, 0x70, 0x27, 0xc5, 0x3e, 0x94, 0x50, 0xd4, 0x82, 0x37, 0xa4, 0x12, 0xc2, 0x39,
+	0xed, 0x0f, 0x38, 0x75, 0x13, 0x1d, 0x85, 0x79, 0x3a, 0x6a, 0x02, 0xdb, 0x4a, 0xa0, 0x4a, 0x85,
+	0xf9, 0x08, 0x16, 0xb7, 0x62, 0x7b, 0x3b, 0xe8, 0x86, 0x7a, 0xd8, 0x1a, 0x73, 0x86, 0xed, 0x54,
+	0x2a, 0xb2, 0x27, 0x6a, 0xf8, 0x2b, 0x00, 0x3b, 0x1e, 0xe3, 0x5f, 0x77, 0xb7, 0x62, 0x9b, 0xa1,
+	0xb3, 0x90, 0xdf, 0x8d, 0xed, 0xa4, 0xf7, 0x4a, 0xba, 0xee, 0xc4, 0xab, 0x58, 0x32, 0xcc, 0x6f,
+	0xa5, 0x19, 0x9d, 0x61, 0xe0, 0x1c, 0x63, 0xc6, 0xd4, 0x24, 0xcb, 0x1e, 0x39, 0xc9, 0xd6, 0x27,
+	0xc6, 0xb4, 0xaa, 0x1b, 0x34, 0x39, 0xa6, 0x55, 0xeb, 0x4e, 0x0c, 0xea, 0x1b, 0xb2, 0x80, 0xc5,
+	0xdb, 0xe9, 0x70, 0x3a, 0x0f, 0x15, 0xcd, 0xb6, 0xc6, 0x6b, 0x21, 0x87, 0xcb, 0x9a, 0xd8, 0x16,
+	0x34, 0xf3, 0x17, 0x03, 0x50, 0x5a, 0xf9, 0x34, 0xfa, 0x5f, 0xcd, 0xdb, 0x2f, 0xa1, 0x36, 0x65,
+	0x9a, 0xf6, 0xeb, 0x1a, 0x94, 0xf5, 0xbd, 0x66, 0x89, 0xa3, 0x4a, 0x9b, 0x37, 0x53, 0x27, 0x25,
+	0x0d, 0x11, 0x14, 0xf3, 0x07, 0x03, 0x6a, 0x2d, 0xd7, 0x1d, 0xaf, 0x72, 0xed, 0xe5, 0x78, 0xd7,
+	0x1a, 0xc7, 0xdc, 0x13, 0x13, 0x8b, 0x35, 0x7b, 0xfc, 0x71, 0x72, 0x82, 0xb3, 0xa3, 0x00, 0xf9,
+	0x7b, 0x61, 0x38, 0x30, 0x29, 0x9c, 0x56, 0xdb, 0xee, 0x3f, 0x35, 0xca, 0x7c, 0x62, 0x00, 0x6a,
+	0x47, 0x94, 0x70, 0xfa, 0x40, 0xac, 0x98, 0x7f, 0x79, 0x4e, 0x7e, 0x2a, 0x46, 0xc0, 0x80, 0xd8,
+	0x9e, 0xef, 0x71, 0x8f, 0x4e, 0x75, 0x8d, 0x54, 0xd7, 0x4e, 0x98, 0xc3, 0x5b, 0xf9, 0xa7, 0x7f,
+	0x9e, 0xcd, 0xe0, 0x29, 0x38, 0xda, 0x84, 0xe5, 0x7d, 0xe2, 0x7b, 0xae, 0xe5, 0xc6, 0x6a, 0xa6,
+	0xea, 0xc8, 0xcc, 0xa4, 0xaa, 0x22, 0x41, 0xb7, 0x35, 0xc6, 0xbc, 0x0c, 0xb5, 0x29, 0x8b, 0x75,
+	0xd6, 0x4f, 0xc1, 0x82, 0xdc, 0x92, 0xd2, 0xe0, 0x25, 0xac, 0x3e, 0xcc, 0xab, 0x50, 0x6d, 0xab,
+	0x44, 0x27, 0x65, 0x82, 0xde, 0x86, 0xa5, 0x80, 0xf4, 0x29, 0x1b, 0x10, 0x87, 0x6a, 0xf0, 0x98,
+	0x60, 0x5e, 0x80, 0xb2, 0x16, 0x90, 0xea, 0xe7, 0xab, 0xdd, 0xf8, 0x23, 0x9b, 0xea, 0x4d, 0xd7,
+	0xe8, 0x87, 0x00, 0x2d, 0xd7, 0xd5, 0x9f, 0x68, 0x4e, 0x37, 0x36, 0x6a, 0x53, 0x34, 0x7d, 0xe7,
+	0x66, 0xd0, 0x27, 0x50, 0x51, 0xa9, 0x7e, 0x0d, 0xd9, 0x1b, 0x50, 0xba, 0x43, 0xb9, 0xb3, 0xab,
+	0xee, 0x0e, 0xb4, 0x2a, 0x50, 0x53, 0x97, 0x51, 0x03, 0x4d, 0x92, 0x52, 0xb9, 0x9b, 0xb0, 0xdc,
+	0xe1, 0x11, 0x25, 0xfd, 0x74, 0x31, 0x57, 0x67, 0xf6, 0xa4, 0x7a, 0x71, 0xe6, 0xd6, 0x30, 0x33,
+	0x6b, 0xc6, 0x35, 0x03, 0x5d, 0x81, 0x45, 0x31, 0x49, 0xc4, 0x02, 0x4b, 0xc6, 0x9c, 0xf8, 0x56,
+	0x22, 0x33, 0x63, 0xc6, 0xcc, 0x88, 0x6a, 0x6a, 0xf9, 0xbe, 0x9c, 0x91, 0xb2, 0xf7, 0x45, 0x81,
+	0x37, 0xd4, 0xdd, 0x90, 0x4e, 0x4f, 0x33, 0xb3, 0xf1, 0x24, 0x0b, 0xab, 0x3a, 0xa8, 0x5f, 0x91,
+	0x80, 0xf4, 0x68, 0x9f, 0x06, 0x1c, 0x5d, 0x87, 0x62, 0x9a, 0xba, 0x9a, 0xf6, 0x65, 0x32, 0x9f,
+	0x8d, 0x95, 0x09, 0xa2, 0xcc, 0x99, 0x99, 0x41, 0xd7, 0xa1, 0x3c, 0xd9, 0xcf, 0xe8, 0x8c, 0x2c,
+	0xdf, 0xc3, 0x1d, 0xde, 0x48, 0xed, 0x31, 0x33, 0xe8, 0x63, 0xa8, 0xce, 0xb4, 0x1c, 0x6a, 0x08,
+	0xf6, 0xfc, 0x3e, 0x9c, 0x12, 0xfd, 0x1c, 0x4a, 0x13, 0x35, 0x89, 0x4e, 0x4b, 0x93, 0x0e, 0xb5,
+	0x55, 0xe3, 0xcc, 0x21, 0x7a, 0x1a, 0xa3, 0x4d, 0xa8, 0x6c, 0x33, 0x16, 0x8b, 0xa3, 0x40, 0xe9,
+	0x18, 0x47, 0xea, 0x68, 0xa9, 0x5b, 0x9b, 0xcf, 0x5e, 0x34, 0x33, 0xcf, 0x5f, 0x34, 0x33, 0xaf,
+	0x5e, 0x34, 0x8d, 0xef, 0x46, 0x4d, 0xe3, 0xd7, 0x51, 0xd3, 0x78, 0x3a, 0x6a, 0x1a, 0xcf, 0x46,
+	0x4d, 0xe3, 0xaf, 0x51, 0xd3, 0xf8, 0x7b, 0xd4, 0xcc, 0xbc, 0x1a, 0x35, 0x8d, 0x9f, 0x5e, 0x36,
+	0x33, 0xcf, 0x5e, 0x36, 0x33, 0xcf, 0x5f, 0x36, 0x33, 0x76, 0x41, 0xfe, 0x8d, 0xbc, 0xfe, 0x4f,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0x3a, 0x10, 0xf6, 0x58, 0xd7, 0x0e, 0x00, 0x00,
 }
 
 func (this *ServiceRequest) Equal(that interface{}) bool {
@@ -1574,14 +1797,19 @@ func (this *ConfigRequest) Equal(that interface{}) bool {
 	} else if this == nil {
 		return false
 	}
-	if !this.Hub.Equal(that1.Hub) {
+	if !this.StableId.Equal(that1.StableId) {
 		return false
 	}
-	if this.PublicIp != that1.PublicIp {
+	if !this.InstanceId.Equal(that1.InstanceId) {
 		return false
 	}
-	if this.PrivateIp != that1.PrivateIp {
+	if len(this.Locations) != len(that1.Locations) {
 		return false
+	}
+	for i := range this.Locations {
+		if !this.Locations[i].Equal(that1.Locations[i]) {
+			return false
+		}
 	}
 	return true
 }
@@ -1710,6 +1938,9 @@ func (this *HubActivity_HubRegistration) Equal(that interface{}) bool {
 	if !this.Hub.Equal(that1.Hub) {
 		return false
 	}
+	if !this.StableHub.Equal(that1.StableHub) {
+		return false
+	}
 	if len(this.Locations) != len(that1.Locations) {
 		return false
 	}
@@ -1817,6 +2048,124 @@ func (this *ListOfHubs) Equal(that interface{}) bool {
 		if !this.Hubs[i].Equal(that1.Hubs[i]) {
 			return false
 		}
+	}
+	return true
+}
+func (this *HubSync) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HubSync)
+	if !ok {
+		that2, ok := that.(HubSync)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Id.Equal(that1.Id) {
+		return false
+	}
+	if !this.StableId.Equal(that1.StableId) {
+		return false
+	}
+	if len(this.Services) != len(that1.Services) {
+		return false
+	}
+	for i := range this.Services {
+		if !this.Services[i].Equal(that1.Services[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *HubSyncResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HubSyncResponse)
+	if !ok {
+		that2, ok := that.(HubSyncResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if this.ServiceCount != that1.ServiceCount {
+		return false
+	}
+	return true
+}
+func (this *HubRegisterRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HubRegisterRequest)
+	if !ok {
+		that2, ok := that.(HubRegisterRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.StableId.Equal(that1.StableId) {
+		return false
+	}
+	if !this.InstanceId.Equal(that1.InstanceId) {
+		return false
+	}
+	if len(this.Locations) != len(that1.Locations) {
+		return false
+	}
+	for i := range this.Locations {
+		if !this.Locations[i].Equal(that1.Locations[i]) {
+			return false
+		}
+	}
+	return true
+}
+func (this *HubRegisterResponse) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HubRegisterResponse)
+	if !ok {
+		that2, ok := that.(HubRegisterResponse)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.ControlTime.Equal(that1.ControlTime) {
+		return false
 	}
 	return true
 }
@@ -2124,11 +2473,15 @@ func (this *ConfigRequest) GoString() string {
 	}
 	s := make([]string, 0, 7)
 	s = append(s, "&pb.ConfigRequest{")
-	if this.Hub != nil {
-		s = append(s, "Hub: "+fmt.Sprintf("%#v", this.Hub)+",\n")
+	if this.StableId != nil {
+		s = append(s, "StableId: "+fmt.Sprintf("%#v", this.StableId)+",\n")
 	}
-	s = append(s, "PublicIp: "+fmt.Sprintf("%#v", this.PublicIp)+",\n")
-	s = append(s, "PrivateIp: "+fmt.Sprintf("%#v", this.PrivateIp)+",\n")
+	if this.InstanceId != nil {
+		s = append(s, "InstanceId: "+fmt.Sprintf("%#v", this.InstanceId)+",\n")
+	}
+	if this.Locations != nil {
+		s = append(s, "Locations: "+fmt.Sprintf("%#v", this.Locations)+",\n")
+	}
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -2185,10 +2538,13 @@ func (this *HubActivity_HubRegistration) GoString() string {
 	if this == nil {
 		return "nil"
 	}
-	s := make([]string, 0, 6)
+	s := make([]string, 0, 7)
 	s = append(s, "&pb.HubActivity_HubRegistration{")
 	if this.Hub != nil {
 		s = append(s, "Hub: "+fmt.Sprintf("%#v", this.Hub)+",\n")
+	}
+	if this.StableHub != nil {
+		s = append(s, "StableHub: "+fmt.Sprintf("%#v", this.StableHub)+",\n")
 	}
 	if this.Locations != nil {
 		s = append(s, "Locations: "+fmt.Sprintf("%#v", this.Locations)+",\n")
@@ -2238,6 +2594,64 @@ func (this *ListOfHubs) GoString() string {
 	s = append(s, "&pb.ListOfHubs{")
 	if this.Hubs != nil {
 		s = append(s, "Hubs: "+fmt.Sprintf("%#v", this.Hubs)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *HubSync) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&pb.HubSync{")
+	if this.Id != nil {
+		s = append(s, "Id: "+fmt.Sprintf("%#v", this.Id)+",\n")
+	}
+	if this.StableId != nil {
+		s = append(s, "StableId: "+fmt.Sprintf("%#v", this.StableId)+",\n")
+	}
+	if this.Services != nil {
+		s = append(s, "Services: "+fmt.Sprintf("%#v", this.Services)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *HubSyncResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&pb.HubSyncResponse{")
+	s = append(s, "ServiceCount: "+fmt.Sprintf("%#v", this.ServiceCount)+",\n")
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *HubRegisterRequest) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&pb.HubRegisterRequest{")
+	if this.StableId != nil {
+		s = append(s, "StableId: "+fmt.Sprintf("%#v", this.StableId)+",\n")
+	}
+	if this.InstanceId != nil {
+		s = append(s, "InstanceId: "+fmt.Sprintf("%#v", this.InstanceId)+",\n")
+	}
+	if this.Locations != nil {
+		s = append(s, "Locations: "+fmt.Sprintf("%#v", this.Locations)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *HubRegisterResponse) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 5)
+	s = append(s, "&pb.HubRegisterResponse{")
+	if this.ControlTime != nil {
+		s = append(s, "ControlTime: "+fmt.Sprintf("%#v", this.ControlTime)+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -2361,6 +2775,7 @@ type ControlServicesClient interface {
 	RemoveService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error)
 	FetchConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
 	StreamActivity(ctx context.Context, opts ...grpc.CallOption) (ControlServices_StreamActivityClient, error)
+	SyncHub(ctx context.Context, in *HubSync, opts ...grpc.CallOption) (*HubSyncResponse, error)
 	AllHubs(ctx context.Context, in *Noop, opts ...grpc.CallOption) (*ListOfHubs, error)
 }
 
@@ -2430,6 +2845,15 @@ func (x *controlServicesStreamActivityClient) Recv() (*CentralActivity, error) {
 	return m, nil
 }
 
+func (c *controlServicesClient) SyncHub(ctx context.Context, in *HubSync, opts ...grpc.CallOption) (*HubSyncResponse, error) {
+	out := new(HubSyncResponse)
+	err := c.cc.Invoke(ctx, "/pb.ControlServices/SyncHub", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *controlServicesClient) AllHubs(ctx context.Context, in *Noop, opts ...grpc.CallOption) (*ListOfHubs, error) {
 	out := new(ListOfHubs)
 	err := c.cc.Invoke(ctx, "/pb.ControlServices/AllHubs", in, out, opts...)
@@ -2445,6 +2869,7 @@ type ControlServicesServer interface {
 	RemoveService(context.Context, *ServiceRequest) (*ServiceResponse, error)
 	FetchConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
 	StreamActivity(ControlServices_StreamActivityServer) error
+	SyncHub(context.Context, *HubSync) (*HubSyncResponse, error)
 	AllHubs(context.Context, *Noop) (*ListOfHubs, error)
 }
 
@@ -2463,6 +2888,9 @@ func (*UnimplementedControlServicesServer) FetchConfig(ctx context.Context, req 
 }
 func (*UnimplementedControlServicesServer) StreamActivity(srv ControlServices_StreamActivityServer) error {
 	return status.Errorf(codes.Unimplemented, "method StreamActivity not implemented")
+}
+func (*UnimplementedControlServicesServer) SyncHub(ctx context.Context, req *HubSync) (*HubSyncResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SyncHub not implemented")
 }
 func (*UnimplementedControlServicesServer) AllHubs(ctx context.Context, req *Noop) (*ListOfHubs, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method AllHubs not implemented")
@@ -2552,6 +2980,24 @@ func (x *controlServicesStreamActivityServer) Recv() (*HubActivity, error) {
 	return m, nil
 }
 
+func _ControlServices_SyncHub_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HubSync)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServicesServer).SyncHub(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.ControlServices/SyncHub",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServicesServer).SyncHub(ctx, req.(*HubSync))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _ControlServices_AllHubs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Noop)
 	if err := dec(in); err != nil {
@@ -2585,6 +3031,10 @@ var _ControlServices_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "FetchConfig",
 			Handler:    _ControlServices_FetchConfig_Handler,
+		},
+		{
+			MethodName: "SyncHub",
+			Handler:    _ControlServices_SyncHub_Handler,
 		},
 		{
 			MethodName: "AllHubs",
@@ -3211,23 +3661,35 @@ func (m *ConfigRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	_ = i
 	var l int
 	_ = l
-	if len(m.PrivateIp) > 0 {
-		i -= len(m.PrivateIp)
-		copy(dAtA[i:], m.PrivateIp)
-		i = encodeVarintControl(dAtA, i, uint64(len(m.PrivateIp)))
-		i--
-		dAtA[i] = 0x1a
+	if len(m.Locations) > 0 {
+		for iNdEx := len(m.Locations) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Locations[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintControl(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
 	}
-	if len(m.PublicIp) > 0 {
-		i -= len(m.PublicIp)
-		copy(dAtA[i:], m.PublicIp)
-		i = encodeVarintControl(dAtA, i, uint64(len(m.PublicIp)))
+	if m.InstanceId != nil {
+		{
+			size, err := m.InstanceId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
 		i--
 		dAtA[i] = 0x12
 	}
-	if m.Hub != nil {
+	if m.StableId != nil {
 		{
-			size, err := m.Hub.MarshalToSizedBuffer(dAtA[:i])
+			size, err := m.StableId.MarshalToSizedBuffer(dAtA[:i])
 			if err != nil {
 				return 0, err
 			}
@@ -3447,8 +3909,20 @@ func (m *HubActivity_HubRegistration) MarshalToSizedBuffer(dAtA []byte) (int, er
 				i = encodeVarintControl(dAtA, i, uint64(size))
 			}
 			i--
-			dAtA[i] = 0x12
+			dAtA[i] = 0x1a
 		}
+	}
+	if m.StableHub != nil {
+		{
+			size, err := m.StableHub.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
 	}
 	if m.Hub != nil {
 		{
@@ -3614,6 +4088,191 @@ func (m *ListOfHubs) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i--
 			dAtA[i] = 0xa
 		}
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *HubSync) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HubSync) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HubSync) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Services) > 0 {
+		for iNdEx := len(m.Services) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Services[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintControl(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.StableId != nil {
+		{
+			size, err := m.StableId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Id != nil {
+		{
+			size, err := m.Id.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *HubSyncResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HubSyncResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HubSyncResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ServiceCount != 0 {
+		i = encodeVarintControl(dAtA, i, uint64(m.ServiceCount))
+		i--
+		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *HubRegisterRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HubRegisterRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HubRegisterRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Locations) > 0 {
+		for iNdEx := len(m.Locations) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Locations[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintControl(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.InstanceId != nil {
+		{
+			size, err := m.InstanceId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.StableId != nil {
+		{
+			size, err := m.StableId.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *HubRegisterResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HubRegisterResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HubRegisterResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if m.ControlTime != nil {
+		{
+			size, err := m.ControlTime.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -4056,17 +4715,19 @@ func (m *ConfigRequest) Size() (n int) {
 	}
 	var l int
 	_ = l
-	if m.Hub != nil {
-		l = m.Hub.Size()
+	if m.StableId != nil {
+		l = m.StableId.Size()
 		n += 1 + l + sovControl(uint64(l))
 	}
-	l = len(m.PublicIp)
-	if l > 0 {
+	if m.InstanceId != nil {
+		l = m.InstanceId.Size()
 		n += 1 + l + sovControl(uint64(l))
 	}
-	l = len(m.PrivateIp)
-	if l > 0 {
-		n += 1 + l + sovControl(uint64(l))
+	if len(m.Locations) > 0 {
+		for _, e := range m.Locations {
+			l = e.Size()
+			n += 1 + l + sovControl(uint64(l))
+		}
 	}
 	return n
 }
@@ -4151,6 +4812,10 @@ func (m *HubActivity_HubRegistration) Size() (n int) {
 		l = m.Hub.Size()
 		n += 1 + l + sovControl(uint64(l))
 	}
+	if m.StableHub != nil {
+		l = m.StableHub.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
 	if len(m.Locations) > 0 {
 		for _, e := range m.Locations {
 			l = e.Size()
@@ -4219,6 +4884,77 @@ func (m *ListOfHubs) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovControl(uint64(l))
 		}
+	}
+	return n
+}
+
+func (m *HubSync) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Id != nil {
+		l = m.Id.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if m.StableId != nil {
+		l = m.StableId.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if len(m.Services) > 0 {
+		for _, e := range m.Services {
+			l = e.Size()
+			n += 1 + l + sovControl(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *HubSyncResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ServiceCount != 0 {
+		n += 1 + sovControl(uint64(m.ServiceCount))
+	}
+	return n
+}
+
+func (m *HubRegisterRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.StableId != nil {
+		l = m.StableId.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if m.InstanceId != nil {
+		l = m.InstanceId.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if len(m.Locations) > 0 {
+		for _, e := range m.Locations {
+			l = e.Size()
+			n += 1 + l + sovControl(uint64(l))
+		}
+	}
+	return n
+}
+
+func (m *HubRegisterResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.ControlTime != nil {
+		l = m.ControlTime.Size()
+		n += 1 + l + sovControl(uint64(l))
 	}
 	return n
 }
@@ -4438,10 +5174,15 @@ func (this *ConfigRequest) String() string {
 	if this == nil {
 		return "nil"
 	}
+	repeatedStringForLocations := "[]*NetworkLocation{"
+	for _, f := range this.Locations {
+		repeatedStringForLocations += strings.Replace(fmt.Sprintf("%v", f), "NetworkLocation", "NetworkLocation", 1) + ","
+	}
+	repeatedStringForLocations += "}"
 	s := strings.Join([]string{`&ConfigRequest{`,
-		`Hub:` + strings.Replace(fmt.Sprintf("%v", this.Hub), "ULID", "ULID", 1) + `,`,
-		`PublicIp:` + fmt.Sprintf("%v", this.PublicIp) + `,`,
-		`PrivateIp:` + fmt.Sprintf("%v", this.PrivateIp) + `,`,
+		`StableId:` + strings.Replace(fmt.Sprintf("%v", this.StableId), "ULID", "ULID", 1) + `,`,
+		`InstanceId:` + strings.Replace(fmt.Sprintf("%v", this.InstanceId), "ULID", "ULID", 1) + `,`,
+		`Locations:` + repeatedStringForLocations + `,`,
 		`}`,
 	}, "")
 	return s
@@ -4504,6 +5245,7 @@ func (this *HubActivity_HubRegistration) String() string {
 	repeatedStringForLocations += "}"
 	s := strings.Join([]string{`&HubActivity_HubRegistration{`,
 		`Hub:` + strings.Replace(fmt.Sprintf("%v", this.Hub), "ULID", "ULID", 1) + `,`,
+		`StableHub:` + strings.Replace(fmt.Sprintf("%v", this.StableHub), "ULID", "ULID", 1) + `,`,
 		`Locations:` + repeatedStringForLocations + `,`,
 		`}`,
 	}, "")
@@ -4551,6 +5293,60 @@ func (this *ListOfHubs) String() string {
 	repeatedStringForHubs += "}"
 	s := strings.Join([]string{`&ListOfHubs{`,
 		`Hubs:` + repeatedStringForHubs + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HubSync) String() string {
+	if this == nil {
+		return "nil"
+	}
+	repeatedStringForServices := "[]*ServiceRequest{"
+	for _, f := range this.Services {
+		repeatedStringForServices += strings.Replace(f.String(), "ServiceRequest", "ServiceRequest", 1) + ","
+	}
+	repeatedStringForServices += "}"
+	s := strings.Join([]string{`&HubSync{`,
+		`Id:` + strings.Replace(fmt.Sprintf("%v", this.Id), "ULID", "ULID", 1) + `,`,
+		`StableId:` + strings.Replace(fmt.Sprintf("%v", this.StableId), "ULID", "ULID", 1) + `,`,
+		`Services:` + repeatedStringForServices + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HubSyncResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HubSyncResponse{`,
+		`ServiceCount:` + fmt.Sprintf("%v", this.ServiceCount) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HubRegisterRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	repeatedStringForLocations := "[]*NetworkLocation{"
+	for _, f := range this.Locations {
+		repeatedStringForLocations += strings.Replace(fmt.Sprintf("%v", f), "NetworkLocation", "NetworkLocation", 1) + ","
+	}
+	repeatedStringForLocations += "}"
+	s := strings.Join([]string{`&HubRegisterRequest{`,
+		`StableId:` + strings.Replace(fmt.Sprintf("%v", this.StableId), "ULID", "ULID", 1) + `,`,
+		`InstanceId:` + strings.Replace(fmt.Sprintf("%v", this.InstanceId), "ULID", "ULID", 1) + `,`,
+		`Locations:` + repeatedStringForLocations + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HubRegisterResponse) String() string {
+	if this == nil {
+		return "nil"
+	}
+	s := strings.Join([]string{`&HubRegisterResponse{`,
+		`ControlTime:` + strings.Replace(fmt.Sprintf("%v", this.ControlTime), "Timestamp", "Timestamp", 1) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -5678,7 +6474,7 @@ func (m *ConfigRequest) Unmarshal(dAtA []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Hub", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field StableId", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -5705,18 +6501,18 @@ func (m *ConfigRequest) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.Hub == nil {
-				m.Hub = &ULID{}
+			if m.StableId == nil {
+				m.StableId = &ULID{}
 			}
-			if err := m.Hub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+			if err := m.StableId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PublicIp", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field InstanceId", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowControl
@@ -5726,29 +6522,33 @@ func (m *ConfigRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthControl
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex < 0 {
 				return ErrInvalidLengthControl
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.PublicIp = string(dAtA[iNdEx:postIndex])
+			if m.InstanceId == nil {
+				m.InstanceId = &ULID{}
+			}
+			if err := m.InstanceId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		case 3:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field PrivateIp", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Locations", wireType)
 			}
-			var stringLen uint64
+			var msglen int
 			for shift := uint(0); ; shift += 7 {
 				if shift >= 64 {
 					return ErrIntOverflowControl
@@ -5758,23 +6558,25 @@ func (m *ConfigRequest) Unmarshal(dAtA []byte) error {
 				}
 				b := dAtA[iNdEx]
 				iNdEx++
-				stringLen |= uint64(b&0x7F) << shift
+				msglen |= int(b&0x7F) << shift
 				if b < 0x80 {
 					break
 				}
 			}
-			intStringLen := int(stringLen)
-			if intStringLen < 0 {
+			if msglen < 0 {
 				return ErrInvalidLengthControl
 			}
-			postIndex := iNdEx + intStringLen
+			postIndex := iNdEx + msglen
 			if postIndex < 0 {
 				return ErrInvalidLengthControl
 			}
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.PrivateIp = string(dAtA[iNdEx:postIndex])
+			m.Locations = append(m.Locations, &NetworkLocation{})
+			if err := m.Locations[len(m.Locations)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
@@ -6360,6 +7162,42 @@ func (m *HubActivity_HubRegistration) Unmarshal(dAtA []byte) error {
 			iNdEx = postIndex
 		case 2:
 			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StableHub", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StableHub == nil {
+				m.StableHub = &ULID{}
+			}
+			if err := m.StableHub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Locations", wireType)
 			}
 			var msglen int
@@ -6800,6 +7638,485 @@ func (m *ListOfHubs) Unmarshal(dAtA []byte) error {
 			}
 			m.Hubs = append(m.Hubs, &HubInfo{})
 			if err := m.Hubs[len(m.Hubs)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HubSync) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HubSync: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HubSync: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Id == nil {
+				m.Id = &ULID{}
+			}
+			if err := m.Id.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StableId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StableId == nil {
+				m.StableId = &ULID{}
+			}
+			if err := m.StableId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Services", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Services = append(m.Services, &ServiceRequest{})
+			if err := m.Services[len(m.Services)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HubSyncResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HubSyncResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HubSyncResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ServiceCount", wireType)
+			}
+			m.ServiceCount = 0
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				m.ServiceCount |= int64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HubRegisterRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HubRegisterRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HubRegisterRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field StableId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.StableId == nil {
+				m.StableId = &ULID{}
+			}
+			if err := m.StableId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field InstanceId", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.InstanceId == nil {
+				m.InstanceId = &ULID{}
+			}
+			if err := m.InstanceId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Locations", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Locations = append(m.Locations, &NetworkLocation{})
+			if err := m.Locations[len(m.Locations)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HubRegisterResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HubRegisterResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HubRegisterResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ControlTime", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ControlTime == nil {
+				m.ControlTime = &Timestamp{}
+			}
+			if err := m.ControlTime.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex

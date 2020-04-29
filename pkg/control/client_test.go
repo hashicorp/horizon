@@ -597,7 +597,8 @@ func TestClient(t *testing.T) {
 
 		s.pubKey = pub
 
-		top := context.Background()
+		top, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		md := make(metadata.MD)
 		md.Set("authorization", "aabbcc")
@@ -893,7 +894,8 @@ func TestClient(t *testing.T) {
 		hubId := pb.NewULID()
 
 		var hr Hub
-		hr.ID = hubId.Bytes()
+		hr.StableID = pb.NewULID().Bytes()
+		hr.InstanceID = hubId.Bytes()
 		hr.ConnectionInfo = data
 		hr.LastCheckin = time.Now()
 		hr.CreatedAt = time.Now()
@@ -907,6 +909,104 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, hubId, hubs[0].Id)
 
+	})
+
+	t.Run("removes a old hubs services connecting with the same stable id", func(t *testing.T) {
+		db, err := gorm.Open("pgtest", "server")
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
+		require.NoError(t, err)
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		gs := grpc.NewServer()
+		pb.RegisterControlServicesServer(gs, s)
+
+		li, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		gcc, err := grpc.Dial(li.Addr().String(),
+			grpc.WithInsecure(),
+			grpc.WithPerRPCCredentials(Token(ctr.Token)),
+			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+		)
+
+		require.NoError(t, err)
+
+		defer gcc.Close()
+
+		gClient := pb.NewControlServicesClient(gcc)
+
+		id := pb.NewULID()
+
+		client, err := NewClient(ctx, ClientConfig{
+			Id:      id,
+			Token:   ctr.Token,
+			Version: "test",
+			Client:  gClient,
+			Session: sess,
+		})
+
+		require.NoError(t, err)
+
+		prev := pb.NewULID()
+
+		var hr Hub
+		hr.StableID = id.Bytes()
+		hr.InstanceID = prev.Bytes()
+		hr.ConnectionInfo = []byte("{}")
+
+		err = dbx.Check(db.Create(&hr))
+		require.NoError(t, err)
+
+		var so Service
+		so.HubId = prev.Bytes()
+		so.Labels = pb.ParseLabelSet("test=env").AsStringArray()
+
+		err = dbx.Check(db.Create(&so))
+		require.NoError(t, err)
+
+		err = client.BootstrapConfig(ctx)
+		require.NoError(t, err)
+
+		var so2 Service
+		err = dbx.Check(db.First(&so2))
+
+		assert.Error(t, err)
+
+		var hr2 Hub
+
+		err = dbx.Check(db.First(&hr2))
+		require.NoError(t, err)
+
+		assert.Equal(t, hr2.InstanceID, client.Id().Bytes())
 	})
 
 }

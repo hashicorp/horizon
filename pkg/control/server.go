@@ -201,6 +201,10 @@ func (s *Server) checkFromHub(ctx context.Context) (*token.ValidToken, error) {
 	return token, nil
 }
 
+func (s *Server) SyncHub(ctx context.Context, sync *pb.HubSync) (*pb.HubSyncResponse, error) {
+	return nil, nil
+}
+
 func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*pb.ServiceResponse, error) {
 	_, err := s.checkFromHub(ctx)
 	if err != nil {
@@ -236,7 +240,7 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 	})
 	// return s.s.UserEvent("account-updated", account, false)
 
-	err = s.updateAccountRouting(ctx, service.Account.AccountId.Bytes())
+	err = s.updateAccountRouting(ctx, s.db, service.Account.AccountId.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +259,7 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 		return nil, err
 	}
 
-	err = s.updateAccountRouting(ctx, service.Account.AccountId.Bytes())
+	err = s.updateAccountRouting(ctx, s.db, service.Account.AccountId.Bytes())
 	if err != nil {
 		return nil, err
 	}
@@ -263,8 +267,104 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 	return &pb.ServiceResponse{}, nil
 }
 
+func (s *Server) removeHubServices(ctx context.Context, db *gorm.DB, hubId *pb.ULID) error {
+	var sos []*Service
+
+	err := dbx.Check(db.Where("hub_id = ?", hubId.Bytes()).Find(&sos))
+	if err != nil {
+		return err
+	}
+
+	err = dbx.Check(db.Where("hub_id = ?", hubId.Bytes()).Delete(Service{}))
+	if err != nil {
+		return err
+	}
+
+	for _, service := range sos {
+		err = s.updateAccountRouting(ctx, db, service.AccountId)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type Hub struct {
+	StableID   []byte `gorm:"primary_key"`
+	InstanceID []byte
+
+	ConnectionInfo []byte
+	LastCheckin    time.Time
+
+	CreatedAt time.Time
+}
+
 func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.ConfigResponse, error) {
-	ctxlog.L(ctx).Info("fetching configuration", "hub", req.Hub.SpecString())
+	L := ctxlog.L(ctx)
+
+	L.Info("fetching configuration", "hub", req.StableId.SpecString())
+
+	data, err := json.Marshal(req.Locations)
+	if err != nil {
+		return nil, err
+	}
+
+	var hr Hub
+
+	tx := s.db.Begin()
+
+	err = dbx.Check(
+		tx.Set("gorm:query_options", "FOR UPDATE").
+			Where("stable_id = ?", req.StableId.Bytes()).
+			First(&hr),
+	)
+
+	if err == gorm.ErrRecordNotFound {
+		hr.StableID = req.StableId.Bytes()
+		hr.InstanceID = req.InstanceId.Bytes()
+
+		hr.ConnectionInfo = data
+		hr.LastCheckin = time.Now()
+
+		err = dbx.Check(tx.Create(&hr))
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	} else {
+		prev := pb.ULIDFromBytes(hr.InstanceID)
+
+		if !req.InstanceId.Equal(prev) {
+			L.Info("removing previous hub services", "stable", req.StableId, "prev", prev, "new", req.InstanceId)
+
+			// We nuke the old records from a previous instance_id
+			err = s.removeHubServices(ctx, tx, prev)
+			if err != nil {
+				tx.Rollback()
+				return nil, err
+			}
+		}
+
+		err = dbx.Check(
+			tx.Model(&hr).
+				Updates(map[string]interface{}{
+					"connection_info": data,
+					"instance_id":     req.InstanceId.Bytes(),
+					"last_checkin":    time.Now(),
+				}),
+		)
+
+		if err != nil {
+			tx.Rollback()
+			return nil, err
+		}
+	}
+
+	err = dbx.Check(tx.Commit())
+	if err != nil {
+		return nil, err
+	}
 
 	resp := &pb.ConfigResponse{
 		TlsKey:   s.hubKey,
@@ -351,29 +451,31 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 
 	key := msg.HubReg.Hub.SpecString()
 
-	data, err := json.Marshal(msg.HubReg.Locations)
-	if err != nil {
-		return err
-	}
+	/*
+		data, err := json.Marshal(msg.HubReg.Locations)
+		if err != nil {
+			return err
+		}
 
-	L := ctxlog.L(stream.Context())
+		L := ctxlog.L(stream.Context())
 
-	L.Info("creating/updating hub record", "id", key)
+			L.Info("creating/updating hub record", "id", key)
 
-	var hr Hub
-	hr.ID = msg.HubReg.Hub.Bytes()
-	hr.ConnectionInfo = data
-	hr.LastCheckin = time.Now()
+			var hr Hub
+			hr.InstanceID = msg.HubReg.Hub.Bytes()
+			hr.ConnectionInfo = data
+			hr.LastCheckin = time.Now()
 
-	de := s.db.Set(
-		"gorm:insert_option",
-		`ON CONFLICT (id) DO UPDATE SET connection_info=EXCLUDED.connection_info, last_checkin=EXCLUDED.last_checkin`,
-	).Create(&hr)
+			de := s.db.Set(
+				"gorm:insert_option",
+				`ON CONFLICT (instance_id) DO UPDATE SET connection_info=EXCLUDED.connection_info, last_checkin=EXCLUDED.last_checkin`,
+			).Create(&hr)
 
-	err = dbx.Check(de)
-	if err != nil {
-		return err
-	}
+			err = dbx.Check(de)
+			if err != nil {
+				return err
+			}
+	*/
 
 	ch := &connectedHub{
 		xmit:     make(chan *pb.CentralActivity),
@@ -431,15 +533,6 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 			}
 		}
 	}
-}
-
-type Hub struct {
-	ID []byte `gorm:"primary_key"`
-
-	ConnectionInfo []byte
-	LastCheckin    time.Time
-
-	CreatedAt time.Time
 }
 
 func (s *Server) StartActivityReader(ctx context.Context, dbtype, conn string) error {
@@ -777,7 +870,7 @@ func (s *Server) AllHubs(ctx context.Context, _ *pb.Noop) (*pb.ListOfHubs, error
 		}
 
 		out.Hubs = append(out.Hubs, &pb.HubInfo{
-			Id:        pb.ULIDFromBytes(h.ID),
+			Id:        pb.ULIDFromBytes(h.InstanceID),
 			Locations: locs,
 		})
 	}

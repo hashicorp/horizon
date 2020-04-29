@@ -51,9 +51,9 @@ message ActivityEntry {
 }
 
 message ConfigRequest {
-  ULID hub = 1;
-  string public_ip = 2;
-  string private_ip = 3;
+  ULID stable_id = 1;
+  ULID instance_id = 2;
+  repeated NetworkLocation locations = 3;
 }
 
 message ConfigResponse {
@@ -71,7 +71,8 @@ message CentralActivity {
 message HubActivity {
   message HubRegistration {
     ULID hub = 1;
-    repeated NetworkLocation locations = 2;
+    ULID stable_hub = 2;
+    repeated NetworkLocation locations = 3;
   }
 
   HubRegistration hub_reg = 1;
@@ -100,11 +101,32 @@ message ListOfHubs {
   repeated HubInfo hubs = 1;
 }
 
+message HubSync {
+  ULID id = 1;
+  ULID stable_id = 2;
+  repeated ServiceRequest services = 3;
+}
+
+message HubSyncResponse {
+  int64 service_count = 1;
+}
+
+message HubRegisterRequest {
+  ULID stable_id = 1;
+  ULID instance_id = 2;
+  repeated NetworkLocation locations = 3;
+}
+
+message HubRegisterResponse {
+  Timestamp control_time = 1;
+}
+
 service ControlServices {
   rpc AddService(ServiceRequest) returns (ServiceResponse) {}
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
   rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
   rpc StreamActivity(stream HubActivity) returns (stream CentralActivity) {}
+  rpc SyncHub(HubSync) returns (HubSyncResponse) {}
   rpc AllHubs(Noop) returns (ListOfHubs) {}
 }
 

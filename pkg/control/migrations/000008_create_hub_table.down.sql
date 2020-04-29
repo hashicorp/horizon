@@ -1,1 +1,2 @@
+DROP INDEX IF EXISTS hub_instance_id;
 DROP TABLE IF EXISTS hubs;
