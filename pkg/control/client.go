@@ -19,6 +19,7 @@ import (
 	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
@@ -197,6 +198,19 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 	c.tlsCert = resp.TlsCert
 	c.tlsKey = resp.TlsKey
 	c.tokenPub = resp.TokenPub
+
+	if resp.S3AccessKey != "" {
+		L := ctxlog.L(ctx)
+
+		L.Info("reconfiguring s3 access to use server provided credentials")
+
+		var cfg aws.Config
+
+		cfg.WithCredentials(credentials.NewStaticCredentials("server", resp.S3AccessKey, resp.S3SecretKey))
+
+		c.cfg.Session = session.New(&cfg)
+		c.s3api = s3.New(c.cfg.Session)
+	}
 
 	return nil
 }

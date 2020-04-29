@@ -60,6 +60,9 @@ message ConfigResponse {
   bytes tls_key = 1;
   bytes tls_cert = 2;
   bytes token_pub = 3;
+
+  string s3_access_key = 4;
+  string s3_secret_key = 5;
 }
 
 message CentralActivity {

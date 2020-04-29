@@ -35,6 +35,8 @@ type connectedHub struct {
 }
 
 type Server struct {
+	cfg ServerConfig
+
 	db       *gorm.DB
 	bucket   string
 	awsSess  *session.Session
@@ -83,6 +85,9 @@ type ServerConfig struct {
 	LockTable  string
 
 	ASNDB string
+
+	HubAccessKey string
+	HubSecretKey string
 }
 
 func NewServer(cfg ServerConfig) (*Server, error) {
@@ -100,6 +105,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	s := &Server{
+		cfg:           cfg,
 		db:            cfg.DB,
 		vaultClient:   cfg.VaultClient,
 		vaultPath:     cfg.VaultPath,
@@ -372,9 +378,11 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 	}
 
 	resp := &pb.ConfigResponse{
-		TlsKey:   s.hubKey,
-		TlsCert:  s.hubCert,
-		TokenPub: s.pubKey,
+		TlsKey:      s.hubKey,
+		TlsCert:     s.hubCert,
+		TokenPub:    s.pubKey,
+		S3AccessKey: s.cfg.HubAccessKey,
+		S3SecretKey: s.cfg.HubSecretKey,
 	}
 
 	return resp, nil
