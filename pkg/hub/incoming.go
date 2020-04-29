@@ -3,6 +3,7 @@ package hub
 import (
 	"context"
 	"io"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -186,47 +187,90 @@ func (h *Hub) bridgeToTarget(
 
 	dsctx := wire.NewContext(wctx.AccountId(), fr, fw)
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	return h.copyBetweenContexts(ctx, wctx, dsctx, fs)
+}
 
-	statUpdate := time.NewTicker(time.Minute)
-	defer statUpdate.Stop()
+func isPublic(labels *pb.LabelSet) bool {
+	if labels == nil {
+		return true
+	}
 
-	go func() {
-		var (
-			exit         bool
-			prevBytes    int64
-			prevMessages int64
-		)
-
-		for {
-			select {
-			case <-ctx.Done():
-				exit = true
-				fs.EndedAt = pb.NewTimestamp(time.Now())
-			case <-statUpdate.C:
-				// ok
-			}
-
-			ma, ba := wctx.Accounting()
-			mb, bb := dsctx.Accounting()
-
-			// We only transmit the number of messages/bytes since the previous update.
-			// This allows the server to treat the value as a counter rather than a gauge.
-			// This is the same as NetFlow does it, where a flow will say how many packets
-			// and the number of bytes those packets are represented by just that flow update.
-			fs.NumMessages = (ma + mb) - prevMessages
-			fs.NumBytes = (ba + bb) - prevBytes
-
-			h.cc.SendFlow(&pb.FlowRecord{Stream: fs})
-
-			if exit {
-				return
+	for _, lbl := range labels.Labels {
+		if lbl.Name == "type" {
+			switch lbl.Value {
+			case "public":
+				return true
+			case "private":
+				return false
+			default:
+				return false
 			}
 		}
-	}()
+	}
 
-	return wctx.BridgeTo(dsctx)
+	// No type tag, consider public
+	return true
+}
+
+var ErrNoAvailableAddresses = errors.New("no addresses available for hub")
+
+// Given a list of network locations, pick one to connect to and return
+// an address.
+func (h *Hub) pickAddress(locs []*pb.NetworkLocation) (string, error) {
+	// TODO: figure out a heiristic for when a location has multiple addresses
+	// and when we should use them. Maybe some backoff logic associated with each one?
+
+	switch len(locs) {
+	case 0:
+		return "", nil
+	case 1:
+		return locs[0].Addresses[0], nil
+	}
+
+	switch len(h.location) {
+	case 0:
+		return "", nil
+	case 1:
+		return locs[0].Addresses[0], nil
+	}
+
+	var (
+		candidate []*pb.NetworkLocation
+		fallback  []*pb.NetworkLocation
+		publics   []*pb.NetworkLocation
+	)
+
+	for _, ploc := range locs {
+		if isPublic(ploc.Labels) {
+			publics = append(publics, ploc)
+		}
+
+		for _, sloc := range h.location {
+			if ploc.Labels != nil && ploc.Labels.Len() > 0 && sloc.Labels != nil && sloc.Labels.Len() > 0 {
+				if ploc.Labels.Equal(sloc.Labels) {
+					if isPublic(ploc.Labels) {
+						fallback = append(fallback, ploc)
+					} else {
+						candidate = append(candidate, ploc)
+					}
+				}
+			}
+		}
+	}
+
+	if len(candidate) == 1 {
+		return candidate[0].Addresses[0], nil
+	}
+
+	if len(fallback) > 0 {
+		return fallback[0].Addresses[0], nil
+	}
+
+	if len(publics) > 0 {
+		return publics[0].Addresses[0], nil
+	}
+
+	return "", ErrNoAvailableAddresses
 }
 
 func (h *Hub) forwardToTarget(
@@ -252,7 +296,18 @@ func (h *Hub) forwardToTarget(
 
 	L.Trace("locations for target hub", "hub", target.Hub, "locations", locs)
 
-	addr := locs[0].Addresses[0]
+	addr, err := h.pickAddress(locs)
+	if err != nil {
+		return err
+	}
+
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+		port = "443"
+	}
+
+	addr = net.JoinHostPort(host, port)
 
 	L.Trace("spawning connection to peer hub", "hub", target.Hub, "addr", addr)
 
@@ -286,13 +341,15 @@ func (h *Hub) forwardToTarget(
 	// We don't send a SessionIdentification here because the target
 	// hub will send it's own when connecting to the agent.
 
+	return h.copyBetweenContexts(ctx, wctx, dsctx, fs)
+}
+
+func (h *Hub) copyBetweenContexts(ctx context.Context, wctx, dsctx wire.Context, fs *pb.FlowStream) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	statUpdate := time.NewTicker(time.Minute)
 	defer statUpdate.Stop()
-
-	L.Trace("forwarding data from agent to peer hub")
 
 	go func() {
 		var (

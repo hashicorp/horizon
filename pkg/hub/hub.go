@@ -44,6 +44,8 @@ type Hub struct {
 
 	// ServiceSorter ServiceSorter
 	wg sync.WaitGroup
+
+	location []*pb.NetworkLocation
 }
 
 func NewHub(L hclog.Logger, client *control.Client) (*Hub, error) {
