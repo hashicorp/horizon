@@ -6,11 +6,43 @@ import (
 	"net"
 	"net/http"
 	"strings"
+
+	"github.com/hashicorp/horizon/pkg/dbx"
+	"github.com/hashicorp/horizon/pkg/discovery"
+	"github.com/hashicorp/horizon/pkg/pb"
 )
+
+func (s *Server) GetAllNetworkLocations() ([]*pb.NetworkLocation, error) {
+	var hubs []*Hub
+
+	err := dbx.Check(s.db.Find(&hubs))
+	if err != nil {
+		return nil, err
+	}
+
+	var locs []*pb.NetworkLocation
+
+	for _, h := range hubs {
+		var hl []*pb.NetworkLocation
+
+		err = json.Unmarshal(h.ConnectionInfo, &hl)
+		if err != nil {
+			return nil, err
+		}
+		locs = append(locs, hl...)
+	}
+
+	return locs, nil
+}
 
 func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/healthz", s.httpHealthz)
 	s.mux.HandleFunc("/ip-info", s.httpIPInfo)
+
+	var wk discovery.WellKnown
+	wk.GetNetlocs = s
+
+	s.mux.Handle(discovery.HTTPPath, &wk)
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {

@@ -51,6 +51,10 @@ func (ls *LabelSet) AsStringArray() pq.StringArray {
 	return out
 }
 
+func (ls *LabelSet) String() string {
+	return strings.Join(ls.AsStringArray(), ", ")
+}
+
 func (ls *LabelSet) Scan(src interface{}) error {
 	ary, ok := src.(pq.StringArray)
 	if !ok {

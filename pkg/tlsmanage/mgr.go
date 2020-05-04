@@ -1,11 +1,16 @@
-package tlsmanager
+package tlsmanage
 
 import (
 	"context"
 	"crypto"
-	"crypto/ed25519"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"os"
 
@@ -20,11 +25,14 @@ import (
 	"github.com/go-acme/lego/v3/registration"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
+	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
 )
 
 type Manager struct {
-	cfg *lego.Config
+	cfg ManagerConfig
+
+	lcfg *lego.Config
 
 	email        string
 	registration *registration.Resource
@@ -50,38 +58,110 @@ func (m *Manager) GetPrivateKey() crypto.PrivateKey {
 	return m.key
 }
 
-func (m *Manager) Init(keyPath string) error {
-	var pkey ed25519.PrivateKey
+type ManagerConfig struct {
+	L           hclog.Logger
+	Domain      string
+	KeyPath     string
+	VaultClient *api.Client
+	Staging     bool
+}
 
-	f, err := os.Open(keyPath)
-	if err == nil {
-		data, err := ioutil.ReadAll(f)
+func NewManager(cfg ManagerConfig) (*Manager, error) {
+	var (
+		m    Manager
+		pkey crypto.PrivateKey
+		err  error
+	)
+
+	if cfg.L == nil {
+		cfg.L = hclog.L()
+	}
+
+	m.cfg = cfg
+
+	if cfg.KeyPath != "" {
+		f, err := os.Open(cfg.KeyPath)
+		if err == nil {
+			data, err := ioutil.ReadAll(f)
+			if err != nil {
+				return nil, err
+			}
+
+			p, _ := pem.Decode(data)
+			pkey = p.Bytes
+		}
+	} else if cfg.VaultClient != nil {
+		sec, err := cfg.VaultClient.Logical().Read("/kv/data/lego-key")
 		if err != nil {
-			return err
+			return nil, err
 		}
 
-		p, _ := pem.Decode(data)
-		pkey = p.Bytes
+		if sec != nil {
+			data := sec.Data["data"].(map[string]interface{})
+
+			derkey, err := base64.StdEncoding.DecodeString(data["key"].(string))
+			if err != nil {
+				return nil, err
+			}
+
+			key, err := x509.ParsePKCS8PrivateKey(derkey)
+			if err != nil {
+				return nil, err
+			}
+
+			eckey, ok := key.(*ecdsa.PrivateKey)
+			if !ok {
+				return nil, fmt.Errorf("value in vault was not an ecdsa key")
+			}
+
+			pkey = eckey
+		} else {
+			ecpkey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
+			if err != nil {
+				return nil, err
+			}
+
+			keyBytes, err := x509.MarshalPKCS8PrivateKey(ecpkey)
+			if err != nil {
+				return nil, err
+			}
+
+			_, err = cfg.VaultClient.Logical().Write("/kv/data/lego-key", map[string]interface{}{
+				"data": map[string]interface{}{
+					"key": keyBytes,
+				},
+			})
+			if err != nil {
+				return nil, err
+			}
+
+			pkey = ecpkey
+		}
 	} else {
-		_, pkey, err = ed25519.GenerateKey(rand.Reader)
+		pkey, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
 	m.key = pkey
 
-	m.cfg = lego.NewConfig(m)
+	m.lcfg = lego.NewConfig(&m)
 
-	return nil
+	if cfg.Staging {
+		m.lcfg.CADirURL = lego.LEDirectoryStaging
+		cfg.L.Info("configured to use the Let's Encrypt staging service")
+	}
+
+	return &m, nil
 }
 
 func (m *Manager) SetupRoute53(sess *session.Session, zoneId string) error {
-	var awsConfig lego53.Config
+	awsConfig := lego53.NewDefaultConfig()
 	awsConfig.HostedZoneID = zoneId
 	awsConfig.Client = route53.New(sess)
 
-	prov, err := lego53.NewDNSProviderConfig(&awsConfig)
+	prov, err := lego53.NewDNSProviderConfig(awsConfig)
 	if err != nil {
 		return err
 	}
@@ -90,11 +170,13 @@ func (m *Manager) SetupRoute53(sess *session.Session, zoneId string) error {
 	return nil
 }
 
-func (m *Manager) SetupHubCert(ctx context.Context, domain string) error {
+func (m *Manager) SetupHubCert(ctx context.Context) error {
+	domain := m.cfg.Domain
+
 	log.Logger = ctxlog.L(ctx).StandardLogger(&hclog.StandardLoggerOptions{InferLevels: true})
 
 	// A client facilitates communication with the CA server.
-	client, err := lego.NewClient(m.cfg)
+	client, err := lego.NewClient(m.lcfg)
 	if err != nil {
 		return err
 	}
@@ -119,14 +201,41 @@ func (m *Manager) SetupHubCert(ctx context.Context, domain string) error {
 		return errors.Wrapf(err, "attempting to obtain certificate")
 	}
 
-	b, _ := pem.Decode(cert.Certificate)
-	m.hubCert = b.Bytes
-
-	b, _ = pem.Decode(cert.IssuerCertificate)
-	m.hubIssuer = b.Bytes
-
-	b, _ = pem.Decode(cert.PrivateKey)
+	m.hubCert = cert.Certificate
+	m.hubIssuer = cert.IssuerCertificate
 	m.hubKey = cert.PrivateKey
 
 	return nil
+}
+
+func (m *Manager) HubMaterial(ctx context.Context) ([]byte, []byte, error) {
+	if len(m.hubCert) > 0 {
+		return m.hubCert, m.hubKey, nil
+	}
+
+	cert, key, err := m.FetchFromVault()
+	if err == nil {
+		m.hubCert = cert
+		m.hubKey = key
+		if err != nil {
+			return nil, nil, err
+		}
+		return cert, m.hubKey, nil
+	}
+
+	err = m.SetupHubCert(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = m.StoreInVault()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return m.hubCert, m.hubKey, nil
+}
+
+func (m *Manager) Certificate() (tls.Certificate, error) {
+	return tls.X509KeyPair(m.hubCert, m.hubKey)
 }

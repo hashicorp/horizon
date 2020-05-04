@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
@@ -96,6 +97,8 @@ func TestServer(t *testing.T) {
 		LockTable:     "hzntest",
 	}
 
+	L := hclog.L()
+
 	t.Run("can register a new management client", func(t *testing.T) {
 		db, err := gorm.Open("pgtest", "server")
 		require.NoError(t, err)
@@ -103,6 +106,7 @@ func TestServer(t *testing.T) {
 		defer db.Close()
 
 		var s Server
+		s.L = L
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -133,6 +137,7 @@ func TestServer(t *testing.T) {
 
 	t.Run("rejects register requests with the wrong register token", func(t *testing.T) {
 		var s Server
+		s.L = L
 		s.registerToken = "aabbcc"
 
 		ctx := context.Background()
@@ -164,6 +169,7 @@ func TestServer(t *testing.T) {
 		defer db.Close()
 
 		var s Server
+		s.L = L
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -226,6 +232,7 @@ func TestServer(t *testing.T) {
 		defer db.Close()
 
 		var s Server
+		s.L = L
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -280,6 +287,7 @@ func TestServer(t *testing.T) {
 		defer db.Close()
 
 		var s Server
+		s.L = L
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -342,6 +350,7 @@ func TestServer(t *testing.T) {
 		defer db.Close()
 
 		var s Server
+		s.L = L
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -396,6 +405,7 @@ func TestServer(t *testing.T) {
 		defer db.Close()
 
 		var s Server
+		s.L = L
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()
@@ -519,6 +529,7 @@ func TestServer(t *testing.T) {
 		defer db.Close()
 
 		var s Server
+		s.L = L
 		s.db = db
 		s.vaultClient = vc
 		s.vaultPath = pb.NewULID().SpecString()

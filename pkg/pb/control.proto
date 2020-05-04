@@ -63,6 +63,7 @@ message ConfigResponse {
 
   string s3_access_key = 4;
   string s3_secret_key = 5;
+  string s3_bucket = 6;
 }
 
 message CentralActivity {

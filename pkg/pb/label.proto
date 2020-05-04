@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "defs/gogo.proto";
+
 package pb;
 
 message Label {
@@ -8,5 +10,6 @@ message Label {
 }
 
 message LabelSet {
+  option (gogoproto.stringer) =  false;
   repeated Label labels = 1;
 }

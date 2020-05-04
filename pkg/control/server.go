@@ -4,6 +4,7 @@ import (
 	context "context"
 	"crypto/ed25519"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	fmt "fmt"
 	"net/http"
@@ -15,6 +16,7 @@ import (
 	"github.com/armon/go-metrics"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	_ "github.com/hashicorp/horizon/pkg/grpc/lz4"
@@ -36,6 +38,7 @@ type connectedHub struct {
 
 type Server struct {
 	cfg ServerConfig
+	L   hclog.Logger
 
 	db       *gorm.DB
 	bucket   string
@@ -73,6 +76,8 @@ type Server struct {
 type ServerConfig struct {
 	DB *gorm.DB
 
+	Logger hclog.Logger
+
 	RegisterToken string
 	OpsToken      string
 
@@ -104,8 +109,14 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 
+	L := cfg.Logger
+	if L == nil {
+		L = hclog.L()
+	}
+
 	s := &Server{
 		cfg:           cfg,
+		L:             L,
 		db:            cfg.DB,
 		vaultClient:   cfg.VaultClient,
 		vaultPath:     cfg.VaultPath,
@@ -137,10 +148,8 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 
-	_, err = s.lockMgr.CreateTable(s.lockTable)
-	if err != nil {
-		return nil, err
-	}
+	// The table might exist, don't error out
+	s.lockMgr.CreateTable(s.lockTable)
 
 	pub, err := token.SetupVault(s.vaultClient, s.vaultPath)
 	if err != nil {
@@ -149,10 +158,12 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 
 	s.pubKey = pub
 
+	s.L.Info("vault configured for token signing", "pubkey", hex.EncodeToString(pub))
+
 	return s, nil
 }
 
-func (s *Server) SetHubTLS(cert []byte, key ed25519.PrivateKey) {
+func (s *Server) SetHubTLS(cert, key []byte) {
 	s.hubCert = cert
 	s.hubKey = key
 }
@@ -197,12 +208,15 @@ func (s *Server) checkFromHub(ctx context.Context) (*token.ValidToken, error) {
 
 	token, err := token.CheckTokenED25519(auth[0], s.pubKey)
 	if err != nil {
+		s.L.Error("error checking token signature", "error", err, "token", auth[0], "pubkey", hex.EncodeToString(s.pubKey))
 		return nil, err
 	}
 
 	if token.Body.Role != pb.HUB {
 		return nil, errors.Wrapf(ErrBadAuthentication, "role was: %s", token.Body.Role)
 	}
+
+	s.L.Info("authentication from hub successful")
 
 	return token, nil
 }
@@ -383,6 +397,7 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 		TokenPub:    s.pubKey,
 		S3AccessKey: s.cfg.HubAccessKey,
 		S3SecretKey: s.cfg.HubSecretKey,
+		S3Bucket:    s.cfg.Bucket,
 	}
 
 	return resp, nil

@@ -1,4 +1,4 @@
-package tlsmanager
+package tlsmanage
 
 import (
 	"context"
@@ -11,9 +11,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/go-acme/lego/v3/certcrypto"
 	"github.com/go-acme/lego/v3/challenge/dns01"
 	"github.com/go-acme/lego/v3/lego"
+	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,10 +49,15 @@ func (m *mockDNSProvider) CleanUp(domain string, token string, keyAuth string) e
 }
 
 func TestManager(t *testing.T) {
+	vc := testutils.SetupVault()
+
 	t.Run("sets up the hub certs", func(t *testing.T) {
 		var mdp mockDNSProvider
 
-		var mgr Manager
+		mgr, err := NewManager(ManagerConfig{
+			Domain: "*.test.cloud",
+		})
+		require.NoError(t, err)
 
 		mgr.challengeProvider = &mdp
 
@@ -60,7 +67,7 @@ func TestManager(t *testing.T) {
 		var dnsCheckFqdn string
 
 		mgr.key = priv
-		mgr.cfg = lego.NewConfig(&mgr)
+		mgr.lcfg = lego.NewConfig(mgr)
 		mgr.dnsOptions = append(mgr.dnsOptions,
 			dns01.WrapPreCheck(
 				func(domain, fqdn, value string, check dns01.PreCheckFunc) (bool, error) {
@@ -69,22 +76,25 @@ func TestManager(t *testing.T) {
 				}),
 		)
 
-		mgr.cfg.CADirURL = "https://127.0.0.1:14000/dir"
-		mgr.cfg.HTTPClient = &http.Client{
+		mgr.lcfg.CADirURL = "https://127.0.0.1:14000/dir"
+		mgr.lcfg.HTTPClient = &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: &tls.Config{
 					InsecureSkipVerify: true,
 				},
 			},
 		}
-		mgr.cfg.Certificate.KeyType = certcrypto.EC256
+		mgr.lcfg.Certificate.KeyType = certcrypto.EC256
 
 		ctx := context.Background()
 
-		err = mgr.SetupHubCert(ctx, "*.test.cloud")
+		err = mgr.SetupHubCert(ctx)
 		require.NoError(t, err)
 
-		cert, err := x509.ParseCertificate(mgr.hubCert)
+		tlsCert, err := mgr.Certificate()
+		require.NoError(t, err)
+
+		cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
 		require.NoError(t, err)
 
 		assert.Equal(t, "*.test.cloud", cert.DNSNames[0])
@@ -94,4 +104,134 @@ func TestManager(t *testing.T) {
 
 		assert.Equal(t, "_acme-challenge.test.cloud.", dnsCheckFqdn)
 	})
+
+	t.Run("can fetch the hub material from vault", func(t *testing.T) {
+		defer vc.Logical().Delete("/kv/metadata/hub-tls")
+
+		var mdp mockDNSProvider
+
+		mgr, err := NewManager(ManagerConfig{
+			VaultClient: vc,
+		})
+		require.NoError(t, err)
+
+		mgr.challengeProvider = &mdp
+
+		key := []byte("this is a bad key")
+		cert := []byte("this is a worse cert")
+
+		_, err = vc.Logical().Write("/kv/data/hub-tls", map[string]interface{}{
+			"data": map[string]interface{}{
+				"key":         key,
+				"certificate": cert,
+			},
+		})
+		require.NoError(t, err)
+
+		certOut, keyOut, err := mgr.FetchFromVault()
+		require.NoError(t, err)
+
+		assert.Equal(t, key, keyOut)
+		assert.Equal(t, cert, certOut)
+	})
+
+	t.Run("can store it's material in vault", func(t *testing.T) {
+		defer vc.Logical().Delete("/kv/metadata/hub-tls")
+
+		var mdp mockDNSProvider
+
+		mgr, err := NewManager(ManagerConfig{
+			VaultClient: vc,
+		})
+		require.NoError(t, err)
+
+		mgr.challengeProvider = &mdp
+
+		mgr.hubKey = []byte("this is a bad key")
+		mgr.hubCert = []byte("this is a worse cert")
+
+		err = mgr.StoreInVault()
+		require.NoError(t, err)
+
+		certOut, keyOut, err := mgr.FetchFromVault()
+		require.NoError(t, err)
+
+		assert.Equal(t, mgr.hubKey, keyOut)
+		assert.Equal(t, mgr.hubCert, certOut)
+	})
+
+	t.Run("sets up the hub certs and stores them in vault", func(t *testing.T) {
+		defer vc.Logical().Delete("/kv/metadata/hub-tls")
+
+		var mdp mockDNSProvider
+
+		mgr, err := NewManager(ManagerConfig{
+			Domain:      "*.test.cloud",
+			VaultClient: vc,
+		})
+		require.NoError(t, err)
+
+		mgr.challengeProvider = &mdp
+
+		priv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		require.NoError(t, err)
+
+		var dnsCheckFqdn string
+
+		mgr.key = priv
+		mgr.lcfg = lego.NewConfig(mgr)
+		mgr.dnsOptions = append(mgr.dnsOptions,
+			dns01.WrapPreCheck(
+				func(domain, fqdn, value string, check dns01.PreCheckFunc) (bool, error) {
+					dnsCheckFqdn = fqdn
+					return true, nil
+				}),
+		)
+
+		mgr.lcfg.CADirURL = "https://127.0.0.1:14000/dir"
+		mgr.lcfg.HTTPClient = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					InsecureSkipVerify: true,
+				},
+			},
+		}
+		mgr.lcfg.Certificate.KeyType = certcrypto.EC256
+
+		ctx := context.Background()
+
+		bcert, bkey, err := mgr.HubMaterial(ctx)
+		require.NoError(t, err)
+
+		spew.Dump(bcert, bkey)
+
+		tlsCert, err := tls.X509KeyPair(bcert, bkey)
+		require.NoError(t, err)
+
+		cert, err := x509.ParseCertificate(tlsCert.Certificate[0])
+		require.NoError(t, err)
+
+		assert.Equal(t, "*.test.cloud", cert.DNSNames[0])
+
+		assert.Equal(t, "test.cloud", mdp.present.domain)
+		assert.Equal(t, "test.cloud", mdp.cleanup.domain)
+
+		assert.Equal(t, "_acme-challenge.test.cloud.", dnsCheckFqdn)
+
+		vcert, vkey, err := mgr.FetchFromVault()
+		require.NoError(t, err)
+
+		assert.Equal(t, bcert, vcert)
+		assert.Equal(t, bkey, vkey)
+
+		mgr.hubCert = nil
+		mgr.lcfg = nil
+
+		bcert2, bkey2, err := mgr.HubMaterial(ctx)
+		require.NoError(t, err)
+
+		assert.Equal(t, bcert, bcert2)
+		assert.Equal(t, bkey, bkey2)
+	})
+
 }

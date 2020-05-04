@@ -28,6 +28,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"google.golang.org/grpc"
+	gcreds "google.golang.org/grpc/credentials"
 )
 
 type Peer struct {
@@ -114,9 +115,14 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 
 	gClient := cfg.Client
 	if gClient == nil && cfg.Addr != "" {
+		creds := gcreds.NewTLS(&tls.Config{
+			InsecureSkipVerify: true,
+		})
+
 		gcc, err = grpc.Dial(cfg.Addr,
 			grpc.WithPerRPCCredentials(Token(cfg.Token)),
 			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+			grpc.WithTransportCredentials(creds),
 		)
 		if err != nil {
 			return nil, err
@@ -135,11 +141,14 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
 		localServices:   make(map[string]*pb.ServiceRequest),
-		s3api:           s3.New(cfg.Session),
 		workDir:         cfg.WorkDir,
 		bucket:          cfg.S3Bucket,
 		cancel:          cancel,
 		hubActivity:     make(chan *pb.HubActivity, 10),
+	}
+
+	if cfg.Session != nil {
+		client.s3api = s3.New(cfg.Session)
 	}
 
 	return client, nil
@@ -210,6 +219,8 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 
 		c.cfg.Session = session.New(&cfg)
 		c.s3api = s3.New(c.cfg.Session)
+
+		c.cfg.S3Bucket = resp.S3Bucket
 	}
 
 	return nil
