@@ -1,3 +1,5 @@
+# syntax = docker/dockerfile:experimental
+
 FROM golang:alpine AS builder
 
 RUN apk add --no-cache git gcc libc-dev
@@ -14,7 +16,7 @@ COPY . /tmp/hzn-src
 
 WORKDIR /tmp/hzn-src
 
-RUN go build -o /tmp/hzn -ldflags "-X main.sha1ver=`git rev-parse HEAD` -X main.buildTime=$(date +'+%FT%T.%N%:z')" ./cmd/hzn
+RUN --mount=type=cache,target=/root/.cache/go-build go build -o /tmp/hzn -ldflags "-X main.sha1ver=`git rev-parse HEAD` -X main.buildTime=$(date +'+%FT%T.%N%:z')" ./cmd/hzn
 
 FROM alpine
 

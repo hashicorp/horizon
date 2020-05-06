@@ -438,7 +438,7 @@ func TestServer(t *testing.T) {
 		accountId := pb.NewULID()
 
 		label := pb.ParseLabelSet(":hostname=foo.com")
-		target := pb.ParseLabelSet("service=www,env=prod")
+		target := pb.ParseLabelSet("service=emp,env=test")
 
 		_, err = s.AddLabelLink(
 			metadata.NewIncomingContext(top, md2),
@@ -567,6 +567,10 @@ func TestServer(t *testing.T) {
 		md2.Set("authorization", ct.Token)
 
 		accountId := pb.NewULID()
+		account := &pb.Account{
+			Namespace: "/",
+			AccountId: accountId,
+		}
 
 		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
@@ -582,14 +586,11 @@ func TestServer(t *testing.T) {
 		_, err = s.AddService(
 			metadata.NewIncomingContext(top, md3),
 			&pb.ServiceRequest{
-				Account: &pb.Account{
-					Namespace: "/",
-					AccountId: accountId,
-				},
-				Hub:    hubId,
-				Id:     serviceId,
-				Type:   "test",
-				Labels: labels,
+				Account: account,
+				Hub:     hubId,
+				Id:      serviceId,
+				Type:    "test",
+				Labels:  labels,
 				Metadata: []*pb.KVPair{
 					{
 						Key:   "version",
@@ -606,7 +607,7 @@ func TestServer(t *testing.T) {
 
 		resp, err := s3api.GetObject(&s3.GetObjectInput{
 			Bucket: aws.String(s.bucket),
-			Key:    aws.String("account_services/" + accountId.SpecString()),
+			Key:    aws.String("account_services/" + account.StringKey()),
 		})
 
 		require.NoError(t, err)
@@ -634,12 +635,9 @@ func TestServer(t *testing.T) {
 		_, err = s.RemoveService(
 			metadata.NewIncomingContext(top, md3),
 			&pb.ServiceRequest{
-				Account: &pb.Account{
-					Namespace: "/",
-					AccountId: accountId,
-				},
-				Hub: hubId,
-				Id:  serviceId,
+				Account: account,
+				Hub:     hubId,
+				Id:      serviceId,
 			},
 		)
 		require.NoError(t, err)
@@ -651,7 +649,7 @@ func TestServer(t *testing.T) {
 
 		resp, err = s3api.GetObject(&s3.GetObjectInput{
 			Bucket: aws.String(s.bucket),
-			Key:    aws.String("account_services/" + accountId.SpecString()),
+			Key:    aws.String("account_services/" + account.StringKey()),
 		})
 
 		require.NoError(t, err)

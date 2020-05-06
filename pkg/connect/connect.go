@@ -84,7 +84,7 @@ func Connect(L hclog.Logger, addr, token string) (*Session, error) {
 	return &Session{session: session}, nil
 }
 
-func (s *Session) ConnecToService(labels *pb.LabelSet) (*Conn, error) {
+func (s *Session) ConnecToAccountService(acc *pb.Account, labels *pb.LabelSet) (*Conn, error) {
 	stream, err := s.session.OpenStream()
 	if err != nil {
 		return nil, err
@@ -102,6 +102,7 @@ func (s *Session) ConnecToService(labels *pb.LabelSet) (*Conn, error) {
 
 	var conreq pb.ConnectRequest
 	conreq.Target = labels
+	conreq.PivotAccount = acc
 
 	_, err = fw2.WriteMarshal(1, &conreq)
 	if err != nil {
@@ -122,6 +123,10 @@ func (s *Session) ConnecToService(labels *pb.LabelSet) (*Conn, error) {
 	return &Conn{serviceId: ack.ServiceId, fr: fr2, fw: fw2}, nil
 }
 
+func (s *Session) ConnecToService(labels *pb.LabelSet) (*Conn, error) {
+	return s.ConnecToAccountService(nil, labels)
+}
+
 func (c *Conn) ReadMarshal(v wire.Unmarshaller) (byte, error) {
 	tag, _, err := c.fr.ReadMarshal(v)
 	if err != nil {
@@ -136,7 +141,7 @@ func (c *Conn) WriteMarshal(tag byte, v wire.Marshaller) error {
 	return err
 }
 
-func (c *Conn) WireContext(accountId *pb.ULID) wire.Context {
+func (c *Conn) WireContext(accountId *pb.Account) wire.Context {
 	return wire.NewContext(accountId, c.fr, c.fw)
 }
 

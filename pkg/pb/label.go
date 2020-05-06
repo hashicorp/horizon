@@ -27,7 +27,7 @@ func ParseLabelSet(s string) *LabelSet {
 	}
 
 	pls := &ls
-	sort.Sort(pls)
+	pls.Finalize()
 
 	return pls
 }
@@ -106,7 +106,7 @@ func (ls *LabelSet) Less(i, j int) bool {
 		return true
 	}
 
-	if a.Value < b.Value {
+	if a.Name == b.Name && a.Value < b.Value {
 		return true
 	}
 
@@ -114,7 +114,11 @@ func (ls *LabelSet) Less(i, j int) bool {
 }
 
 func (ls *LabelSet) Swap(i, j int) {
-	ls.Labels[i], ls.Labels[j] = ls.Labels[j], ls.Labels[i]
+	a := ls.Labels[i]
+	b := ls.Labels[j]
+
+	ls.Labels[i] = b
+	ls.Labels[j] = a
 }
 
 func (ls *LabelSet) Matches(o *LabelSet) bool {

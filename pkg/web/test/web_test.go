@@ -63,7 +63,7 @@ func (f *fakeHTTPService) HandleRequest(ctx context.Context, L hclog.Logger, sct
 func TestWeb(t *testing.T) {
 	central.Dev(t, func(setup *central.DevSetup) {
 		L := hclog.L()
-		hub, err := hub.NewHub(L, setup.ControlClient)
+		hub, err := hub.NewHub(L, setup.ControlClient, setup.HubServToken)
 		require.NoError(t, err)
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -104,12 +104,9 @@ func TestWeb(t *testing.T) {
 
 			_, err := setup.ControlServer.AddLabelLink(setup.MgmtCtx,
 				&pb.AddLabelLinkRequest{
-					Labels: pb.ParseLabelSet(":hostname=" + name),
-					Account: &pb.Account{
-						AccountId: setup.AccountId,
-						Namespace: "/",
-					},
-					Target: pb.ParseLabelSet("env=test1"),
+					Labels:  pb.ParseLabelSet(":hostname=" + name),
+					Account: setup.Account,
+					Target:  pb.ParseLabelSet("env=test1"),
 				})
 
 			require.NoError(t, err)
@@ -118,7 +115,7 @@ func TestWeb(t *testing.T) {
 
 			require.NoError(t, setup.ControlClient.ForceLabelLinkUpdate(ctx, L))
 
-			f, err := web.NewFrontend(L, hub, setup.ControlClient)
+			f, err := web.NewFrontend(L, hub, setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
 			req, err := http.NewRequest("GET", "http://"+name+"/", strings.NewReader("this is a request"))
@@ -140,12 +137,9 @@ func TestWeb(t *testing.T) {
 
 			_, err = setup.ControlServer.AddLabelLink(setup.MgmtCtx,
 				&pb.AddLabelLinkRequest{
-					Labels: pb.ParseLabelSet(":hostname=" + prefixHost),
-					Account: &pb.Account{
-						AccountId: setup.AccountId,
-						Namespace: "/",
-					},
-					Target: pb.ParseLabelSet("env=test1"),
+					Labels:  pb.ParseLabelSet(":hostname=" + prefixHost),
+					Account: setup.Account,
+					Target:  pb.ParseLabelSet("env=test1"),
 				})
 
 			require.NoError(t, err)
@@ -156,7 +150,7 @@ func TestWeb(t *testing.T) {
 
 			target := "fuzz-aabbcc.localdomain"
 
-			f, err := web.NewFrontend(L, hub, setup.ControlClient)
+			f, err := web.NewFrontend(L, hub, setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
 			req, err := http.NewRequest("GET", "http://"+target+"/", strings.NewReader("this is a request"))

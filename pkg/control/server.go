@@ -232,7 +232,7 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 	}
 
 	var so Service
-	so.AccountId = service.Account.AccountId.Bytes()
+	so.AccountId = service.Account.Key()
 	so.HubId = service.Hub.Bytes()
 	so.ServiceId = service.Id.Bytes()
 	so.Type = service.Type
@@ -258,9 +258,8 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 			},
 		},
 	})
-	// return s.s.UserEvent("account-updated", account, false)
 
-	err = s.updateAccountRouting(ctx, s.db, service.Account.AccountId.Bytes())
+	err = s.updateAccountRouting(ctx, s.db, service.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +278,7 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 		return nil, err
 	}
 
-	err = s.updateAccountRouting(ctx, s.db, service.Account.AccountId.Bytes())
+	err = s.updateAccountRouting(ctx, s.db, service.Account)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +300,12 @@ func (s *Server) removeHubServices(ctx context.Context, db *gorm.DB, hubId *pb.U
 	}
 
 	for _, service := range sos {
-		err = s.updateAccountRouting(ctx, db, service.AccountId)
+		acc, err := pb.AccountFromKey(service.AccountId)
+		if err != nil {
+			return err
+		}
+
+		err = s.updateAccountRouting(ctx, db, acc)
 		if err != nil {
 			return err
 		}
@@ -442,7 +446,7 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 				},
 				{
 					Name:  "account",
-					Value: rec.Stream.AccountId.SpecString(),
+					Value: rec.Stream.Account.SpecString(),
 				},
 			}
 
@@ -464,7 +468,7 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 				},
 				{
 					Name:  "account",
-					Value: rec.Agent.AccountId.SpecString(),
+					Value: rec.Agent.Account.SpecString(),
 				},
 			}
 
@@ -767,12 +771,16 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 		return nil, err
 	}
 
+	if req.Account.Namespace == "" {
+		req.Account.Namespace = caller.Account().Namespace
+	}
+
 	if !caller.AllowAccount(req.Account.Namespace) {
 		return nil, errors.Wrapf(ErrInvalidRequest, "invalid namespace requested")
 	}
 
 	var ao Account
-	ao.ID = req.Account.AccountId.Bytes()
+	ao.ID = req.Account.Key()
 	ao.Namespace = req.Account.Namespace
 
 	de := s.db.Set("gorm:insert_option", "ON CONFLICT (id) DO UPDATE SET namespace=EXCLUDED.namespace").Create(&ao)
@@ -783,7 +791,7 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 	}
 
 	var llr LabelLink
-	llr.AccountID = req.Account.AccountId.Bytes()
+	llr.AccountID = req.Account.Key()
 	llr.Labels = FlattenLabels(req.Labels)
 	llr.Target = FlattenLabels(req.Target)
 
@@ -822,7 +830,7 @@ func (s *Server) RemoveLabelLink(ctx context.Context, req *pb.RemoveLabelLinkReq
 	}
 
 	var llr LabelLink
-	llr.AccountID = req.Account.AccountId.Bytes()
+	llr.AccountID = req.Account.Key()
 	llr.Labels = FlattenLabels(req.Labels)
 
 	err = dbx.Check(s.db.
@@ -871,7 +879,7 @@ func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*
 	}
 
 	var ao Account
-	ao.ID = req.Account.AccountId.Bytes()
+	ao.ID = req.Account.Key()
 	ao.Namespace = req.Account.Namespace
 
 	de := s.db.Set("gorm:insert_option", "ON CONFLICT (id) DO UPDATE SET namespace = EXCLUDED.namespace").Create(&ao)
@@ -922,4 +930,31 @@ func (s *Server) AllHubs(ctx context.Context, _ *pb.Noop) (*pb.ListOfHubs, error
 	}
 
 	return &out, nil
+}
+
+func (s *Server) RequestServiceToken(ctx context.Context, req *pb.ServiceTokenRequest) (*pb.ServiceTokenResponse, error) {
+	_, err := s.checkFromHub(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var tc token.TokenCreator
+	tc.AccountId = pb.InternalAccount
+	tc.AccuntNamespace = req.Namespace
+	tc.RawCapabilities = []pb.TokenCapability{
+		{
+			Capability: pb.ACCESS,
+			Value:      req.Namespace,
+		},
+		{
+			Capability: pb.CONNECT,
+		},
+	}
+
+	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	if err != nil {
+		return nil, err
+	}
+
+	return &pb.ServiceTokenResponse{Token: token}, nil
 }

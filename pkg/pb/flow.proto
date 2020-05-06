@@ -3,6 +3,7 @@ syntax = "proto3";
 import "ulid.proto";
 import "timestamp.proto";
 import "label.proto";
+import "account.proto";
 
 package pb;
 
@@ -11,7 +12,7 @@ message FlowStream {
   ULID hub_id = 2;
   ULID agent_id = 3;
   ULID service_id = 4;
-  ULID account_id = 5;
+  Account account = 5;
   LabelSet labels = 6;
 
   Timestamp started_at = 10;
@@ -27,7 +28,7 @@ message FlowRecord {
   message AgentConnection {
     ULID hub_id = 1;
     ULID agent_id = 2;
-    ULID account_id = 3;
+    Account account = 3;
 
     Timestamp started_at = 10;
     Timestamp ended_at = 11;

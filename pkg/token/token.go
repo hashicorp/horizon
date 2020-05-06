@@ -6,12 +6,8 @@ import (
 	"github.com/hashicorp/horizon/pkg/pb"
 )
 
-func (t *ValidToken) AccountId() *pb.ULID {
-	return t.Body.Account.AccountId
-}
-
-func (t *ValidToken) AccountNamespace() string {
-	return t.Body.Account.Namespace
+func (t *ValidToken) Account() *pb.Account {
+	return t.Body.Account
 }
 
 func (t *ValidToken) HasCapability(name string) (bool, string) {

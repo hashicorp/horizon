@@ -11,7 +11,6 @@ import (
 	"github.com/hashicorp/horizon/pkg/connect"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
-	"github.com/hashicorp/horizon/pkg/token"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/pierrec/lz4/v3"
@@ -27,7 +26,7 @@ func (p *pivotAccountContext) AccountId() *pb.ULID {
 	return p.pa.AccountId
 }
 
-func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.ValidToken, stream *yamux.Stream, wctx wire.Context) {
+func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, stream *yamux.Stream, wctx wire.Context) {
 	defer stream.Close()
 	defer func() {
 		atomic.AddInt64(ai.TotalStreams, -1)
@@ -52,7 +51,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.V
 	}
 
 	if req.PivotAccount != nil {
-		if tkn.AllowAccount(req.PivotAccount.Namespace) {
+		if ai.token.AllowAccount(req.PivotAccount.Namespace) {
 			wctx = &pivotAccountContext{wctx, req.PivotAccount}
 		} else {
 			var resp pb.Response
@@ -62,7 +61,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.V
 		}
 	}
 
-	routes, err := h.cc.LookupService(ctx, tkn.AccountId(), req.Target)
+	routes, err := h.cc.LookupService(ctx, wctx.Account(), req.Target)
 	if err != nil {
 		var resp pb.Response
 		resp.Error = err.Error()
@@ -86,7 +85,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, tkn *token.V
 		fs.HubId = h.id
 		fs.AgentId = ai.ID
 		fs.ServiceId = target.Id
-		fs.AccountId = tkn.AccountId()
+		fs.Account = wctx.Account()
 		fs.Labels = req.Target
 		fs.StartedAt = pb.NewTimestamp(time.Now())
 
@@ -186,7 +185,7 @@ func (h *Hub) bridgeToTarget(
 
 	defer fr.Recycle()
 
-	dsctx := wire.NewContext(wctx.AccountId(), fr, fw)
+	dsctx := wire.NewContext(wctx.Account(), fr, fw)
 
 	return h.copyBetweenContexts(ctx, wctx, dsctx, fs)
 }
@@ -364,7 +363,7 @@ func (h *Hub) forwardToTarget(
 		return err
 	}
 
-	dsctx := conn.WireContext(wctx.AccountId())
+	dsctx := conn.WireContext(wctx.Account())
 
 	// transmit a ack back to the opener that the service was found and is
 	// about to start.

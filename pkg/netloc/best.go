@@ -42,10 +42,6 @@ func FindBest(input *BestInput) ([]*pb.NetworkLocation, error) {
 		return cards[j] < cards[i]
 	})
 
-	if len(best) > input.Count {
-		best = best[input.Count:]
-	}
-
 	if input.Latency != nil {
 		latency := make([]time.Duration, len(best))
 		available := make([]bool, len(best))
@@ -99,6 +95,10 @@ func FindBest(input *BestInput) ([]*pb.NetworkLocation, error) {
 		}
 
 		best = prune
+	}
+
+	if len(best) > input.Count {
+		best = best[input.Count:]
 	}
 
 	return best, nil

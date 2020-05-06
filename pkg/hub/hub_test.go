@@ -28,7 +28,7 @@ func TestHub(t *testing.T) {
 	t.Run("is registered in control server database", func(t *testing.T) {
 		central.Dev(t, func(setup *central.DevSetup) {
 			L := hclog.L()
-			hub, err := NewHub(L, setup.ControlClient)
+			hub, err := NewHub(L, setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -72,13 +72,18 @@ func TestHub(t *testing.T) {
 	t.Run("can create and remove a service", func(t *testing.T) {
 		central.Dev(t, func(setup *central.DevSetup) {
 			L := hclog.L()
-			hub, err := NewHub(L, setup.ControlClient)
+			hub, err := NewHub(L, setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 
-			go hub.Run(ctx, setup.ClientListener)
+			go func() {
+				err := hub.Run(ctx, setup.ClientListener)
+				if err != nil {
+					fmt.Printf("error in run: %s\n", err)
+				}
+			}()
 
 			time.Sleep(time.Second)
 
@@ -142,7 +147,7 @@ func TestHub(t *testing.T) {
 	t.Run("rejects hub tokens checks the serve capability", func(t *testing.T) {
 		central.Dev(t, func(setup *central.DevSetup) {
 			L := hclog.L()
-			hub, err := NewHub(L, setup.ControlClient)
+			hub, err := NewHub(L, setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -165,10 +170,7 @@ func TestHub(t *testing.T) {
 			agentToken, err := setup.ControlServer.CreateToken(
 				setup.MgmtCtx,
 				&pb.CreateTokenRequest{
-					Account: &pb.Account{
-						AccountId: setup.AccountId,
-						Namespace: "/",
-					},
+					Account: setup.Account,
 				})
 			require.NoError(t, err)
 
@@ -223,7 +225,7 @@ func TestHub(t *testing.T) {
 			L := hclog.L()
 			L.SetLevel(hclog.Trace)
 
-			hub1, err := NewHub(L.Named("hub1"), setup.ControlClient)
+			hub1, err := NewHub(L.Named("hub1"), setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithCancel(context.Background())
@@ -285,7 +287,7 @@ func TestHub(t *testing.T) {
 
 				L.Info("configuring second hub and agent")
 
-				hub2, err := NewHub(L.Named("hub2"), nc)
+				hub2, err := NewHub(L.Named("hub2"), nc, setup.HubServToken)
 				require.NoError(t, err)
 
 				ctx, cancel := context.WithCancel(context.Background())
@@ -320,6 +322,114 @@ func TestHub(t *testing.T) {
 				var mb2 wire.MarshalBytes
 
 				tag, err := c.ReadMarshal(&mb2)
+				require.NoError(t, err)
+
+				assert.Equal(t, byte(30), tag)
+				assert.Equal(t, wire.MarshalBytes("hello hzn from fed"), mb2)
+			})
+		})
+	})
+
+	t.Run("can connect to services on other hubs", func(t *testing.T) {
+		central.Dev(t, func(setup *central.DevSetup) {
+			L := hclog.L()
+			L.SetLevel(hclog.Trace)
+
+			hub1, err := NewHub(L.Named("hub1"), setup.ControlClient, setup.HubServToken)
+			require.NoError(t, err)
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			go hub1.Run(ctx, setup.ClientListener)
+
+			var netloc []*pb.NetworkLocation
+
+			netloc = append(netloc, &pb.NetworkLocation{
+				Addresses: []string{
+					fmt.Sprintf("127.0.0.1:%d", setup.ClientListener.Addr().(*net.TCPAddr).Port),
+				},
+				Labels: pb.ParseLabelSet("dc=test"),
+			})
+
+			setup.ControlClient.SetLocations(netloc)
+
+			setup.ControlClient.BootstrapConfig(ctx)
+
+			go setup.ControlClient.Run(ctx)
+
+			time.Sleep(time.Second)
+
+			go func() {
+				err := hub1.Run(ctx, setup.ClientListener)
+				require.NoError(t, err)
+			}()
+
+			time.Sleep(time.Second)
+
+			g, err := agent.NewAgent(L.Named("agent"))
+			require.NoError(t, err)
+
+			g.Token = setup.AgentToken
+
+			serviceId, err := g.AddService(&agent.Service{
+				Type:    "test",
+				Labels:  pb.ParseLabelSet("env=test,service=echo"),
+				Handler: agent.EchoHandler(),
+			})
+
+			require.NoError(t, err)
+
+			err = g.Start(ctx, []agent.HubConfig{
+				{
+					Addr:     setup.HubAddr,
+					Insecure: true,
+				},
+			})
+			require.NoError(t, err)
+
+			go g.Wait(ctx)
+
+			time.Sleep(time.Second)
+
+			setup.NewControlClient(t, func(nc *control.Client, li net.Listener) {
+				L = L.Named("testtest")
+
+				L.Info("configuring second hub and agent")
+
+				hub2, err := NewHub(L.Named("hub2"), nc, setup.HubServToken)
+				require.NoError(t, err)
+
+				ctx, cancel := context.WithCancel(context.Background())
+				defer cancel()
+
+				go nc.Run(ctx)
+
+				time.Sleep(time.Second)
+
+				go func() {
+					err := hub2.Run(ctx, li)
+					require.NoError(t, err)
+				}()
+
+				sr := &pb.ServiceRoute{
+					Hub:    hub1.id,
+					Id:     serviceId,
+					Type:   "test",
+					Labels: pb.ParseLabelSet("service=echo"),
+				}
+
+				wctx, err := hub2.ConnectToService(ctx, sr, setup.Account, "echo", setup.HubServToken)
+				require.NoError(t, err)
+
+				mb := wire.MarshalBytes("hello hzn from fed")
+
+				err = wctx.WriteMarshal(30, &mb)
+				require.NoError(t, err)
+
+				var mb2 wire.MarshalBytes
+
+				tag, err := wctx.ReadMarshal(&mb2)
 				require.NoError(t, err)
 
 				assert.Equal(t, byte(30), tag)

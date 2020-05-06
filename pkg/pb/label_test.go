@@ -3,6 +3,7 @@ package pb
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,5 +16,28 @@ func TestLabelSet(t *testing.T) {
 		require.True(t, target.Matches(ls))
 		require.False(t, ls.Matches(target))
 	})
-}
 
+	t.Run("is stabley sorted", func(t *testing.T) {
+		ls := ParseLabelSet("service=emp,env=test")
+		assert.Equal(t, "env", ls.Labels[0].Name)
+
+		ls.Finalize()
+
+		assert.Equal(t, "env", ls.Labels[0].Name)
+
+		ls.Finalize()
+
+		assert.Equal(t, "env", ls.Labels[0].Name)
+	})
+
+	t.Run("sorts by name then value", func(t *testing.T) {
+		ls := ParseLabelSet("service=emp,env=test")
+		assert.Equal(t, "env", ls.Labels[0].Name)
+
+		ls = ParseLabelSet("a=x,b=c")
+		assert.Equal(t, "a", ls.Labels[0].Name)
+
+		ls = ParseLabelSet("service=foo,service=emp")
+		assert.Equal(t, "foo", ls.Labels[1].Value)
+	})
+}

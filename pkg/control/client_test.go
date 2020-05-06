@@ -1,6 +1,7 @@
 package control
 
 import (
+	bytes "bytes"
 	context "context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -8,6 +9,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/json"
+	"encoding/pem"
 	fmt "fmt"
 	"io/ioutil"
 	"math/big"
@@ -24,6 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -96,7 +99,10 @@ func TestClient(t *testing.T) {
 		md2 := make(metadata.MD)
 		md2.Set("authorization", ct.Token)
 
-		accountId := pb.NewULID()
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
 
 		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
@@ -139,13 +145,10 @@ func TestClient(t *testing.T) {
 		labels := pb.ParseLabelSet("service=www,env=prod")
 
 		servReq := &pb.ServiceRequest{
-			Account: &pb.Account{
-				Namespace: "/",
-				AccountId: accountId,
-			},
-			Id:     serviceId,
-			Type:   "test",
-			Labels: labels,
+			Account: account,
+			Id:      serviceId,
+			Type:    "test",
+			Labels:  labels,
 			Metadata: []*pb.KVPair{
 				{
 					Key:   "version",
@@ -206,7 +209,10 @@ func TestClient(t *testing.T) {
 		md2 := make(metadata.MD)
 		md2.Set("authorization", ct.Token)
 
-		accountId := pb.NewULID()
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
 
 		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
@@ -254,13 +260,10 @@ func TestClient(t *testing.T) {
 		labels := pb.ParseLabelSet("service=www,env=prod,instance=xyz")
 
 		servReq := &pb.ServiceRequest{
-			Account: &pb.Account{
-				Namespace: "/",
-				AccountId: accountId,
-			},
-			Id:     serviceId,
-			Type:   "test",
-			Labels: labels,
+			Account: account,
+			Id:      serviceId,
+			Type:    "test",
+			Labels:  labels,
 			Metadata: []*pb.KVPair{
 				{
 					Key:   "version",
@@ -283,7 +286,7 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId, ls.Id)
 
-		services, err := client.LookupService(ctx, accountId, pb.ParseLabelSet("service=www,env=prod"))
+		services, err := client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, len(services))
@@ -294,7 +297,7 @@ func TestClient(t *testing.T) {
 		serviceId2 := pb.NewULID()
 
 		// Nuke to force an inline refresh
-		delete(client.accountServices, accountId.SpecString())
+		delete(client.accountServices, account.SpecString())
 
 		hubtoken, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
@@ -305,14 +308,11 @@ func TestClient(t *testing.T) {
 		_, err = s.AddService(
 			metadata.NewIncomingContext(top, md3),
 			&pb.ServiceRequest{
-				Account: &pb.Account{
-					Namespace: "/",
-					AccountId: accountId,
-				},
-				Hub:    hubId2,
-				Id:     serviceId2,
-				Type:   "test",
-				Labels: labels,
+				Account: account,
+				Hub:     hubId2,
+				Id:      serviceId2,
+				Type:    "test",
+				Labels:  labels,
 				Metadata: []*pb.KVPair{
 					{
 						Key:   "version",
@@ -324,7 +324,7 @@ func TestClient(t *testing.T) {
 
 		require.NoError(t, err)
 
-		services, err = client.LookupService(ctx, accountId, pb.ParseLabelSet("service=www,env=prod"))
+		services, err = client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
 		require.NoError(t, err)
 
 		require.Equal(t, 2, len(services))
@@ -361,7 +361,10 @@ func TestClient(t *testing.T) {
 		md2 := make(metadata.MD)
 		md2.Set("authorization", ct.Token)
 
-		accountId := pb.NewULID()
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
 
 		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
@@ -414,10 +417,10 @@ func TestClient(t *testing.T) {
 		time.Sleep(time.Second)
 
 		// Setup the info so that we're tracking the account when the event arrives
-		client.accountServices[accountId.SpecString()] = &accountInfo{
-			MapKey:   accountId.SpecString(),
-			S3Key:    "account_services/" + accountId.SpecString(),
-			FileName: accountId.SpecString(),
+		client.accountServices[account.StringKey()] = &accountInfo{
+			MapKey:   account.StringKey(),
+			S3Key:    "account_services/" + account.StringKey(),
+			FileName: account.StringKey(),
 			Process:  make(chan struct{}),
 		}
 
@@ -425,14 +428,11 @@ func TestClient(t *testing.T) {
 		labels := pb.ParseLabelSet("service=www,env=prod")
 
 		servReq := &pb.ServiceRequest{
-			Account: &pb.Account{
-				Namespace: "/",
-				AccountId: accountId,
-			},
-			Id:     serviceId,
-			Hub:    pb.NewULID(),
-			Type:   "test",
-			Labels: labels,
+			Account: account,
+			Id:      serviceId,
+			Hub:     pb.NewULID(),
+			Type:    "test",
+			Labels:  labels,
 			Metadata: []*pb.KVPair{
 				{
 					Key:   "version",
@@ -450,7 +450,7 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
 
-		services, err := client.LookupService(ctx, accountId, labels)
+		services, err := client.LookupService(ctx, account, labels)
 		require.NoError(t, err)
 
 		require.Equal(t, 1, len(services))
@@ -486,7 +486,10 @@ func TestClient(t *testing.T) {
 		md2 := make(metadata.MD)
 		md2.Set("authorization", ct.Token)
 
-		accountId := pb.NewULID()
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
 
 		label := pb.ParseLabelSet(":hostname=foo.com")
 		target := pb.ParseLabelSet("service=www,env=prod")
@@ -494,12 +497,9 @@ func TestClient(t *testing.T) {
 		_, err = s.AddLabelLink(
 			metadata.NewIncomingContext(top, md2),
 			&pb.AddLabelLinkRequest{
-				Labels: label,
-				Account: &pb.Account{
-					AccountId: accountId,
-					Namespace: "/",
-				},
-				Target: target,
+				Labels:  label,
+				Account: account,
+				Target:  target,
 			},
 		)
 
@@ -539,7 +539,7 @@ func TestClient(t *testing.T) {
 		labelAccount, labelTarget, err := client.ResolveLabelLink(label)
 		require.NoError(t, err)
 
-		assert.Equal(t, accountId, labelAccount)
+		assert.Equal(t, account, labelAccount)
 		assert.Equal(t, target, labelTarget)
 	})
 
@@ -583,8 +583,23 @@ func TestClient(t *testing.T) {
 		derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, tlspub, tlspriv)
 		require.NoError(t, err)
 
-		s.hubCert = derBytes
-		s.hubKey = tlspriv
+		var certBuf, keyBuf bytes.Buffer
+
+		pem.Encode(&certBuf, &pem.Block{
+			Type:  "CERTIFICATE",
+			Bytes: derBytes,
+		})
+
+		keybytes, err := x509.MarshalPKCS8PrivateKey(tlspriv)
+		require.NoError(t, err)
+
+		pem.Encode(&keyBuf, &pem.Block{
+			Type:  "PRIVATE KEY",
+			Bytes: keybytes,
+		})
+
+		s.hubCert = certBuf.Bytes()
+		s.hubKey = keyBuf.Bytes()
 
 		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
 		require.NoError(t, err)
@@ -658,7 +673,16 @@ func TestClient(t *testing.T) {
 
 		tlsPort := cli.Addr().(*net.TCPAddr).Port
 
-		go client.RunIngress(ctx, cli, nil)
+		hh := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(200)
+		})
+
+		go func() {
+			err := client.RunIngress(ctx, cli, nil, hh)
+			if err != nil {
+				hclog.L().Error("error running ingress", "error", err)
+			}
+		}()
 
 		parsedHubCert, err := x509.ParseCertificate(derBytes)
 		require.NoError(t, err)
@@ -708,7 +732,10 @@ func TestClient(t *testing.T) {
 		md2 := make(metadata.MD)
 		md2.Set("authorization", ct.Token)
 
-		accountId := pb.NewULID()
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
 
 		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
@@ -758,7 +785,7 @@ func TestClient(t *testing.T) {
 				StartedAt:   pb.NewTimestamp(time.Now()),
 				HubId:       hubId,
 				AgentId:     agentId,
-				AccountId:   accountId,
+				Account:     account,
 				ServiceId:   serviceId,
 				NumMessages: 55,
 				NumBytes:    113332,
@@ -774,7 +801,7 @@ func TestClient(t *testing.T) {
 			"hub=" + hubId.SpecString(),
 			"agent=" + agentId.SpecString(),
 			"service=" + serviceId.SpecString(),
-			"account=" + accountId.SpecString(),
+			"account=" + account.SpecString(),
 		}, ";")
 
 		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.stream.messages;"+labels].Sum))
@@ -786,7 +813,7 @@ func TestClient(t *testing.T) {
 				StartedAt:   pb.NewTimestamp(time.Now()),
 				HubId:       hubId,
 				AgentId:     agentId,
-				AccountId:   accountId,
+				Account:     account,
 				ServiceId:   serviceId,
 				Labels:      pb.ParseLabelSet("service=echo"),
 				NumMessages: 5,
@@ -988,6 +1015,10 @@ func TestClient(t *testing.T) {
 
 		var so Service
 		so.HubId = prev.Bytes()
+		so.AccountId = (&pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}).Key()
 		so.Labels = pb.ParseLabelSet("test=env").AsStringArray()
 
 		err = dbx.Check(db.Create(&so))

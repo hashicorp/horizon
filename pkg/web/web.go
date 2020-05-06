@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -9,39 +10,38 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/control"
-	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/wire"
 )
 
 type HostnameChecker interface {
 	HandlingHostname(name string) bool
 }
 
-/*
-type LabelResolver interface {
-	FindLabelLink(labels []string) (string, []string, error)
-	MatchServices(accid string, labels []string) ([]registry.ResolvedService, error)
-}
-
 type Connector interface {
-	ConnectToService(req *wire.Request, accid string, rs registry.ResolvedService) (wire.Context, error)
+	ConnectToService(
+		ctx context.Context,
+		target *pb.ServiceRoute,
+		account *pb.Account,
+		proto string,
+		token string,
+	) (wire.Context, error)
 }
-*/
 
 type Frontend struct {
-	L      hclog.Logger
-	client *control.Client
-	hub    *hub.Hub
-	// LabelResolver LabelResolver
-	// Connector     Connector
+	L       hclog.Logger
+	client  *control.Client
+	hub     Connector
 	Checker HostnameChecker
+	token   string
 }
 
-func NewFrontend(L hclog.Logger, h *hub.Hub, cl *control.Client) (*Frontend, error) {
+func NewFrontend(L hclog.Logger, h Connector, cl *control.Client, token string) (*Frontend, error) {
 	return &Frontend{
 		L:      L,
 		client: cl,
 		hub:    h,
+		token:  token,
 	}, nil
 }
 
@@ -86,7 +86,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		usingPrefix          bool
 	)
 
-	accountId, target, err := f.client.ResolveLabelLink(ll)
+	account, target, err := f.client.ResolveLabelLink(ll)
 	if err != nil || target == nil {
 		prefixHost, deployId, usingPrefix = f.extractPrefixHost(req.Host)
 		if !usingPrefix {
@@ -102,7 +102,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			},
 		}
 
-		accountId, target, err = f.client.ResolveLabelLink(ll)
+		account, target, err = f.client.ResolveLabelLink(ll)
 		if err != nil || target == nil {
 			f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
 			http.Error(w, fmt.Sprintf("no registered application for hostname: %s", req.Host), http.StatusInternalServerError)
@@ -124,7 +124,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		"content-length", req.ContentLength,
 	)
 
-	services, err := f.client.LookupService(ctx, accountId, target)
+	services, err := f.client.LookupService(ctx, account, target)
 	if err != nil {
 		f.L.Error("error resolving labels to services", "error", err, "labels", target)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -132,6 +132,10 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if len(services) == 0 {
+		f.L.Error("no deployments for service",
+			"account", account,
+			"target", target,
+		)
 		http.Error(w, "no deployments for service", http.StatusNotFound)
 		return
 	}
@@ -164,7 +168,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		})
 	}
 
-	wctx, err := f.hub.ConnectToService(ctx, rs, accountId, "http")
+	wctx, err := f.hub.ConnectToService(ctx, rs, account, "http", f.token)
 	if err != nil {
 		f.L.Error("error connecting to service", "error", err, "labels", target)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

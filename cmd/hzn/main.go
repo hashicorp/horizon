@@ -304,6 +304,12 @@ func (h *hubRunner) Synopsis() string {
 }
 
 func (h *hubRunner) Run(args []string) int {
+	L := hclog.L().Named("hub")
+
+	if os.Getenv("DEBUG") != "" {
+		L.SetLevel(hclog.Trace)
+	}
+
 	token := os.Getenv("TOKEN")
 	if token == "" {
 		log.Fatal("missing TOKEN")
@@ -316,12 +322,29 @@ func (h *hubRunner) Run(args []string) int {
 
 	port := os.Getenv("PORT")
 	if port == "" {
-		log.Fatal("missing PORT")
+		L.Info("defaulting port to 443")
+		port = "443"
 	}
+
+	httpPort := os.Getenv("HTTP_PORT")
 
 	ctx := context.Background()
 
-	id := pb.NewULID()
+	sid := os.Getenv("STABLE_ID")
+	if sid == "" {
+		log.Fatal("missing STABLE_ID")
+	}
+
+	webNamespace := os.Getenv("WEB_NAMESPACE")
+	if webNamespace == "" {
+		L.Info("defaulting to namespace for frontend", "namespace", "/waypoint")
+		webNamespace = "/waypoint"
+	}
+
+	id, err := pb.ParseULID(sid)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	tmpdir, err := ioutil.TempDir("", "hzn")
 	if err != nil {
@@ -340,26 +363,6 @@ func (h *hubRunner) Run(args []string) int {
 
 	defer client.Close(ctx)
 
-	err = client.BootstrapConfig(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	go client.Run(ctx)
-
-	ln, err := net.Listen("tcp", ":"+port)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	defer ln.Close()
-
-	L := hclog.L()
-	hb, err := hub.NewHub(L, client)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	var labels *pb.LabelSet
 
 	strLabels := os.Getenv("LOCATION_LABELS")
@@ -372,8 +375,43 @@ func (h *hubRunner) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	err = client.BootstrapConfig(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	go func() {
+		err := client.Run(ctx)
+		if err != nil {
+			L.Error("error running control client background tasks", "error", err)
+		}
+	}()
+
+	L.Info("generating token to access accounts for web")
+	serviceToken, err := client.RequestServiceToken(ctx, webNamespace)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ln, err := net.Listen("tcp", ":"+port)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer ln.Close()
+
+	hb, err := hub.NewHub(L, client, serviceToken)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	for _, loc := range locs {
 		L.Info("learned network location", "labels", loc.Labels, "addresses", loc.Addresses)
+	}
+
+	if httpPort != "" {
+		L.Info("listen on http", "port", httpPort)
+		go hb.ListenHTTP(":" + httpPort)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

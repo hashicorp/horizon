@@ -49,10 +49,6 @@ type serviceContext struct {
 	writeHijack bool
 }
 
-func (s *serviceContext) AccountId() *pb.ULID {
-	return s.Context.AccountId()
-}
-
 var (
 	ErrReadHijacked  = errors.New("read hijacked, structured access not available")
 	ErrWriteHijacked = errors.New("write hijacked, structured access not available")

@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
+	"github.com/hashicorp/horizon/pkg/web"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
 	"github.com/pierrec/lz4"
@@ -46,9 +47,12 @@ type Hub struct {
 	wg sync.WaitGroup
 
 	location []*pb.NetworkLocation
+
+	mux *http.ServeMux
+	fe  *web.Frontend
 }
 
-func NewHub(L hclog.Logger, client *control.Client) (*Hub, error) {
+func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error) {
 	cfg := yamux.DefaultConfig()
 	cfg.EnableKeepAlive = true
 	cfg.KeepAliveInterval = 30 * time.Second
@@ -63,7 +67,17 @@ func NewHub(L hclog.Logger, client *control.Client) (*Hub, error) {
 		active: make(map[string]*agentConnection),
 		cc:     client,
 		id:     client.Id(),
+		mux:    http.NewServeMux(),
 	}
+
+	fe, err := web.NewFrontend(L, h, client, feToken)
+	if err != nil {
+		return nil, err
+	}
+
+	h.fe = fe
+	h.mux.HandleFunc("/__hzn/healthz", h.handleHeathz)
+	h.mux.Handle("/", h.fe)
 
 	return h, nil
 }
@@ -84,7 +98,7 @@ func (hub *Hub) Run(ctx context.Context, li net.Listener) error {
 		"hzn": hub.handleHZN,
 	}
 
-	err := hub.cc.RunIngress(ctx, li, npn)
+	err := hub.cc.RunIngress(ctx, li, npn, hub)
 	if err != nil {
 		if no, ok := err.(*net.OpError); ok {
 			if no.Err.Error() == "use of closed network connection" {
@@ -102,6 +116,10 @@ func (hub *Hub) WaitToDrain() error {
 	hub.wg.Wait()
 
 	return nil
+}
+
+func (hub *Hub) ListenHTTP(addr string) error {
+	return http.ListenAndServe(addr, hub)
 }
 
 func (hub *Hub) handleHZN(hs *http.Server, tlsConn *tls.Conn, h http.Handler) {
@@ -126,40 +144,35 @@ func (h *Hub) ValidateToken(stoken string) (*token.ValidToken, error) {
 }
 
 type agentConn struct {
-	ID        *pb.ULID
-	AccountId *pb.ULID
-	Start     *pb.Timestamp
-	End       *pb.Timestamp
-	Services  int32
+	ID       *pb.ULID
+	Account  *pb.Account
+	Start    *pb.Timestamp
+	End      *pb.Timestamp
+	Services int32
 
 	ActiveStreams *int64
 	TotalStreams  *int64
 
-	stoken string
+	stoken   string
+	preamble *pb.Preamble
+
+	token *token.ValidToken
+
+	sess    *yamux.Session
+	useLZ4  bool
+	cleanup func()
 }
 
-func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
-	defer conn.Close()
-
-	fr, err := wire.NewFramingReader(conn)
-	if err != nil {
-		h.L.Error("error creating frame reader", "error", err)
-		return
-	}
-
-	defer fr.Recycle()
-
+func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.FramingWriter) (*agentConn, error) {
 	var preamble pb.Preamble
 
 	tag, _, err := fr.ReadMarshal(&preamble)
 	if err != nil {
-		h.L.Error("error decoding preamble", "error", err)
-		return
+		return nil, errors.Wrapf(err, "error decoding preamble")
 	}
 
 	if tag != 1 {
-		h.L.Error("protocol error detected in preamble", "tag", tag)
-		return
+		return nil, errors.Wrapf(err, "protocol error detected in preamble - wrong tag")
 	}
 
 	ts := time.Now()
@@ -179,25 +192,17 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		useLZ4 = true
 	}
 
-	fw, err := wire.NewFramingWriter(conn)
-	if err != nil {
-		h.L.Error("error creating frame writer", "error", err)
-		return
-	}
-
-	fw.Recycle()
-
 	vt, err := h.ValidateToken(preamble.Token)
 	if err != nil {
-		h.L.Error("invalid token recieved", "error", err)
+		h.L.Error("invalid token received", "error", err)
 		wc.Status = "bad-token"
 
 		_, err = fw.WriteMarshal(1, &wc)
 		if err != nil {
-			h.L.Error("error marshaling confirmation", "error", err)
+			return nil, errors.Wrapf(err, "error marshalling confirmation")
 		}
 
-		return
+		return nil, errors.Wrapf(err, "invalid token received")
 	}
 
 	if len(preamble.Services) > 0 {
@@ -207,19 +212,16 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 			_, err = fw.WriteMarshal(1, &wc)
 			if err != nil {
-				h.L.Error("error marshaling confirmation", "error", err)
+				return nil, errors.Wrapf(err, "error marshalling confirmation")
 			}
 
-			return
+			return nil, errors.Wrapf(ErrProtocolError, "token not authorized to serve")
 		}
 	}
 
 	for _, serv := range preamble.Services {
 		err = h.cc.AddService(ctx, &pb.ServiceRequest{
-			Account: &pb.Account{
-				Namespace: vt.AccountNamespace(),
-				AccountId: vt.AccountId(),
-			},
+			Account:  vt.Account(),
 			Hub:      h.id,
 			Id:       serv.ServiceId,
 			Type:     serv.Type,
@@ -228,20 +230,26 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		})
 
 		if err != nil {
-			h.L.Error("error adding services", "error", err)
-			return
+			return nil, errors.Wrapf(err, "error adding services")
 		}
 
-		h.L.Debug("adding service", "hub", h.id, "service", serv.ServiceId, "labels", serv.Labels.SpecString)
+		h.L.Debug("adding service",
+			"hub", h.id,
+			"service", serv.ServiceId,
+			"labels", serv.Labels.SpecString(),
+			"account", vt.Account(),
+		)
 	}
 
-	defer func() {
+	_, err = fw.WriteMarshal(1, &wc)
+	if err != nil {
+		return nil, errors.Wrapf(err, "error marshalling confirmation")
+	}
+
+	cleanup := func() {
 		for _, serv := range preamble.Services {
 			err = h.cc.RemoveService(ctx, &pb.ServiceRequest{
-				Account: &pb.Account{
-					Namespace: vt.AccountNamespace(),
-					AccountId: vt.AccountId(),
-				},
+				Account:  vt.Account(),
 				Hub:      h.id,
 				Id:       serv.ServiceId,
 				Type:     serv.Type,
@@ -254,15 +262,78 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 				// we want to try all of them regardless of the error.
 			}
 		}
-	}()
+	}
 
-	_, err = fw.WriteMarshal(1, &wc)
+	ai := &agentConn{
+		ID:            pb.NewULID(),
+		Account:       vt.Account(),
+		Services:      int32(len(preamble.Services)),
+		ActiveStreams: new(int64),
+		TotalStreams:  new(int64),
+		stoken:        preamble.Token,
+		preamble:      &preamble,
+		token:         vt,
+		useLZ4:        useLZ4,
+		cleanup:       cleanup,
+	}
+
+	return ai, nil
+}
+
+func (h *Hub) registerAgent(ai *agentConn) error {
+	h.mu.Lock()
+	for _, serv := range ai.preamble.Services {
+		h.active[serv.ServiceId.SpecString()] = &agentConnection{
+			useLZ4:  ai.useLZ4,
+			session: ai.sess,
+		}
+	}
+	h.mu.Unlock()
+
+	old := ai.cleanup
+	ai.cleanup = func() {
+		h.mu.Lock()
+		for _, serv := range ai.preamble.Services {
+			delete(h.active, serv.ServiceId.SpecString())
+		}
+		h.mu.Unlock()
+
+		if old != nil {
+			old()
+		}
+	}
+
+	return nil
+}
+
+func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
+	defer conn.Close()
+
+	fr, err := wire.NewFramingReader(conn)
 	if err != nil {
-		h.L.Error("error marshaling confirmation", "error", err)
+		h.L.Error("error creating frame reader", "error", err)
 		return
 	}
 
-	fw.Recycle()
+	defer fr.Recycle()
+
+	fw, err := wire.NewFramingWriter(conn)
+	if err != nil {
+		h.L.Error("error creating frame writer", "error", err)
+		return
+	}
+
+	defer fw.Recycle()
+
+	ai, err := h.handshake(ctx, fr, fw)
+	if err != nil {
+		h.L.Error("error in agent handshake", "error", err)
+		return
+	}
+
+	if ai.cleanup != nil {
+		defer ai.cleanup()
+	}
 
 	bc := &wire.ComposedConn{
 		Reader: fr.BufReader(),
@@ -278,30 +349,11 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	defer sess.Close()
 
-	h.mu.Lock()
-	for _, serv := range preamble.Services {
-		h.active[serv.ServiceId.SpecString()] = &agentConnection{
-			useLZ4:  useLZ4,
-			session: sess,
-		}
-	}
-	h.mu.Unlock()
+	ai.sess = sess
 
-	defer func() {
-		h.mu.Lock()
-		defer h.mu.Unlock()
-		for _, serv := range preamble.Services {
-			delete(h.active, serv.ServiceId.SpecString())
-		}
-	}()
-
-	ai := &agentConn{
-		ID:            pb.NewULID(),
-		AccountId:     vt.AccountId(),
-		Services:      int32(len(preamble.Services)),
-		ActiveStreams: new(int64),
-		TotalStreams:  new(int64),
-		stoken:        preamble.Token,
+	err = h.registerAgent(ai)
+	if err != nil {
+		h.L.Error("error registering agent", "error", err)
 	}
 
 	h.sendAgentInfoFlow(ai)
@@ -332,7 +384,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		stream, err := sess.AcceptStream()
 		if err != nil {
 			if err == io.EOF {
-				h.L.Info("agent disconnected", "session", preamble.SessionId)
+				h.L.Info("agent disconnected", "session", ai.preamble.SessionId)
 			} else {
 				h.L.Error("error accepting new yamux session", "error", err)
 			}
@@ -345,14 +397,14 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 		h.sendAgentInfoFlow(ai)
 
-		h.L.Trace("stream accepted", "id", stream.StreamID(), "lz4", useLZ4)
+		h.L.Trace("stream accepted", "id", stream.StreamID(), "lz4", ai.useLZ4)
 
 		var (
 			r io.Reader = stream
 			w io.Writer = stream
 		)
 
-		if useLZ4 {
+		if ai.useLZ4 {
 			r = lz4.NewReader(stream)
 			w = lz4.NewWriter(stream)
 		}
@@ -373,10 +425,10 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 		defer fw.Recycle()
 
-		wctx := wire.NewContext(vt.AccountId(), fr, fw)
+		wctx := wire.NewContext(ai.token.Account(), fr, fw)
 
 		h.L.Trace("accepted yamux session", "id", stream.StreamID())
 
-		go h.handleAgentStream(ctx, ai, vt, stream, wctx)
+		go h.handleAgentStream(ctx, ai, stream, wctx)
 	}
 }

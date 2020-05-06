@@ -4,6 +4,7 @@ import (
 	context "context"
 	"crypto/ed25519"
 	"crypto/tls"
+	"encoding/hex"
 	io "io"
 	"io/ioutil"
 	"net"
@@ -22,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
@@ -179,6 +181,10 @@ func (c *Client) StableId() *pb.ULID {
 	return c.cfg.Id
 }
 
+func (c *Client) AuthToken() string {
+	return c.cfg.Token
+}
+
 func (c *Client) SetLocations(netloc []*pb.NetworkLocation) {
 	c.netloc = netloc
 }
@@ -211,15 +217,20 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 	if resp.S3AccessKey != "" {
 		L := ctxlog.L(ctx)
 
-		L.Info("reconfiguring s3 access to use server provided credentials")
+		L.Info("reconfiguring s3 access to use server provided credentials",
+			"bucket", resp.S3Bucket,
+			"access-key", resp.S3AccessKey,
+			"token-pub", hex.EncodeToString(c.tokenPub),
+		)
 
 		var cfg aws.Config
 
-		cfg.WithCredentials(credentials.NewStaticCredentials("server", resp.S3AccessKey, resp.S3SecretKey))
+		cfg.WithCredentials(credentials.NewStaticCredentials(resp.S3AccessKey, resp.S3SecretKey, ""))
 
 		c.cfg.Session = session.New(&cfg)
 		c.s3api = s3.New(c.cfg.Session)
 
+		c.bucket = resp.S3Bucket
 		c.cfg.S3Bucket = resp.S3Bucket
 	}
 
@@ -232,19 +243,19 @@ func (c *Client) TokenPub() ed25519.PublicKey {
 
 type NPNHandler func(hs *http.Server, c *tls.Conn, h http.Handler)
 
-func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string]NPNHandler) error {
+func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string]NPNHandler, h http.Handler) error {
 	L := ctxlog.L(ctx)
 
-	var cfg tls.Config
-	cfg.Certificates = []tls.Certificate{
-		{
-			Certificate: [][]byte{c.tlsCert},
-			PrivateKey:  ed25519.PrivateKey(c.tlsKey),
-		},
+	cert, err := tls.X509KeyPair(c.tlsCert, c.tlsKey)
+	if err != nil {
+		return err
 	}
 
+	var cfg tls.Config
+	cfg.Certificates = []tls.Certificate{cert}
+
 	hs := &http.Server{
-		Handler:   c,
+		Handler:   h,
 		TLSConfig: &cfg,
 	}
 
@@ -267,10 +278,6 @@ func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string
 	L.Info("client ingress running")
 
 	return hs.ServeTLS(li, "", "")
-}
-
-func (c *Client) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	w.WriteHeader(200)
 }
 
 func (c *Client) AddService(ctx context.Context, serv *pb.ServiceRequest) error {
@@ -310,7 +317,7 @@ func (c *Client) RemoveService(ctx context.Context, serv *pb.ServiceRequest) err
 	return err
 }
 
-func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *pb.LabelSet) ([]*pb.ServiceRoute, error) {
+func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels *pb.LabelSet) ([]*pb.ServiceRoute, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -327,7 +334,7 @@ func (c *Client) LookupService(ctx context.Context, accountId *pb.ULID, labels *
 		}
 	}
 
-	accStr := accountId.SpecString()
+	accStr := account.StringKey()
 
 	info, ok := c.accountServices[accStr]
 	if !ok {
@@ -391,9 +398,18 @@ func (c *Client) refreshAcconut(L hclog.Logger, info *accountInfo) {
 
 	resp, err := c.s3api.GetObject(obj)
 	if err != nil {
-		// Until we can figure out how to detect it, assume that an error here means
-		// we got a 304 and the file isn't updated.
-		L.Info("error downloading account data - benign due to 304s", "error", err)
+		if rf, ok := err.(awserr.RequestFailure); ok {
+			if rf.StatusCode() == 304 {
+				L.Trace("account data not modified", "key", info.S3Key)
+				return
+			}
+
+			if rf.StatusCode() == 404 {
+				L.Trace("no account data available", info.S3Key)
+				return
+			}
+		}
+		L.Error("error fetching account data", "error", err, "key", info.S3Key, "bucket", c.bucket)
 		return
 	}
 
@@ -460,7 +476,7 @@ func (c *Client) checkAccounts(L hclog.Logger) {
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	L := ctxlog.L(ctx)
+	L := c.L
 
 	err := c.updateLabelLinks(ctx, L)
 	if err != nil {
@@ -521,7 +537,10 @@ func (c *Client) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 			c.checkAccounts(L)
-			c.updateLabelLinks(ctx, L)
+			err := c.updateLabelLinks(ctx, L)
+			if err != nil {
+				L.Error("error updating label links", "error", err)
+			}
 		case ev, ok := <-activityChan:
 			if !ok {
 				break
@@ -535,10 +554,10 @@ func (c *Client) Run(ctx context.Context) error {
 
 func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev *pb.CentralActivity) {
 	for _, acc := range ev.AccountServices {
-		u := acc.Account.AccountId
+		u := acc.Account.StringKey()
 
 		c.mu.RLock()
-		info, ok := c.accountServices[u.SpecString()]
+		info, ok := c.accountServices[u]
 		if ok {
 			info.LastUse = time.Now()
 		}
@@ -565,8 +584,11 @@ func (c *Client) ForceLabelLinkUpdate(ctx context.Context, L hclog.Logger) error
 
 func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 	if c.bucket == "" {
+		L.Debug("no bucket configured, not updating label links")
 		return nil
 	}
+
+	L.Trace("updating label links")
 
 	tmp, err := ioutil.TempFile(c.workDir, "label-links")
 	if err != nil {
@@ -586,6 +608,18 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 
 	resp, err := c.s3api.GetObjectWithContext(ctx, obj)
 	if err != nil {
+		if rf, ok := err.(awserr.RequestFailure); ok {
+			if rf.StatusCode() == 304 {
+				L.Trace("label links not modified")
+				return nil
+			}
+
+			if rf.StatusCode() == 404 {
+				L.Trace("no label links available")
+				return nil
+			}
+		}
+
 		if s3e, ok := err.(awserr.Error); ok {
 			if s3e.Code() == s3.ErrCodeNoSuchKey {
 				return nil
@@ -637,10 +671,26 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 
 	c.labelLinks = &lls
 
+	L.Info("label links updated", "etag", c.lastLabelMD5, "size", len(c.labelLinks.LabelLinks))
+
+	if L.IsTrace() {
+		spew.Config.DisableMethods = true
+		spew.Dump(c.labelLinks)
+	}
+
+	for _, ll := range c.labelLinks.LabelLinks {
+		L.Trace("label link entry",
+			"label", ll.Labels,
+			"account", ll.Account.AccountId,
+			"namespace", ll.Account.Namespace,
+			"target", ll.Target,
+		)
+	}
+
 	return err
 }
 
-func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.ULID, *pb.LabelSet, error) {
+func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet, error) {
 	c.labelMu.RLock()
 	defer c.labelMu.RUnlock()
 
@@ -652,7 +702,7 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.ULID, *pb.LabelSet, e
 
 	for _, ll := range c.labelLinks.LabelLinks {
 		if ll.Labels.Equal(label) {
-			return ll.Account.AccountId, ll.Target, nil
+			return ll.Account, ll.Target, nil
 		}
 	}
 
@@ -681,4 +731,16 @@ func (c *Client) GetHubAddresses(ctx context.Context, id *pb.ULID) ([]*pb.Networ
 	}
 
 	return nil, nil
+}
+
+func (c *Client) RequestServiceToken(ctx context.Context, namespace string) (string, error) {
+	resp, err := c.client.RequestServiceToken(ctx, &pb.ServiceTokenRequest{
+		Namespace: namespace,
+	})
+
+	if err != nil {
+		return "", err
+	}
+
+	return resp.Token, nil
 }

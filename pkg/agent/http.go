@@ -73,7 +73,7 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Se
 		return err
 	}
 
-	n, _ := io.Copy(sctx.BodyWriter(), hresp.Body)
+	n, _ := io.Copy(sctx.Writer(), hresp.Body)
 
 	L.Info("request ended", "size", n)
 

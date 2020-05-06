@@ -17,13 +17,11 @@ import (
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/jinzhu/gorm"
-	"github.com/oklog/ulid"
 	"github.com/pkg/errors"
 )
 
-func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, account []byte) ([]byte, error) {
-	var u ulid.ULID
-	copy(u[:], account)
+func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account) ([]byte, error) {
+	key := account.Key()
 
 	var lastId int64
 
@@ -43,7 +41,7 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 		default:
 		}
 
-		err := dbx.Check(db.Where("account_id = ?", account).Where("id > ?", lastId).Limit(100).Find(&services))
+		err := dbx.Check(db.Where("account_id = ?", key).Where("id > ?", lastId).Limit(100).Find(&services))
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				break
@@ -83,10 +81,7 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 	return zstd.Compress(nil, data)
 }
 
-func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account []byte) error {
-	var u ulid.ULID
-	copy(u[:], account)
-
+func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account) error {
 	outData, err := s.calculateAccountRouting(ctx, db, account)
 	if err != nil {
 		return err
@@ -96,9 +91,9 @@ func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account 
 	h.Write(outData)
 	sum := h.Sum(nil)
 
-	key := fmt.Sprintf("account_services/%s", u.String())
+	key := fmt.Sprintf("account_services/%s", account.StringKey())
 
-	lockKey := "account-" + u.String()
+	lockKey := "account-" + account.StringKey()
 
 	strMD5 := base64.StdEncoding.EncodeToString(sum)
 
@@ -209,12 +204,15 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 		}
 
 		for _, ll := range lls {
+			account, err := pb.AccountFromKey(ll.AccountID)
+			if err != nil {
+				return err
+			}
+
 			out.LabelLinks = append(out.LabelLinks, &pb.LabelLink{
-				Account: &pb.Account{
-					AccountId: pb.ULIDFromBytes(ll.AccountID),
-				},
-				Labels: ExplodeLabels(ll.Labels),
-				Target: ExplodeLabels(ll.Target),
+				Account: account,
+				Labels:  ExplodeLabels(ll.Labels),
+				Target:  ExplodeLabels(ll.Target),
 			})
 		}
 

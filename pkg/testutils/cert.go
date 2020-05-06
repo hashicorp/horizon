@@ -1,17 +1,19 @@
 package testutils
 
 import (
+	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/pem"
 	"math/big"
 	"net"
 	"time"
 )
 
-func SelfSignedCert() ([]byte, ed25519.PrivateKey, error) {
+func SelfSignedCert() ([]byte, []byte, error) {
 	tlspub, tlspriv, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		return nil, nil, err
@@ -42,7 +44,25 @@ func SelfSignedCert() ([]byte, ed25519.PrivateKey, error) {
 	}
 
 	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, tlspub, tlspriv)
-	return derBytes, tlspriv, err
+
+	var certBuf, keyBuf bytes.Buffer
+
+	pem.Encode(&certBuf, &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: derBytes,
+	})
+
+	keybytes, err := x509.MarshalPKCS8PrivateKey(tlspriv)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	pem.Encode(&keyBuf, &pem.Block{
+		Type:  "PRIVATE KEY",
+		Bytes: keybytes,
+	})
+
+	return certBuf.Bytes(), keyBuf.Bytes(), nil
 }
 
 func TrustedTLSConfig(cert []byte) (*tls.Config, error) {

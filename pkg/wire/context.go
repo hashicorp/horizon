@@ -10,7 +10,7 @@ import (
 )
 
 type Context interface {
-	AccountId() *pb.ULID
+	Account() *pb.Account
 	ReadMarshal(v Unmarshaller) (byte, error)
 	WriteMarshal(tag byte, v Marshaller) error
 
@@ -29,7 +29,7 @@ type Context interface {
 }
 
 type ctx struct {
-	accountId *pb.ULID
+	accountId *pb.Account
 	fr        *FramingReader
 	fw        *FramingWriter
 
@@ -38,7 +38,7 @@ type ctx struct {
 	bytes    *int64
 }
 
-func NewContext(accountId *pb.ULID, fr *FramingReader, fw *FramingWriter) Context {
+func NewContext(accountId *pb.Account, fr *FramingReader, fw *FramingWriter) Context {
 	return &ctx{
 		accountId: accountId,
 		fr:        fr,
@@ -48,7 +48,7 @@ func NewContext(accountId *pb.ULID, fr *FramingReader, fw *FramingWriter) Contex
 	}
 }
 
-func (c *ctx) AccountId() *pb.ULID {
+func (c *ctx) Account() *pb.Account {
 	return c.accountId
 }
 

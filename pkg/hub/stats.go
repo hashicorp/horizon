@@ -12,7 +12,7 @@ func (h *Hub) sendAgentInfoFlow(ai *agentConn) {
 	rec.Agent = &pb.FlowRecord_AgentConnection{
 		HubId:         h.id,
 		AgentId:       ai.ID,
-		AccountId:     ai.AccountId,
+		Account:       ai.Account,
 		StartedAt:     ai.Start,
 		EndedAt:       ai.End,
 		NumServices:   ai.Services,

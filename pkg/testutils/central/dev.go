@@ -31,11 +31,12 @@ type DevSetup struct {
 	AgentToken     string
 	HubToken       string
 	HubAddr        string
-	AccountId      *pb.ULID
+	Account        *pb.Account
 	MgmtCtx        context.Context
 	ClientListener net.Listener
 	AwsSession     *session.Session
 	S3Bucket       string
+	HubServToken   string
 }
 
 func Dev(t *testing.T, f func(setup *DevSetup)) {
@@ -122,6 +123,25 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 		})
 	require.NoError(t, err)
 
+	hubServToken, err := s.CreateToken(
+		metadata.NewIncomingContext(ctx, md2),
+		&pb.CreateTokenRequest{
+			Account: &pb.Account{
+				AccountId: accountId,
+				Namespace: "/",
+			},
+			Capabilities: []pb.TokenCapability{
+				{
+					Capability: pb.ACCESS,
+					Value:      "/",
+				},
+				{
+					Capability: pb.CONNECT,
+				},
+			},
+		})
+	require.NoError(t, err)
+
 	gs := grpc.NewServer()
 	pb.RegisterControlServicesServer(gs, s)
 
@@ -174,19 +194,23 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 	defer ln.Close()
 
 	f(&DevSetup{
-		Top:            top,
-		DB:             db,
-		ControlClient:  client,
-		ControlServer:  s,
-		ServerAddr:     li.Addr().String(),
-		HubToken:       ctr.Token,
-		HubAddr:        fmt.Sprintf("127.0.0.1:%d", ln.Addr().(*net.TCPAddr).Port),
-		AgentToken:     agentToken.Token,
-		AccountId:      accountId,
+		Top:           top,
+		DB:            db,
+		ControlClient: client,
+		ControlServer: s,
+		ServerAddr:    li.Addr().String(),
+		HubToken:      ctr.Token,
+		HubAddr:       fmt.Sprintf("127.0.0.1:%d", ln.Addr().(*net.TCPAddr).Port),
+		AgentToken:    agentToken.Token,
+		Account: &pb.Account{
+			AccountId: accountId,
+			Namespace: "/",
+		},
 		MgmtCtx:        metadata.NewIncomingContext(top, md2),
 		ClientListener: ln,
 		AwsSession:     sess,
 		S3Bucket:       bucket,
+		HubServToken:   hubServToken.Token,
 	})
 }
 

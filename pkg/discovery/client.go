@@ -1,12 +1,15 @@
 package discovery
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 )
@@ -24,7 +27,14 @@ func NewClient(surl string) (*Client, error) {
 	if err != nil {
 		surl = fmt.Sprintf("https://%s/%s", surl, HTTPPath)
 	} else {
-		if u.Path == "" {
+		if u.Scheme == "" {
+			u.Scheme = "https"
+		}
+
+		spew.Dump(u.Host, u.Path)
+
+		if u.Host == "" && u.Path != "" {
+			u.Host = u.Path
 			u.Path = HTTPPath
 		}
 
@@ -43,7 +53,15 @@ func NewClient(surl string) (*Client, error) {
 }
 
 func (c *Client) Refresh() error {
-	resp, err := http.Get(c.URL)
+	client := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+	}
+
+	resp, err := client.Get(c.URL)
 	if err != nil {
 		return err
 	}
@@ -72,11 +90,14 @@ func (c *Client) Best(count int) ([]string, error) {
 		Timeout: 5 * time.Second,
 	}
 
+	spew.Dump(c.lastData.Hubs)
+
 	locs, err := netloc.FindBest(&netloc.BestInput{
 		Count:  count,
 		Local:  c.location,
 		Remote: c.lastData.Hubs,
 		Latency: func(addr string) error {
+			hclog.L().Info("testing latency", "addr", addr)
 			resp, err := client.Get(fmt.Sprintf("http://%s/healthz", addr))
 			if err == nil {
 				resp.Body.Close()

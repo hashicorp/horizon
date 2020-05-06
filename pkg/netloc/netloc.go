@@ -163,7 +163,7 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 			for _, key := range ipKeys {
 				if addrs, err := mdc.GetMetadata(key); err == nil && addrs != "" {
 					for _, addr := range forgivingSplit(addrs) {
-						if _, seen := privateAddrs[addr]; !seen {
+						if _, seen := publicAddrs[addr]; !seen {
 							publicAddrs[addr] = struct{}{}
 						}
 					}

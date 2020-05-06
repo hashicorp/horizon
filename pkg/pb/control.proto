@@ -130,6 +130,14 @@ message HubDisconnectRequest {
   ULID instance_id = 2;
 }
 
+message ServiceTokenRequest {
+  string namespace = 1;
+}
+
+message ServiceTokenResponse {
+  string token = 1;
+}
+
 service ControlServices {
   rpc AddService(ServiceRequest) returns (ServiceResponse) {}
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
@@ -138,6 +146,7 @@ service ControlServices {
   rpc SyncHub(HubSync) returns (HubSyncResponse) {}
   rpc HubDisconnect(HubDisconnectRequest) returns (Noop) {}
   rpc AllHubs(Noop) returns (ListOfHubs) {}
+  rpc RequestServiceToken(ServiceTokenRequest) returns (ServiceTokenResponse) {}
 }
 
 message AddLabelLinkRequest {

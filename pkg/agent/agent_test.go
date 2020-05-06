@@ -27,7 +27,7 @@ func TestAgent(t *testing.T) {
 				Level: hclog.Trace,
 			})
 
-			h, err := hub.NewHub(L.Named("hub"), setup.ControlClient)
+			h, err := hub.NewHub(L.Named("hub"), setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

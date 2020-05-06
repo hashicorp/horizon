@@ -28,6 +28,25 @@ func ULIDFromBytes(b []byte) *ULID {
 	}
 }
 
+func ParseULID(s string) (*ULID, error) {
+	id, err := ulid.Parse(s)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ULID{
+		Timestamp: id.Time(),
+		Entropy:   id.Entropy(),
+	}, nil
+}
+
+// Used when generating internal tokens for use by hub services
+var InternalAccount *ULID
+
+func init() {
+	InternalAccount, _ = ParseULID("01E7KKMY4HKNZWATXC6SDQ1V4D")
+}
+
 func (u *ULID) Time() time.Time {
 	return ulid.Time(u.Timestamp)
 }
