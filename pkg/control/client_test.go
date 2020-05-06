@@ -804,8 +804,17 @@ func TestClient(t *testing.T) {
 			"account=" + account.SpecString(),
 		}, ";")
 
-		assert.Equal(t, int64(55), int64(data[0].Counters["control-server.stream.messages;"+labels].Sum))
-		assert.Equal(t, int64(113332), int64(data[0].Counters["control-server.stream.bytes;"+labels].Sum))
+		require.True(t, len(data) > 0)
+
+		sample, ok := data[0].Counters["control-server.stream.messages;"+labels]
+		require.True(t, ok)
+
+		assert.Equal(t, int64(55), int64(sample.Sum))
+
+		sample, ok = data[0].Counters["control-server.stream.bytes;"+labels]
+		require.True(t, ok)
+
+		assert.Equal(t, int64(113332), int64(sample.Sum))
 
 		client.SendFlow(&pb.FlowRecord{
 			Stream: &pb.FlowStream{
@@ -1038,6 +1047,132 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, hr2.InstanceID, client.Id().Bytes())
+	})
+
+	t.Run("reconnects the activity stream if disconnected", func(t *testing.T) {
+		db, err := gorm.Open("pgtest", "server")
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
+		require.NoError(t, err)
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		gs := grpc.NewServer()
+		pb.RegisterControlServicesServer(gs, s)
+
+		li, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		id := pb.NewULID()
+
+		dir, err := ioutil.TempDir("", "hzn")
+		require.NoError(t, err)
+
+		defer os.RemoveAll(dir)
+
+		client, err := NewClient(ctx, ClientConfig{
+			Id:       id,
+			Token:    ctr.Token,
+			Version:  "test",
+			WorkDir:  dir,
+			Session:  sess,
+			S3Bucket: bucket,
+
+			Addr:     li.Addr().String(),
+			Insecure: true,
+		})
+
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithCancel(ctx)
+
+		defer cancel()
+
+		go client.Run(ctx)
+
+		time.Sleep(time.Second)
+
+		li.Close()
+
+		li, err = net.Listen("tcp", li.Addr().String())
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		// Setup the info so that we're tracking the account when the event arrives
+		client.accountServices[account.StringKey()] = &accountInfo{
+			MapKey:   account.StringKey(),
+			S3Key:    "account_services/" + account.HashKey(),
+			FileName: account.StringKey(),
+			Process:  make(chan struct{}),
+		}
+
+		serviceId := pb.NewULID()
+		labels := pb.ParseLabelSet("service=www,env=prod")
+
+		servReq := &pb.ServiceRequest{
+			Account: account,
+			Id:      serviceId,
+			Hub:     pb.NewULID(),
+			Type:    "test",
+			Labels:  labels,
+			Metadata: []*pb.KVPair{
+				{
+					Key:   "version",
+					Value: "0.1x",
+				},
+			},
+		}
+
+		_, err = client.client.AddService(ctx, servReq)
+		require.NoError(t, err)
+
+		var so Service
+		err = dbx.Check(db.First(&so))
+		require.NoError(t, err)
+
+		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
+
+		services, err := client.LookupService(ctx, account, labels)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(services))
+
+		assert.Equal(t, serviceId, services[0].Id)
 	})
 
 }

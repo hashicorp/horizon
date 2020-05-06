@@ -30,7 +30,9 @@ import (
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	gcreds "google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/status"
 )
 
 type Peer struct {
@@ -100,6 +102,7 @@ type ClientConfig struct {
 	S3Bucket string
 	Session  *session.Session
 	WorkDir  string
+	Insecure bool
 
 	// Where hub integrates it's handler for the hzn protocol
 	NextProto map[string]func(hs *http.Server, tlsConn *tls.Conn, h http.Handler)
@@ -117,15 +120,23 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 
 	gClient := cfg.Client
 	if gClient == nil && cfg.Addr != "" {
-		creds := gcreds.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-		})
-
-		gcc, err = grpc.Dial(cfg.Addr,
+		opts := []grpc.DialOption{
 			grpc.WithPerRPCCredentials(Token(cfg.Token)),
 			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
-			grpc.WithTransportCredentials(creds),
-		)
+		}
+
+		if cfg.Insecure {
+			opts = append(opts, grpc.WithInsecure())
+		} else {
+
+			creds := gcreds.NewTLS(&tls.Config{
+				InsecureSkipVerify: true,
+			})
+
+			opts = append(opts, grpc.WithTransportCredentials(creds))
+		}
+
+		gcc, err = grpc.Dial(cfg.Addr, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -475,6 +486,57 @@ func (c *Client) checkAccounts(L hclog.Logger) {
 	}
 }
 
+func (c *Client) streamActivity(
+	ctx context.Context, L hclog.Logger, ch chan *pb.CentralActivity,
+) (
+	pb.ControlServices_StreamActivityClient, error,
+) {
+	activity, err := c.client.StreamActivity(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = activity.Send(&pb.HubActivity{
+		HubReg: &pb.HubActivity_HubRegistration{
+			Hub:       c.instanceId,
+			StableHub: c.cfg.Id,
+			Locations: c.netloc,
+		},
+		SentAt: pb.NewTimestamp(time.Now()),
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	L.Info("waiting on server activity")
+
+	go func() {
+		defer close(ch)
+
+		for {
+			ca, err := activity.Recv()
+			if err != nil {
+				if status, ok := status.FromError(err); ok && status.Code() == codes.Canceled {
+					return
+				}
+
+				L.Error("error reading activity", "error", err)
+				return
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case ch <- ca:
+				// ok
+			}
+		}
+	}()
+
+	return activity, nil
+}
+
 func (c *Client) Run(ctx context.Context) error {
 	L := c.L
 
@@ -488,44 +550,12 @@ func (c *Client) Run(ctx context.Context) error {
 	activityChan := make(chan *pb.CentralActivity)
 
 	if c.client != nil {
-		activity, err = c.client.StreamActivity(ctx)
+		activity, err = c.streamActivity(ctx, L, activityChan)
 		if err != nil {
 			return err
 		}
-
-		err = activity.Send(&pb.HubActivity{
-			HubReg: &pb.HubActivity_HubRegistration{
-				Hub:       c.instanceId,
-				StableHub: c.cfg.Id,
-				Locations: c.netloc,
-			},
-			SentAt: pb.NewTimestamp(time.Now()),
-		})
-
-		if err != nil {
-			return err
-		}
-
-		L.Info("waiting on server activity")
 
 		defer activity.CloseSend()
-		go func() {
-			defer close(activityChan)
-
-			for {
-				ca, err := activity.Recv()
-				if err != nil {
-					return
-				}
-
-				select {
-				case <-ctx.Done():
-					return
-				case activityChan <- ca:
-					// ok
-				}
-			}
-		}()
 	}
 
 	ticker := time.NewTicker(time.Minute)
@@ -543,11 +573,32 @@ func (c *Client) Run(ctx context.Context) error {
 			}
 		case ev, ok := <-activityChan:
 			if !ok {
-				break
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				default:
+				}
+
+				L.Error("detected activity stream closed, reconnecting...")
+				activityChan = make(chan *pb.CentralActivity)
+				for {
+					activity, err = c.streamActivity(ctx, L, activityChan)
+					if err == nil {
+						break
+					}
+				}
+				L.Info("rebootstraping after activity stream reconnection")
+				err = c.BootstrapConfig(ctx)
+				if err != nil {
+					L.Error("error bootstraping new configuration", "error", err)
+				}
+			} else {
+				c.processCentralActivity(ctx, L, ev)
 			}
-			c.processCentralActivity(ctx, L, ev)
 		case act := <-c.hubActivity:
-			activity.Send(act)
+			if activity != nil {
+				activity.Send(act)
+			}
 		}
 	}
 }
