@@ -197,6 +197,7 @@ func (h *llCreate) Run(args []string) int {
 	token := fs.String("token", "", "Token to authenticate with control server")
 	gLabel := fs.String("label", "", "global label")
 	acc := fs.String("account", "", "account for the label")
+	namespace := fs.String("namespace", "/waypoint", "namespace to assign to this managament client")
 	tLabel := fs.String("target", "", "target label")
 
 	err := fs.Parse(args)
@@ -245,7 +246,7 @@ func (h *llCreate) Run(args []string) int {
 		Labels: gls,
 		Account: &pb.Account{
 			AccountId: accId,
-			Namespace: "/waypoint",
+			Namespace: *namespace,
 		},
 		Target: tls,
 	})

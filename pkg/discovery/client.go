@@ -93,9 +93,10 @@ func (c *Client) Best(count int) ([]string, error) {
 	spew.Dump(c.lastData.Hubs)
 
 	locs, err := netloc.FindBest(&netloc.BestInput{
-		Count:  count,
-		Local:  c.location,
-		Remote: c.lastData.Hubs,
+		Count:      count,
+		Local:      c.location,
+		Remote:     c.lastData.Hubs,
+		PublicOnly: true,
 		Latency: func(addr string) error {
 			hclog.L().Info("testing latency", "addr", addr)
 			resp, err := client.Get(fmt.Sprintf("http://%s/healthz", addr))

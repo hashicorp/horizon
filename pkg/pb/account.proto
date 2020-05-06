@@ -1,10 +1,12 @@
 syntax = "proto3";
 
 import "ulid.proto";
+import "defs/gogo.proto";
 
 package pb;
 
 message Account {
+  option (gogoproto.stringer) =  false;
   string namespace = 1;
   ULID account_id = 2;
 }

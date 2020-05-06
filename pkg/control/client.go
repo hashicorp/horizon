@@ -340,7 +340,7 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 	if !ok {
 		info = &accountInfo{
 			MapKey:   accStr,
-			S3Key:    "account_services/" + accStr,
+			S3Key:    "account_services/" + account.HashKey(),
 			LastUse:  time.Now(),
 			FileName: accStr,
 			Process:  make(chan struct{}),

@@ -419,7 +419,7 @@ func TestClient(t *testing.T) {
 		// Setup the info so that we're tracking the account when the event arrives
 		client.accountServices[account.StringKey()] = &accountInfo{
 			MapKey:   account.StringKey(),
-			S3Key:    "account_services/" + account.StringKey(),
+			S3Key:    "account_services/" + account.HashKey(),
 			FileName: account.StringKey(),
 			Process:  make(chan struct{}),
 		}

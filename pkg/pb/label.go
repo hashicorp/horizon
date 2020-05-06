@@ -55,6 +55,16 @@ func (ls *LabelSet) String() string {
 	return strings.Join(ls.AsStringArray(), ", ")
 }
 
+func (ls *LabelSet) Contains(name, value string) bool {
+	for _, lbl := range ls.Labels {
+		if lbl.Name == name && lbl.Value == value {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (ls *LabelSet) Scan(src interface{}) error {
 	ary, ok := src.(pq.StringArray)
 	if !ok {

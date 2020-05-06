@@ -91,9 +91,11 @@ func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account 
 	h.Write(outData)
 	sum := h.Sum(nil)
 
-	key := fmt.Sprintf("account_services/%s", account.StringKey())
+	accountKey := account.HashKey()
 
-	lockKey := "account-" + account.StringKey()
+	key := fmt.Sprintf("account_services/%s", accountKey)
+
+	lockKey := "account-" + accountKey
 
 	strMD5 := base64.StdEncoding.EncodeToString(sum)
 

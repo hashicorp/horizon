@@ -607,7 +607,7 @@ func TestServer(t *testing.T) {
 
 		resp, err := s3api.GetObject(&s3.GetObjectInput{
 			Bucket: aws.String(s.bucket),
-			Key:    aws.String("account_services/" + account.StringKey()),
+			Key:    aws.String("account_services/" + account.HashKey()),
 		})
 
 		require.NoError(t, err)
@@ -649,7 +649,7 @@ func TestServer(t *testing.T) {
 
 		resp, err = s3api.GetObject(&s3.GetObjectInput{
 			Bucket: aws.String(s.bucket),
-			Key:    aws.String("account_services/" + account.StringKey()),
+			Key:    aws.String("account_services/" + account.HashKey()),
 		})
 
 		require.NoError(t, err)

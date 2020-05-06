@@ -8,9 +8,10 @@ import (
 )
 
 type BestInput struct {
-	Count  int
-	Local  []*pb.NetworkLocation
-	Remote []*pb.NetworkLocation
+	Count      int
+	Local      []*pb.NetworkLocation
+	Remote     []*pb.NetworkLocation
+	PublicOnly bool
 
 	Latency func(addr string) error
 }
@@ -20,7 +21,15 @@ type BestInput struct {
 func FindBest(input *BestInput) ([]*pb.NetworkLocation, error) {
 	var best []*pb.NetworkLocation
 
-	best = append(best, input.Remote...)
+	if input.PublicOnly {
+		for _, loc := range input.Remote {
+			if !loc.Labels.Contains("type", "private") {
+				best = append(best, loc)
+			}
+		}
+	} else {
+		best = append(best, input.Remote...)
+	}
 
 	cards := make([]int, len(best))
 

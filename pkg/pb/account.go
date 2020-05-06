@@ -3,6 +3,9 @@ package pb
 import (
 	"bytes"
 	"errors"
+
+	"github.com/mr-tron/base58"
+	"golang.org/x/crypto/blake2b"
 )
 
 // Collapse the Account to an unambigious sequence
@@ -26,6 +29,21 @@ func (a *Account) StringKey() string {
 
 func (a *Account) SpecString() string {
 	return a.StringKey()
+}
+
+func (a *Account) String() string {
+	return a.StringKey()
+}
+
+// Hash the data and present a stable hash key useful for use
+// in things like file and url paths.
+func (a *Account) HashKey() string {
+	h, _ := blake2b.New256(nil)
+	h.Write([]byte("hznaccount"))
+	h.Write([]byte(a.Namespace))
+	h.Write(a.AccountId.Bytes())
+
+	return base58.Encode(h.Sum(nil))
 }
 
 var ErrInvalidAccount = errors.New("invalid account key")
