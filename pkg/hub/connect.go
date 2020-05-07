@@ -182,6 +182,8 @@ func (h *Hub) connectToRemoteService(
 
 	L.Trace("spawning connection to peer hub", "hub", target.Hub, "addr", addr)
 
+	// TODO: rather than spinning up a new session each time, use a connection
+	// pool.
 	session, err := connect.Connect(L, addr, token)
 	if err != nil {
 		return nil, err
@@ -196,5 +198,5 @@ func (h *Hub) connectToRemoteService(
 		return nil, err
 	}
 
-	return conn.WireContext(account), nil
+	return wire.WithCloser(conn.WireContext(account), session.Close), nil
 }

@@ -77,6 +77,11 @@ func (cc *closeCtx) Close() error {
 		}
 	}
 
+	parent := cc.Context.Close()
+	if parent != nil {
+		err = multierror.Append(err, parent)
+	}
+
 	return err
 }
 

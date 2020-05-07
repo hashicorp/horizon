@@ -188,9 +188,10 @@ type agentConn struct {
 
 	token *token.ValidToken
 
-	sess    *yamux.Session
-	useLZ4  bool
-	cleanup func()
+	sess        *yamux.Session
+	useLZ4      bool
+	cleanup     func()
+	connectOnly bool
 }
 
 func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.FramingWriter) (*agentConn, error) {
@@ -305,6 +306,7 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 		token:         vt,
 		useLZ4:        useLZ4,
 		cleanup:       cleanup,
+		connectOnly:   len(preamble.Services) == 0,
 	}
 
 	return ai, nil
@@ -386,9 +388,11 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	ai.sess = sess
 
-	err = h.registerAgent(ai)
-	if err != nil {
-		h.L.Error("error registering agent", "error", err)
+	if !ai.connectOnly {
+		err = h.registerAgent(ai)
+		if err != nil {
+			h.L.Error("error registering agent", "error", err)
+		}
 	}
 
 	h.sendAgentInfoFlow(ai)

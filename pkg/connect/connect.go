@@ -3,8 +3,11 @@ package connect
 import (
 	"crypto/tls"
 	"errors"
+	"net"
+	"sync/atomic"
 	"time"
 
+	"github.com/armon/go-metrics"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/wire"
@@ -12,6 +15,7 @@ import (
 )
 
 type Session struct {
+	conn    net.Conn
 	session *yamux.Session
 }
 
@@ -22,6 +26,11 @@ type Conn struct {
 }
 
 var ErrInvalidToken = errors.New("invalid token")
+
+// We're trying this because in a busy system it could be a limiting
+// factor so having it pre-tracked will be useful.
+// TODO(emp): expose this via expvar or something like that.
+var activeSessions = new(int64)
 
 func Connect(L hclog.Logger, addr, token string) (*Session, error) {
 	var clientTlsConfig tls.Config
@@ -81,7 +90,18 @@ func Connect(L hclog.Logger, addr, token string) (*Session, error) {
 		return nil, err
 	}
 
-	return &Session{session: session}, nil
+	val := atomic.AddInt64(activeSessions, 1)
+	metrics.SetGauge([]string{"connect", "sessions"}, float32(val))
+
+	return &Session{conn: cconn, session: session}, nil
+}
+
+func (s *Session) Close() error {
+	val := atomic.AddInt64(activeSessions, -1)
+	metrics.SetGauge([]string{"connect", "sessions"}, float32(val))
+
+	s.session.Close()
+	return s.conn.Close()
 }
 
 func (s *Session) ConnecToAccountService(acc *pb.Account, labels *pb.LabelSet) (*Conn, error) {
