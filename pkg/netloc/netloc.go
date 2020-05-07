@@ -2,7 +2,6 @@ package netloc
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -11,6 +10,8 @@ import (
 	"sort"
 	"syscall"
 	"time"
+
+	"gortc.io/stun"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/ec2metadata"
@@ -47,7 +48,11 @@ func forgivingSplit(str string) []string {
 	return splitRe.Split(str, -1)
 }
 
-var privateIPBlocks []*net.IPNet
+var (
+	privateIPBlocks []*net.IPNet
+	ipv6Loopback    *net.IPNet
+	ipv6LinkLocal   *net.IPNet
+)
 
 func init() {
 	for _, cidr := range []string{
@@ -66,6 +71,9 @@ func init() {
 		}
 		privateIPBlocks = append(privateIPBlocks, block)
 	}
+
+	_, ipv6Loopback, _ = net.ParseCIDR("::1/128")
+	_, ipv6LinkLocal, _ = net.ParseCIDR("fe80::/10")
 }
 
 func isPrivateIP(ip net.IP) bool {
@@ -95,28 +103,88 @@ func v4onlyDial() func(context.Context, string, string) (net.Conn, error) {
 	}).DialContext
 }
 
-func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
-	mdc, err := ec2MetaClient("", 5*time.Second)
+const (
+	stunHost = "stun1.l.google.com"
+	stunPort = "19302"
+)
+
+func gatherIPsViaStun(c chan []net.IP) {
+	defer close(c)
+
+	ips, err := net.LookupIP(stunHost)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	var globalPub []*pb.Label
+	var mine []net.IP
 
-	labels := pb.ParseLabelSet("type=private")
+	for _, ip := range ips {
+		c, err := stun.Dial("udp", net.JoinHostPort(ip.String(), stunPort))
+		if err != nil {
+			continue
+		}
 
-	if defaultLabels != nil {
-		labels.Labels = append(labels.Labels, defaultLabels.Labels...)
-		globalPub = append([]*pb.Label{}, defaultLabels.Labels...)
+		// Building binding request with random transaction id.
+		message := stun.MustBuild(stun.TransactionID, stun.BindingRequest)
+
+		var (
+			inErr error
+			ip    net.IP
+		)
+
+		// Sending request to STUN server, waiting for response message.
+		err = c.Do(message, func(res stun.Event) {
+			if res.Error != nil {
+				inErr = res.Error
+				return
+			}
+
+			// Decoding XOR-MAPPED-ADDRESS attribute from message.
+			var xorAddr stun.XORMappedAddress
+			if err := xorAddr.GetFrom(res.Message); err != nil {
+				inErr = err
+				return
+			}
+
+			ip = xorAddr.IP
+		})
+
+		if err != nil {
+			continue
+		}
+
+		if inErr != nil {
+			continue
+		}
+
+		mine = append(mine, ip)
 	}
 
-	privateAddrs := map[string]struct{}{}
-	publicAddrs := map[string]struct{}{}
-	publicAddrs6 := map[string]struct{}{}
+	c <- mine
+}
 
-	if id, err := mdc.GetMetadata("ami-id"); err == nil && id != "" {
+type ec2Info struct {
+	privateAddrs []string
+	publicAddrs  []string
+	publicAddrs6 []string
+
+	privateLabels []*pb.Label
+	publicLabels  []*pb.Label
+}
+
+func getEC2Labels(c chan *ec2Info) {
+	defer close(c)
+
+	mdc, err := ec2MetaClient("", 2*time.Second)
+	if err != nil {
+		return
+	}
+
+	info := &ec2Info{}
+
+	if mdc.Available() {
 		if ii, err := mdc.GetMetadata("instance-id"); err == nil && ii != "" {
-			labels.Labels = append(labels.Labels, &pb.Label{
+			info.privateLabels = append(info.privateLabels, &pb.Label{
 				Name:  "instance-id",
 				Value: ii,
 			})
@@ -124,19 +192,19 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 
 		if mac, err := mdc.GetMetadata("mac"); err == nil && mac != "" {
 			if si, err := mdc.GetMetadata("network/interfaces/macs/" + mac + "/subnet-id"); err == nil && si != "" {
-				labels.Labels = append(labels.Labels, &pb.Label{
+				info.privateLabels = append(info.privateLabels, &pb.Label{
 					Name:  "subnet-id",
 					Value: si,
 				})
 			}
 
 			if vi, err := mdc.GetMetadata("network/interfaces/macs/" + mac + "/vpc-id"); err == nil && vi != "" {
-				labels.Labels = append(labels.Labels, &pb.Label{
+				info.privateLabels = append(info.privateLabels, &pb.Label{
 					Name:  "vpc-id",
 					Value: vi,
 				})
 
-				globalPub = append(globalPub, &pb.Label{
+				info.publicLabels = append(info.publicLabels, &pb.Label{
 					Name:  "vpc-id",
 					Value: vi,
 				})
@@ -148,11 +216,7 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 
 			for _, key := range ipKeys {
 				if addrs, err := mdc.GetMetadata(key); err == nil && addrs != "" {
-					for _, addr := range forgivingSplit(addrs) {
-						if _, seen := privateAddrs[addr]; !seen {
-							privateAddrs[addr] = struct{}{}
-						}
-					}
+					info.privateAddrs = append(info.privateAddrs, forgivingSplit(addrs)...)
 				}
 			}
 
@@ -162,11 +226,7 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 
 			for _, key := range ipKeys {
 				if addrs, err := mdc.GetMetadata(key); err == nil && addrs != "" {
-					for _, addr := range forgivingSplit(addrs) {
-						if _, seen := publicAddrs[addr]; !seen {
-							publicAddrs[addr] = struct{}{}
-						}
-					}
+					info.publicAddrs = append(info.publicAddrs, forgivingSplit(addrs)...)
 				}
 			}
 
@@ -176,16 +236,46 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 
 			for _, key := range ipKeys {
 				if addrs, err := mdc.GetMetadata(key); err == nil && addrs != "" {
-					for _, addr := range forgivingSplit(addrs) {
-						if _, seen := publicAddrs6[addr]; !seen {
-							publicAddrs6[addr] = struct{}{}
-						}
-					}
+					info.publicAddrs6 = append(info.publicAddrs6, forgivingSplit(addrs)...)
 				}
 			}
-
 		}
 	}
+
+	c <- info
+}
+
+// Sorts it's input
+func uniq(input []string) []string {
+	sort.Strings(input)
+
+	var (
+		out  []string
+		last string
+	)
+
+	for _, s := range input {
+		if s == last {
+			continue
+		}
+
+		out = append(out, s)
+		last = s
+	}
+
+	return out
+}
+
+func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
+	ec2InfoC := make(chan *ec2Info, 1)
+
+	go getEC2Labels(ec2InfoC)
+
+	stunIPsC := make(chan []net.IP, 1)
+
+	go gatherIPsViaStun(stunIPsC)
+
+	var privateAddrs, publicAddrs, publicAddrs6 []string
 
 	ifaces, err := net.Interfaces()
 	if err != nil {
@@ -201,227 +291,101 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 		for _, addr := range addrs {
 			if ipaddr, ok := addr.(*net.IPNet); ok {
 				ip := ipaddr.IP
-				if _, seen := privateAddrs[ip.String()]; !seen {
-					if ipv4 := ip.To4(); ipv4 != nil {
-						if !ipv4.IsGlobalUnicast() {
-							continue
-						}
+				if ipv4 := ip.To4(); ipv4 != nil {
+					if !ipv4.IsGlobalUnicast() {
+						continue
+					}
 
-						if isPrivateIP(ipv4) {
-							privateAddrs[ip.String()] = struct{}{}
-							if _, seen := privateAddrs[ip.String()]; seen {
-								continue
-							}
-						} else {
-							publicAddrs[ip.String()] = struct{}{}
-							if _, seen := publicAddrs[ip.String()]; seen {
-								continue
-							}
-						}
-					} else if ipv6 := ipaddr.IP.To16(); ipv6 != nil {
-						if isPrivateIP(ipv6) {
-							privateAddrs[ip.String()] = struct{}{}
-							if _, seen := privateAddrs[ip.String()]; seen {
-								continue
-							}
-						} else {
-							publicAddrs6[ip.String()] = struct{}{}
-							if _, seen := publicAddrs6[ip.String()]; seen {
-								continue
-							}
-						}
+					if isPrivateIP(ipv4) {
+						privateAddrs = append(privateAddrs, ip.String())
+					} else {
+						publicAddrs = append(publicAddrs, ip.String())
+					}
+				} else if ipv6 := ipaddr.IP.To16(); ipv6 != nil {
+					if ipv6Loopback.Contains(ipv6) || ipv6LinkLocal.Contains(ipv6) {
+						continue
+					}
+
+					if isPrivateIP(ipv6) {
+						privateAddrs = append(privateAddrs, ip.String())
+					} else {
+						publicAddrs6 = append(publicAddrs6, ip.String())
 					}
 				}
 			}
 		}
 	}
 
-	pubLabels := pb.ParseLabelSet("type=public")
-	pubLabels6 := pb.ParseLabelSet("type=public")
+	var (
+		privateLabels = pb.ParseLabelSet("type=private")
+		pubLabels     = pb.ParseLabelSet("type=public")
+		pubLabels6    = pb.ParseLabelSet("type=public")
+	)
 
-	pubLabels.Labels = append(pubLabels.Labels, globalPub...)
-	pubLabels6.Labels = append(pubLabels6.Labels, globalPub...)
-
-	client := &http.Client{
-		Timeout:   5 * time.Second,
-		Transport: cleanhttp.DefaultTransport(),
+	if defaultLabels != nil {
+		privateLabels.Labels = append(privateLabels.Labels, defaultLabels.Labels...)
+		pubLabels.Labels = append(pubLabels.Labels, defaultLabels.Labels...)
+		pubLabels6.Labels = append(pubLabels6.Labels, defaultLabels.Labels...)
 	}
 
-	/*
-			{
-		  "ip": "2605:e000:151f:c3a6:815b:5ac8:7d4f:5797",
-		  "ip_decimal": 50541168590408281122263404391741478807,
-		  "country": "United States",
-		  "country_eu": false,
-		  "country_iso": "US",
-		  "city": "Los Angeles",
-		  "latitude": 34.0762,
-		  "longitude": -118.3029,
-		  "asn": "AS20001",
-		  "asn_org": "TWC-20001-PACWEST",
-		  "user_agent": {
-		    "product": "Mozilla",
-		    "version": "5.0",
-		    "comment": "(Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36",
-		    "raw_value": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.122 Safari/537.36"
-		  }
-		}
-	*/
+	if info, ok := <-ec2InfoC; ok {
+		privateLabels.Labels = append(privateLabels.Labels, info.privateLabels...)
+		pubLabels.Labels = append(pubLabels.Labels, info.publicLabels...)
+		pubLabels6.Labels = append(pubLabels6.Labels, info.publicLabels...)
 
-	var ifInfo struct {
-		IP        string      `json:"ip"`
-		ASN       string      `json:"asn"`
-		Country   string      `json:"country_iso"`
-		Latitude  json.Number `json:"latitude"`
-		Longitude json.Number `json:"longitude"`
+		privateAddrs = append(privateAddrs, info.privateAddrs...)
+		publicAddrs = append(publicAddrs, info.publicAddrs...)
+		publicAddrs6 = append(publicAddrs6, info.publicAddrs...)
 	}
 
-	resp, err := client.Get(LookupURL)
-	if err == nil {
-		defer resp.Body.Close()
-
-		err = json.NewDecoder(resp.Body).Decode(&ifInfo)
-		if err == nil {
-			ip := net.ParseIP(ifInfo.IP)
-			if ip != nil {
-				labels := []*pb.Label{
-					{
-						Name:  "asn",
-						Value: ifInfo.ASN,
-					},
-					{
-						Name:  "country",
-						Value: ifInfo.Country,
-					},
-					{
-						Name:  "location",
-						Value: fmt.Sprintf("%s, %s", ifInfo.Latitude, ifInfo.Longitude),
-					},
-				}
-
-				if ip.To16() != nil {
-					if _, seen := publicAddrs6[ifInfo.IP]; !seen {
-						publicAddrs6[ifInfo.IP] = struct{}{}
-					}
-
-					pubLabels6.Labels = append(pubLabels6.Labels, labels...)
-
-					// Ok, do it again but v4 only
-
-					tp := cleanhttp.DefaultTransport()
-					tp.DialContext = v4onlyDial()
-					client = &http.Client{
-						Timeout:   5 * time.Second,
-						Transport: tp,
-					}
-
-					resp, err := client.Get(LookupURL)
-					if err == nil {
-						defer resp.Body.Close()
-
-						err = json.NewDecoder(resp.Body).Decode(&ifInfo)
-						if err == nil {
-							ip := net.ParseIP(ifInfo.IP)
-							if ip != nil {
-								if _, seen := publicAddrs[ifInfo.IP]; !seen {
-									publicAddrs[ifInfo.IP] = struct{}{}
-								}
-
-								pubLabels.Labels = append(pubLabels.Labels, []*pb.Label{
-									{
-										Name:  "asn",
-										Value: ifInfo.ASN,
-									},
-									{
-										Name:  "country",
-										Value: ifInfo.Country,
-									},
-									{
-										Name:  "location",
-										Value: fmt.Sprintf("%s, %s", ifInfo.Latitude, ifInfo.Longitude),
-									},
-								}...)
-							}
-						}
-					}
-				} else {
-					if _, seen := publicAddrs[ifInfo.IP]; !seen {
-						publicAddrs[ifInfo.IP] = struct{}{}
-					}
-					pubLabels.Labels = append(pubLabels.Labels, labels...)
-				}
+	if ips, ok := <-stunIPsC; ok {
+		for _, ip := range ips {
+			if ip.To4() != nil {
+				publicAddrs = append(publicAddrs, ip.String())
+			} else {
+				publicAddrs6 = append(publicAddrs6, ip.String())
 			}
 		}
 	}
 
-	var netlocs []*pb.NetworkLocation
-
-	labels.Finalize()
+	privateLabels.Finalize()
 	pubLabels.Finalize()
 	pubLabels6.Finalize()
 
-	var addrs []string
+	var netlocs []*pb.NetworkLocation
 
-	for addr := range privateAddrs {
-		addrs = append(addrs, addr)
-	}
+	privateAddrs = uniq(privateAddrs)
+	publicAddrs = uniq(publicAddrs)
+	publicAddrs6 = uniq(publicAddrs6)
 
-	if len(addrs) != 0 {
-		sort.Strings(addrs)
-
+	if len(privateAddrs) != 0 {
 		netlocs = append(netlocs, &pb.NetworkLocation{
-			Addresses: addrs,
-			Labels:    labels,
+			Addresses: privateAddrs,
+			Labels:    privateLabels,
 		})
 	}
 
 	// Simplify the output if the v4 and v6 labels are the same (common case)
 	if pubLabels.Equal(pubLabels6) {
-		addrs = nil
-
-		for addr := range publicAddrs {
-			addrs = append(addrs, addr)
-		}
-
-		for addr := range publicAddrs6 {
-			addrs = append(addrs, addr)
-		}
+		addrs := append(publicAddrs, publicAddrs6...)
 
 		if len(addrs) != 0 {
-			sort.Strings(addrs)
-
 			netlocs = append(netlocs, &pb.NetworkLocation{
 				Addresses: addrs,
 				Labels:    pubLabels,
 			})
 		}
 	} else {
-		addrs = nil
-
-		for addr := range publicAddrs {
-			addrs = append(addrs, addr)
-		}
-
-		if len(addrs) != 0 {
-			sort.Strings(addrs)
-
+		if len(publicAddrs) != 0 {
 			netlocs = append(netlocs, &pb.NetworkLocation{
-				Addresses: addrs,
+				Addresses: publicAddrs,
 				Labels:    pubLabels,
 			})
 		}
 
-		addrs = nil
-
-		for addr := range publicAddrs6 {
-			addrs = append(addrs, addr)
-		}
-
-		if len(addrs) != 0 {
-			sort.Strings(addrs)
-
+		if len(publicAddrs6) != 0 {
 			netlocs = append(netlocs, &pb.NetworkLocation{
-				Addresses: addrs,
+				Addresses: publicAddrs6,
 				Labels:    pubLabels6,
 			})
 		}

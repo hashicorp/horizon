@@ -25,3 +25,13 @@ func (l *NetworkLocation) Cardinality(r *NetworkLocation) int {
 
 	return card
 }
+
+func (l *NetworkLocation) IsPublic() bool {
+	for _, lbl := range l.Labels.Labels {
+		if lbl.Name == "type" {
+			return lbl.Value == "public"
+		}
+	}
+
+	return false
+}

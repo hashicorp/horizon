@@ -35,7 +35,12 @@ func (wk *WellKnown) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	var dd DiscoveryData
 	dd.ServerTime = time.Now()
-	dd.Hubs = netlocs
+
+	for _, loc := range netlocs {
+		if loc.IsPublic() {
+			dd.Hubs = append(dd.Hubs, loc)
+		}
+	}
 
 	err = json.NewEncoder(w).Encode(&dd)
 	if err != nil {

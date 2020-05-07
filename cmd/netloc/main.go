@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 
@@ -9,6 +10,7 @@ import (
 )
 
 func main() {
+	fmt.Fprintf(os.Stderr, "Gathering locations...\n")
 	locs, err := netloc.Locate(nil)
 	if err != nil {
 		log.Fatal(err)

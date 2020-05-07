@@ -49,4 +49,5 @@ require (
 	google.golang.org/grpc v1.28.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
+	gortc.io/stun v1.22.2
 )
