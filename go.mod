@@ -11,14 +11,13 @@ require (
 	github.com/caddyserver/certmagic v0.10.3
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fatih/color v1.9.0 // indirect
-	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/go-acme/lego/v3 v3.5.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang-migrate/migrate/v4 v4.10.0
 	github.com/golang/protobuf v1.4.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.1
-	github.com/hashicorp/go-hclog v0.12.1
+	github.com/hashicorp/go-hclog v0.13.0
 	github.com/hashicorp/go-immutable-radix v1.2.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
@@ -38,6 +37,7 @@ require (
 	github.com/pierrec/lz4 v2.2.6+incompatible
 	github.com/pierrec/lz4/v3 v3.3.2
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.4.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.5.1
 	go.etcd.io/bbolt v1.3.3
@@ -49,5 +49,4 @@ require (
 	google.golang.org/grpc v1.28.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	gopkg.in/yaml.v2 v2.2.8 // indirect
-	gotest.tools v2.2.0+incompatible
 )

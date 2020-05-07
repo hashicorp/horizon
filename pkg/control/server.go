@@ -14,9 +14,12 @@ import (
 
 	"cirello.io/dynamolock"
 	"github.com/armon/go-metrics"
+	"github.com/armon/go-metrics/datadog"
+	"github.com/armon/go-metrics/prometheus"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/go-hclog"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	_ "github.com/hashicorp/horizon/pkg/grpc/lz4"
@@ -71,6 +74,10 @@ type Server struct {
 
 	mux   *http.ServeMux
 	asnDB *geoip2.Reader
+
+	activeAgents *int64
+
+	hubAgents *lru.ARCCache
 }
 
 type ServerConfig struct {
@@ -93,13 +100,44 @@ type ServerConfig struct {
 
 	HubAccessKey string
 	HubSecretKey string
+
+	DataDogAddr      string
+	EnablePrometheus bool
 }
 
 func NewServer(cfg ServerConfig) (*Server, error) {
-	mcfg := metrics.DefaultConfig("control-server")
-	msink := metrics.NewInmemSink(time.Minute, time.Hour)
+	L := cfg.Logger
+	if L == nil {
+		L = hclog.L()
+	}
 
-	me, err := metrics.New(mcfg, msink)
+	mcfg := metrics.DefaultConfig("control")
+	mcfg.EnableHostname = false
+	mcfg.EnableRuntimeMetrics = false
+
+	var fanout metrics.FanoutSink
+
+	psink, err := prometheus.NewPrometheusSinkFrom(prometheus.PrometheusOpts{
+		Expiration: time.Hour,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	msink := metrics.NewInmemSink(time.Minute, time.Hour)
+	fanout = append(fanout, msink, psink)
+
+	if cfg.DataDogAddr != "" {
+		L.Info("configured to send stats to datadog")
+		msink, err := datadog.NewDogStatsdSink(cfg.DataDogAddr, mcfg.HostName)
+		if err != nil {
+			return nil, err
+		}
+		fanout = append(fanout, msink)
+	}
+
+	me, err := metrics.New(mcfg, fanout)
 	if err != nil {
 		return nil, err
 	}
@@ -109,9 +147,9 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 
-	L := cfg.Logger
-	if L == nil {
-		L = hclog.L()
+	hubAgents, err := lru.NewARC(1000)
+	if err != nil {
+		return nil, err
 	}
 
 	s := &Server{
@@ -132,6 +170,8 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		msink:         msink,
 		flowTop:       flowTop,
 		mux:           http.NewServeMux(),
+		hubAgents:     hubAgents,
+		activeAgents:  new(int64),
 	}
 
 	s.setupRoutes()
@@ -474,13 +514,29 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 
 			s.m.SetGaugeWithLabels([]string{"hub", "streams"}, float32(rec.Agent.ActiveStreams), labels)
 		}
+
+		if rec.HubStats != nil {
+			key := rec.HubStats.HubId.String()
+			cur, ok := s.hubAgents.Get(key)
+			if !ok {
+				atomic.AddInt64(s.activeAgents, rec.HubStats.ActiveAgents)
+				s.hubAgents.Add(key, rec.HubStats.ActiveAgents)
+			} else {
+				curActive := cur.(int64)
+				diff := rec.HubStats.ActiveAgents - curActive
+				if diff != 0 {
+					atomic.AddInt64(s.activeAgents, diff)
+				}
+			}
+			s.m.SetGauge([]string{"agents", "active"}, float32(atomic.LoadInt64(s.activeAgents)))
+		}
 	}
 
 	atomic.AddInt64(ch.messages, mdiff)
 	atomic.AddInt64(ch.bytes, bdiff)
 
-	s.m.IncrCounter([]string{"server", "messages"}, float32(mdiff))
-	s.m.IncrCounter([]string{"server", "bytes"}, float32(bdiff))
+	s.m.IncrCounter([]string{"total", "messages"}, float32(mdiff))
+	s.m.IncrCounter([]string{"total", "bytes"}, float32(bdiff))
 }
 
 func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {

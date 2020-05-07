@@ -23,7 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
@@ -268,6 +267,9 @@ func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string
 	hs := &http.Server{
 		Handler:   h,
 		TLSConfig: &cfg,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
 	}
 
 	conf := &http2.Server{
@@ -287,6 +289,13 @@ func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string
 	}
 
 	L.Info("client ingress running")
+
+	go func() {
+		<-ctx.Done()
+		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+		hs.Shutdown(ctx)
+	}()
 
 	return hs.ServeTLS(li, "", "")
 }
@@ -723,20 +732,6 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 	c.labelLinks = &lls
 
 	L.Info("label links updated", "etag", c.lastLabelMD5, "size", len(c.labelLinks.LabelLinks))
-
-	if L.IsTrace() {
-		spew.Config.DisableMethods = true
-		spew.Dump(c.labelLinks)
-	}
-
-	for _, ll := range c.labelLinks.LabelLinks {
-		L.Trace("label link entry",
-			"label", ll.Labels,
-			"account", ll.Account.AccountId,
-			"namespace", ll.Account.Namespace,
-			"target", ll.Target,
-		)
-	}
 
 	return err
 }

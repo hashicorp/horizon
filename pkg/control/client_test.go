@@ -806,12 +806,12 @@ func TestClient(t *testing.T) {
 
 		require.True(t, len(data) > 0)
 
-		sample, ok := data[0].Counters["control-server.stream.messages;"+labels]
+		sample, ok := data[0].Counters["control.stream.messages;"+labels]
 		require.True(t, ok)
 
 		assert.Equal(t, int64(55), int64(sample.Sum))
 
-		sample, ok = data[0].Counters["control-server.stream.bytes;"+labels]
+		sample, ok = data[0].Counters["control.stream.bytes;"+labels]
 		require.True(t, ok)
 
 		assert.Equal(t, int64(113332), int64(sample.Sum))
@@ -834,8 +834,8 @@ func TestClient(t *testing.T) {
 
 		data = s.msink.(*metrics.InmemSink).Data()
 
-		assert.Equal(t, int64(60), int64(data[0].Counters["control-server.stream.messages;"+labels].Sum))
-		assert.Equal(t, int64(113340), int64(data[0].Counters["control-server.stream.bytes;"+labels].Sum))
+		assert.Equal(t, int64(60), int64(data[0].Counters["control.stream.messages;"+labels].Sum))
+		assert.Equal(t, int64(113340), int64(data[0].Counters["control.stream.bytes;"+labels].Sum))
 
 		s.opsToken = "opsrocks"
 

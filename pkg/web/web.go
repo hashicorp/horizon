@@ -175,6 +175,8 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	defer wctx.Close()
+
 	err = wctx.WriteMarshal(1, &wreq)
 	if err != nil {
 		f.L.Error("error connecting to service", "error", err, "labels", target)

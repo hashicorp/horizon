@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/pkg/errors"
 )
@@ -26,6 +27,10 @@ type Context interface {
 	// Returns the total number of messages and bytes, respectively, that the
 	// context has transmitted.
 	Accounting() (int64, int64)
+
+	// Close the context and cleanup any resources. Does not close
+	// any IOs though.
+	Close() error
 }
 
 type ctx struct {
@@ -48,6 +53,33 @@ func NewContext(accountId *pb.Account, fr *FramingReader, fw *FramingWriter) Con
 	}
 }
 
+func (c *ctx) Close() error {
+	return nil
+}
+
+type closeCtx struct {
+	Context
+
+	closers []func() error
+}
+
+func WithCloser(ctx Context, closers ...func() error) Context {
+	return &closeCtx{Context: ctx, closers: closers}
+}
+
+func (cc *closeCtx) Close() error {
+	var err error
+
+	for _, f := range cc.closers {
+		serr := f()
+		if serr != nil {
+			err = multierror.Append(err, serr)
+		}
+	}
+
+	return err
+}
+
 func (c *ctx) Account() *pb.Account {
 	return c.accountId
 }
@@ -66,8 +98,14 @@ func (c *ctx) ReadMarshal(v Unmarshaller) (byte, error) {
 }
 
 func (c *ctx) WriteMarshal(tag byte, v Marshaller) error {
-	_, err := c.fw.WriteMarshal(tag, v)
-	return err
+	sz, err := c.fw.WriteMarshal(tag, v)
+	if err != nil {
+		return err
+	}
+
+	atomic.AddInt64(c.messages, 1)
+	atomic.AddInt64(c.bytes, int64(sz))
+	return nil
 }
 
 func (c *ctx) Writer() io.WriteCloser {
@@ -98,9 +136,6 @@ func (c *ctx) copyTo(octx *ctx) error {
 		if err != nil {
 			return err
 		}
-
-		atomic.AddInt64(c.messages, 1)
-		atomic.AddInt64(c.bytes, int64(sz))
 	}
 }
 

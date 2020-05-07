@@ -50,6 +50,9 @@ type Hub struct {
 
 	mux *http.ServeMux
 	fe  *web.Frontend
+
+	activeAgents *int64
+	totalAgents  *int64
 }
 
 func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error) {
@@ -62,12 +65,14 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 	cfg.LogOutput = nil
 
 	h := &Hub{
-		L:      L,
-		cfg:    cfg,
-		active: make(map[string]*agentConnection),
-		cc:     client,
-		id:     client.Id(),
-		mux:    http.NewServeMux(),
+		L:            L,
+		cfg:          cfg,
+		active:       make(map[string]*agentConnection),
+		cc:           client,
+		id:           client.Id(),
+		mux:          http.NewServeMux(),
+		activeAgents: new(int64),
+		totalAgents:  new(int64),
 	}
 
 	fe, err := web.NewFrontend(L, h, client, feToken)
@@ -98,6 +103,11 @@ func (hub *Hub) Run(ctx context.Context, li net.Listener) error {
 		"hzn": hub.handleHZN,
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	go hub.sendStats(ctx)
+
 	err := hub.cc.RunIngress(ctx, li, npn, hub)
 	if err != nil {
 		if no, ok := err.(*net.OpError); ok {
@@ -110,6 +120,26 @@ func (hub *Hub) Run(ctx context.Context, li net.Listener) error {
 	}
 
 	return nil
+}
+
+func (hub *Hub) sendStats(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			hub.cc.SendFlow(&pb.FlowRecord{
+				HubStats: &pb.FlowRecord_HubStats{
+					HubId:        hub.cc.StableId(),
+					ActiveAgents: atomic.LoadInt64(hub.activeAgents),
+					TotalAgents:  atomic.LoadInt64(hub.totalAgents),
+				},
+			})
+		}
+	}
 }
 
 func (hub *Hub) WaitToDrain() error {
@@ -281,6 +311,9 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 }
 
 func (h *Hub) registerAgent(ai *agentConn) error {
+	atomic.AddInt64(h.activeAgents, 1)
+	atomic.AddInt64(h.totalAgents, 1)
+
 	h.mu.Lock()
 	for _, serv := range ai.preamble.Services {
 		h.active[serv.ServiceId.SpecString()] = &agentConnection{
@@ -292,6 +325,8 @@ func (h *Hub) registerAgent(ai *agentConn) error {
 
 	old := ai.cleanup
 	ai.cleanup = func() {
+		atomic.AddInt64(h.activeAgents, -1)
+
 		h.mu.Lock()
 		for _, serv := range ai.preamble.Services {
 			delete(h.active, serv.ServiceId.SpecString())

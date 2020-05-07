@@ -10,7 +10,9 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -25,6 +27,8 @@ import (
 	"github.com/hashicorp/vault/api"
 	"github.com/jinzhu/gorm"
 	"github.com/mitchellh/cli"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 )
 
@@ -99,6 +103,31 @@ func hubFactory() (cli.Command, error) {
 	return &hubRunner{}, nil
 }
 
+func StartHealthz(L hclog.Logger) {
+	healthzPort := os.Getenv("HEALTHZ_PORT")
+	if healthzPort == "" {
+		healthzPort = "17001"
+	}
+
+	L.Info("starting healthz/metrics server", "port", healthzPort)
+
+	handlerOptions := promhttp.HandlerOpts{
+		ErrorLog:           L.Named("prometheus_handler").StandardLogger(nil),
+		ErrorHandling:      promhttp.ContinueOnError,
+		DisableCompression: true,
+	}
+
+	promHandler := promhttp.HandlerFor(prometheus.DefaultGatherer, handlerOptions)
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promHandler)
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	})
+
+	http.ListenAndServe(":"+healthzPort, mux)
+}
+
 type controlServer struct{}
 
 func (c *controlServer) Help() string {
@@ -110,7 +139,13 @@ func (c *controlServer) Synopsis() string {
 }
 
 func (c *controlServer) Run(args []string) int {
-	L := hclog.L()
+	L := hclog.New(&hclog.LoggerOptions{
+		Name:  "control",
+		Level: hclog.Info,
+		Exclude: hclog.ExcludeFuncs{
+			hclog.ExcludeByPrefix("http: TLS handshake error from").Exclude,
+		}.Exclude,
+	})
 
 	vcfg := api.DefaultConfig()
 
@@ -285,6 +320,8 @@ func (c *controlServer) Run(args []string) int {
 		}),
 	}
 
+	go StartHealthz(L)
+
 	err = hs.ListenAndServeTLS("", "")
 	if err != nil {
 		log.Fatal(err)
@@ -328,7 +365,19 @@ func (h *hubRunner) Run(args []string) int {
 
 	httpPort := os.Getenv("HTTP_PORT")
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGQUIT)
+
+	go func() {
+		for {
+			s := <-sigs
+			L.Info("signal received, closing down", "signal", s)
+			cancel()
+		}
+	}()
 
 	sid := os.Getenv("STABLE_ID")
 	if sid == "" {
@@ -361,7 +410,14 @@ func (h *hubRunner) Run(args []string) int {
 		WorkDir: tmpdir,
 	})
 
-	defer client.Close(ctx)
+	defer func() {
+		// Get a new context to process the closure because the main one
+		// is most likely closed. We also update ctx and cancel in the
+		// primary closure so that the signal can cancel the close if
+		// sent again.
+		ctx, cancel = context.WithCancel(context.Background())
+		client.Close(ctx)
+	}()
 
 	var labels *pb.LabelSet
 
@@ -414,8 +470,7 @@ func (h *hubRunner) Run(args []string) int {
 		go hb.ListenHTTP(":" + httpPort)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	go StartHealthz(L)
 
 	err = hb.Run(ctx, ln)
 	if err != nil {
