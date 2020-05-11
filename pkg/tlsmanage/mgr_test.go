@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/go-acme/lego/v3/certcrypto"
 	"github.com/go-acme/lego/v3/challenge/dns01"
 	"github.com/go-acme/lego/v3/lego"
@@ -202,8 +201,6 @@ func TestManager(t *testing.T) {
 
 		bcert, bkey, err := mgr.HubMaterial(ctx)
 		require.NoError(t, err)
-
-		spew.Dump(bcert, bkey)
 
 		tlsCert, err := tls.X509KeyPair(bcert, bkey)
 		require.NoError(t, err)

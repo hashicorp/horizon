@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/control"
@@ -117,12 +118,21 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		target.Finalize()
 	}
 
+	reqId := pb.NewULID()
+
 	f.L.Info("request",
+		"id", reqId,
 		"target", req.Host,
 		"method", req.Method,
 		"path", req.URL.Path,
 		"content-length", req.ContentLength,
 	)
+
+	start := time.Now()
+
+	defer func() {
+		f.L.Info("request finished", "id", reqId, "duration", time.Since(start))
+	}()
 
 	services, err := f.client.LookupService(ctx, account, target)
 	if err != nil {
@@ -206,5 +216,6 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	w.WriteHeader(int(wresp.Code))
 
+	f.L.Trace("copying request body", "id", reqId)
 	io.Copy(w, wctx.Reader())
 }

@@ -113,4 +113,67 @@ func TestHubUtil(t *testing.T) {
 		assert.Equal(t, "10.0.1.2", addr)
 	})
 
+	t.Run("picks a public address of the hub doesn't know it's location", func(t *testing.T) {
+		var h Hub
+
+		target := []*pb.NetworkLocation{
+			{
+				Addresses: []string{"10.74.6.232", "172.17.0.2"},
+				Labels:    pb.ParseLabelSet("instance-id=i-02af81bda71fbfd46, subnet-id=subnet-00d964b25bff9c50b, type=private, vpc-id=vpc-09b89aed62e06c836"),
+			},
+			{
+				Addresses: []string{"54.149.212.61", "54.149.212.61"},
+				Labels:    pb.ParseLabelSet("asn=AS16509, country=US, type=public, vpc-id=vpc-09b89aed62e06c836"),
+			},
+		}
+		target[1].Labels.Labels = append(target[1].Labels.Labels, &pb.Label{
+			Name:  "location",
+			Value: "45.8491, -119.7143",
+		})
+
+		addr, err := h.pickAddress(target)
+		require.NoError(t, err)
+
+		assert.Equal(t, "54.149.212.61", addr)
+	})
+
+	t.Run("works in the real words", func(t *testing.T) {
+		var h Hub
+		h.location = []*pb.NetworkLocation{
+			{
+				Labels:    pb.ParseLabelSet("instance-id=i-03082ea61de06c620, subnet-id=subnet-00d964b25bff9c50b, type=private, vpc-id=vpc-09b89aed62e06c836"),
+				Addresses: []string{"10.74.6.134", "172.17.0.2"},
+			},
+			{
+				Labels:    pb.ParseLabelSet("asn=AS16509, country=US, type=public, vpc-id=vpc-09b89aed62e06c836"),
+				Addresses: []string{"18.237.45.161", "18.237.45.161"},
+			},
+		}
+
+		h.location[1].Labels.Labels = append(h.location[1].Labels.Labels, &pb.Label{
+			Name:  "location",
+			Value: "45.8491, -119.7143",
+		})
+
+		target := []*pb.NetworkLocation{
+			{
+				Addresses: []string{"10.74.6.232", "172.17.0.2"},
+				Labels:    pb.ParseLabelSet("instance-id=i-02af81bda71fbfd46, subnet-id=subnet-00d964b25bff9c50b, type=private, vpc-id=vpc-09b89aed62e06c836"),
+			},
+			{
+				Addresses: []string{"54.149.212.61", "54.149.212.61"},
+				Labels:    pb.ParseLabelSet("asn=AS16509, country=US, type=public, vpc-id=vpc-09b89aed62e06c836"),
+			},
+		}
+		target[1].Labels.Labels = append(target[1].Labels.Labels, &pb.Label{
+			Name:  "location",
+			Value: "45.8491, -119.7143",
+		})
+
+		addr, err := h.pickAddress(target)
+		require.NoError(t, err)
+
+		assert.Equal(t, "54.149.212.61", addr)
+	})
+
 }

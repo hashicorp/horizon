@@ -62,13 +62,14 @@ func TestClient(t *testing.T) {
 	defer testutils.DeleteBucket(s3.New(sess), bucket)
 
 	scfg := ServerConfig{
-		VaultClient:   vc,
-		VaultPath:     pb.NewULID().SpecString(),
-		KeyId:         "k1",
-		RegisterToken: "aabbcc",
-		AwsSession:    sess,
-		Bucket:        bucket,
-		LockTable:     "hzntest",
+		VaultClient:       vc,
+		VaultPath:         pb.NewULID().SpecString(),
+		KeyId:             "k1",
+		RegisterToken:     "aabbcc",
+		AwsSession:        sess,
+		Bucket:            bucket,
+		LockTable:         "hzntest",
+		DisablePrometheus: true,
 	}
 
 	t.Run("can create and remove a service", func(t *testing.T) {

@@ -21,9 +21,17 @@ func SetupVault() *api.Client {
 		panic(err)
 	}
 
+	vc.SetToken(vt)
+
 	vc.Sys().Mount("transit", &api.MountInput{
 		Type: "transit",
 	})
 
+	vc.Sys().Mount("kv", &api.MountInput{
+		Type: "kv",
+		Options: map[string]string{
+			"version": "2",
+		},
+	})
 	return vc
 }

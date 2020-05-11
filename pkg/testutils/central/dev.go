@@ -71,14 +71,15 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 	defer db.Exec("TRUNCATE accounts CASCADE")
 
 	s, err := control.NewServer(control.ServerConfig{
-		DB:            db,
-		VaultClient:   vc,
-		VaultPath:     pb.NewULID().SpecString(),
-		KeyId:         "k1",
-		RegisterToken: "aabbcc",
-		AwsSession:    sess,
-		Bucket:        bucket,
-		LockTable:     "hzntest",
+		DB:                db,
+		VaultClient:       vc,
+		VaultPath:         pb.NewULID().SpecString(),
+		KeyId:             "k1",
+		RegisterToken:     "aabbcc",
+		AwsSession:        sess,
+		Bucket:            bucket,
+		LockTable:         "hzntest",
+		DisablePrometheus: true,
 	})
 	require.NoError(t, err)
 

@@ -199,6 +199,10 @@ func (c *Client) SetLocations(netloc []*pb.NetworkLocation) {
 	c.netloc = netloc
 }
 
+func (c *Client) Locations() []*pb.NetworkLocation {
+	return c.netloc
+}
+
 func (c *Client) LearnLocations(def *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 	locs, err := netloc.Locate(def)
 	if err != nil {
@@ -425,7 +429,7 @@ func (c *Client) refreshAcconut(L hclog.Logger, info *accountInfo) {
 			}
 
 			if rf.StatusCode() == 404 {
-				L.Trace("no account data available", info.S3Key)
+				L.Trace("no account data available", "key", info.S3Key)
 				return
 			}
 		}

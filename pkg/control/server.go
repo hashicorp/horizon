@@ -19,7 +19,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/go-hclog"
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	_ "github.com/hashicorp/horizon/pkg/grpc/lz4"
@@ -74,10 +73,6 @@ type Server struct {
 
 	mux   *http.ServeMux
 	asnDB *geoip2.Reader
-
-	activeAgents *int64
-
-	hubAgents *lru.ARCCache
 }
 
 type ServerConfig struct {
@@ -101,8 +96,8 @@ type ServerConfig struct {
 	HubAccessKey string
 	HubSecretKey string
 
-	DataDogAddr      string
-	EnablePrometheus bool
+	DataDogAddr       string
+	DisablePrometheus bool
 }
 
 func NewServer(cfg ServerConfig) (*Server, error) {
@@ -117,16 +112,20 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 
 	var fanout metrics.FanoutSink
 
-	psink, err := prometheus.NewPrometheusSinkFrom(prometheus.PrometheusOpts{
-		Expiration: time.Hour,
-	})
+	if !cfg.DisablePrometheus {
+		psink, err := prometheus.NewPrometheusSinkFrom(prometheus.PrometheusOpts{
+			Expiration: time.Hour,
+		})
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
+
+		fanout = append(fanout, psink)
 	}
 
 	msink := metrics.NewInmemSink(time.Minute, time.Hour)
-	fanout = append(fanout, msink, psink)
+	fanout = append(fanout, msink)
 
 	if cfg.DataDogAddr != "" {
 		L.Info("configured to send stats to datadog")
@@ -143,11 +142,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	}
 
 	flowTop, err := NewFlowTop(DefaultFlowTopSize)
-	if err != nil {
-		return nil, err
-	}
-
-	hubAgents, err := lru.NewARC(1000)
 	if err != nil {
 		return nil, err
 	}
@@ -170,8 +164,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		msink:         msink,
 		flowTop:       flowTop,
 		mux:           http.NewServeMux(),
-		hubAgents:     hubAgents,
-		activeAgents:  new(int64),
 	}
 
 	s.setupRoutes()
@@ -516,19 +508,14 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 		}
 
 		if rec.HubStats != nil {
-			key := rec.HubStats.HubId.String()
-			cur, ok := s.hubAgents.Get(key)
-			if !ok {
-				atomic.AddInt64(s.activeAgents, rec.HubStats.ActiveAgents)
-				s.hubAgents.Add(key, rec.HubStats.ActiveAgents)
-			} else {
-				curActive := cur.(int64)
-				diff := rec.HubStats.ActiveAgents - curActive
-				if diff != 0 {
-					atomic.AddInt64(s.activeAgents, diff)
-				}
+			labels := []metrics.Label{
+				{
+					Name:  "hub",
+					Value: rec.HubStats.HubId.SpecString(),
+				},
 			}
-			s.m.SetGauge([]string{"agents", "active"}, float32(atomic.LoadInt64(s.activeAgents)))
+
+			s.m.SetGaugeWithLabels([]string{"agents", "active"}, float32(rec.HubStats.ActiveAgents), labels)
 		}
 	}
 

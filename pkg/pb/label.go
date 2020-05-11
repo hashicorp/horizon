@@ -13,7 +13,8 @@ func ParseLabelSet(s string) *LabelSet {
 	var ls LabelSet
 
 	for _, part := range strings.Split(s, ",") {
-		idx := strings.IndexByte(strings.TrimSpace(part), '=')
+		part = strings.TrimSpace(part)
+		idx := strings.IndexByte(part, '=')
 		if idx == -1 {
 			ls.Labels = append(ls.Labels, &Label{
 				Name: part,

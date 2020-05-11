@@ -41,6 +41,8 @@ type ctx struct {
 	// accounting
 	messages *int64
 	bytes    *int64
+
+	closers []func() error
 }
 
 func NewContext(accountId *pb.Account, fr *FramingReader, fw *FramingWriter) Context {
@@ -54,7 +56,16 @@ func NewContext(accountId *pb.Account, fr *FramingReader, fw *FramingWriter) Con
 }
 
 func (c *ctx) Close() error {
-	return nil
+	var err error
+
+	for _, f := range c.closers {
+		serr := f()
+		if serr != nil {
+			err = multierror.Append(err, serr)
+		}
+	}
+
+	return err
 }
 
 type closeCtx struct {
@@ -63,8 +74,13 @@ type closeCtx struct {
 	closers []func() error
 }
 
-func WithCloser(ctx Context, closers ...func() error) Context {
-	return &closeCtx{Context: ctx, closers: closers}
+func WithCloser(c Context, closers ...func() error) Context {
+	if priv, ok := c.(*ctx); ok {
+		priv.closers = append(priv.closers, closers...)
+		return priv
+	}
+
+	return &closeCtx{Context: c, closers: closers}
 }
 
 func (cc *closeCtx) Close() error {

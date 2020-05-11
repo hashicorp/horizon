@@ -84,6 +84,8 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 	h.mux.HandleFunc("/__hzn/healthz", h.handleHeathz)
 	h.mux.Handle("/", h.fe)
 
+	h.location = client.Locations()
+
 	return h, nil
 }
 
@@ -131,13 +133,16 @@ func (hub *Hub) sendStats(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
+			active := atomic.LoadInt64(hub.activeAgents)
 			hub.cc.SendFlow(&pb.FlowRecord{
 				HubStats: &pb.FlowRecord_HubStats{
 					HubId:        hub.cc.StableId(),
-					ActiveAgents: atomic.LoadInt64(hub.activeAgents),
+					ActiveAgents: active,
 					TotalAgents:  atomic.LoadInt64(hub.totalAgents),
 				},
 			})
+
+			hub.L.Trace("hub stats", "active-agents", active)
 		}
 	}
 }
@@ -419,11 +424,13 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		}
 	}()
 
+	h.L.Info("tracking new sessions for agent", "agent", ai.ID)
+
 	for {
 		stream, err := sess.AcceptStream()
 		if err != nil {
 			if err == io.EOF {
-				h.L.Info("agent disconnected", "session", ai.preamble.SessionId)
+				h.L.Info("agent disconnected", "session", ai.ID)
 			} else {
 				h.L.Error("error accepting new yamux session", "error", err)
 			}

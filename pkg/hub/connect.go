@@ -172,6 +172,8 @@ func (h *Hub) connectToRemoteService(
 		return nil, err
 	}
 
+	L.Trace("picked target address", "address", addr)
+
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		host = addr

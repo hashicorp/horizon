@@ -36,6 +36,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, stream *yamu
 	L := h.L
 
 	L.Trace("stream accepted", "hub", h.id, "id", stream.StreamID())
+	defer L.Trace("stream ended", "id", stream.StreamID())
 
 	var req pb.ConnectRequest
 
@@ -187,7 +188,7 @@ func (h *Hub) bridgeToTarget(
 
 	dsctx := wire.NewContext(wctx.Account(), fr, fw)
 
-	return h.copyBetweenContexts(ctx, wctx, dsctx, fs)
+	return h.copyBetweenContexts(ctx, wctx, dsctx, fs, ai)
 }
 
 func isPublic(labels *pb.LabelSet) bool {
@@ -257,13 +258,6 @@ func (h *Hub) pickAddress(locs []*pb.NetworkLocation) (string, error) {
 	// and when we should use them. Maybe some backoff logic associated with each one?
 
 	switch len(locs) {
-	case 0:
-		return "", nil
-	case 1:
-		return locs[0].Addresses[0], nil
-	}
-
-	switch len(h.location) {
 	case 0:
 		return "", nil
 	case 1:
@@ -379,11 +373,17 @@ func (h *Hub) forwardToTarget(
 	// We don't send a SessionIdentification here because the target
 	// hub will send it's own when connecting to the agent.
 
-	return h.copyBetweenContexts(ctx, wctx, dsctx, fs)
+	return h.copyBetweenContexts(ctx, wctx, dsctx, fs, ai)
 }
 
-func (h *Hub) copyBetweenContexts(ctx context.Context, wctx, dsctx wire.Context, fs *pb.FlowStream) error {
+func (h *Hub) copyBetweenContexts(ctx context.Context, wctx, dsctx wire.Context, fs *pb.FlowStream, ai *agentConn) error {
+	h.L.Trace("copying data between contexts for agent", "id", ai.ID)
+
 	start := time.Now()
+
+	defer func() {
+		h.L.Trace("finished context data copy", "id", ai.ID, "duration", time.Since(start))
+	}()
 
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()

@@ -250,10 +250,7 @@ func TestHub(t *testing.T) {
 
 			time.Sleep(time.Second)
 
-			go func() {
-				err := hub1.Run(ctx, setup.ClientListener)
-				require.NoError(t, err)
-			}()
+			go hub1.Run(ctx, setup.ClientListener)
 
 			time.Sleep(time.Second)
 
@@ -298,11 +295,6 @@ func TestHub(t *testing.T) {
 				go nc.Run(ctx)
 
 				time.Sleep(time.Second)
-
-				go func() {
-					err := hub2.Run(ctx, li)
-					require.NoError(t, err)
-				}()
 
 				sess, err := connect.Connect(L, li.Addr().String(), setup.AgentToken)
 				require.NoError(t, err)
@@ -360,10 +352,7 @@ func TestHub(t *testing.T) {
 
 			time.Sleep(time.Second)
 
-			go func() {
-				err := hub1.Run(ctx, setup.ClientListener)
-				require.NoError(t, err)
-			}()
+			go hub1.Run(ctx, setup.ClientListener)
 
 			time.Sleep(time.Second)
 
@@ -407,10 +396,7 @@ func TestHub(t *testing.T) {
 
 				time.Sleep(time.Second)
 
-				go func() {
-					err := hub2.Run(ctx, li)
-					require.NoError(t, err)
-				}()
+				go hub2.Run(ctx, li)
 
 				sr := &pb.ServiceRoute{
 					Hub:    hub1.id,
