@@ -33,6 +33,23 @@ func ParseLabelSet(s string) *LabelSet {
 	return pls
 }
 
+func MakeLabels(args ...string) *LabelSet {
+	if len(args)%2 != 0 {
+		panic("args must be a even")
+	}
+
+	var out LabelSet
+
+	for i := 0; i < len(args); i += 2 {
+		out.Labels = append(out.Labels, &Label{
+			Name:  args[i],
+			Value: args[i+1],
+		})
+	}
+
+	return &out
+}
+
 // Call if manually creating a LabelSet once it's filled
 func (ls *LabelSet) Finalize() {
 	sort.Sort(ls)
