@@ -237,13 +237,6 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	ctx := context.Background()
-
-	cert, key, err := tlsmgr.HubMaterial(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	regTok := os.Getenv("REGISTER_TOKEN")
 	if regTok == "" {
 		log.Fatal("missing REGISTER_TOKEN")
@@ -265,6 +258,15 @@ func (c *controlServer) Run(args []string) int {
 	hubSecret := os.Getenv("HUB_SECRET_KEY")
 
 	port := os.Getenv("PORT")
+
+	go StartHealthz(L)
+
+	ctx := context.Background()
+
+	cert, key, err := tlsmgr.HubMaterial(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	s, err := control.NewServer(control.ServerConfig{
 		DB: db,
@@ -289,7 +291,12 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	s.SetHubTLS(cert, key)
+	hubDomain := domain
+	if strings.HasPrefix(hubDomain, "*.") {
+		hubDomain = hubDomain[2:]
+	}
+
+	s.SetHubTLS(cert, key, hubDomain)
 
 	gs := grpc.NewServer()
 	pb.RegisterControlServicesServer(gs, s)
@@ -319,8 +326,6 @@ func (c *controlServer) Run(args []string) int {
 			InferLevels: true,
 		}),
 	}
-
-	go StartHealthz(L)
 
 	err = hs.ListenAndServeTLS("", "")
 	if err != nil {
