@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"sync"
 	"time"
 
@@ -78,9 +77,11 @@ type Client struct {
 
 	localServices map[string]*pb.ServiceRequest
 
-	labelMu      sync.RWMutex
-	lastLabelMD5 string
-	labelLinks   *pb.LabelLinks
+	labelMu              sync.RWMutex
+	lastLabelMD5         string
+	labelLinks           *pb.LabelLinks
+	recentLabelLinks     []*pb.LabelLink
+	lessRecentLabelLinks []*pb.LabelLink
 
 	tlsCert  []byte
 	tlsKey   []byte
@@ -634,6 +635,10 @@ func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev 
 
 		info.Recent = append(info.Recent, acc.Services...)
 	}
+
+	if ev.NewLabelLinks != nil {
+		c.recentLabelLinks = append(c.recentLabelLinks, ev.NewLabelLinks.LabelLinks...)
+	}
 }
 
 func (c *Client) SendFlow(rec *pb.FlowRecord) {
@@ -653,6 +658,11 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 	}
 
 	L.Trace("updating label links")
+
+	c.labelMu.Lock()
+	c.lessRecentLabelLinks = c.recentLabelLinks
+	c.recentLabelLinks = nil
+	c.labelMu.Unlock()
 
 	tmp, err := ioutil.TempFile(c.workDir, "label-links")
 	if err != nil {
@@ -744,7 +754,22 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 	c.labelMu.RLock()
 	defer c.labelMu.RUnlock()
 
-	sort.Sort(label)
+	label.Finalize()
+
+	for _, ll := range c.recentLabelLinks {
+		if ll.Equal(label) {
+			return ll.Account, ll.Target, nil
+		}
+	}
+
+	// We move the recent to lessRecent when we update all the label links.
+	// This 2 layer technique means we have no gaps where we might miss an
+	// immediate update.
+	for _, ll := range c.lessRecentLabelLinks {
+		if ll.Equal(label) {
+			return ll.Account, ll.Target, nil
+		}
+	}
 
 	if c.labelLinks == nil {
 		return nil, nil, nil
