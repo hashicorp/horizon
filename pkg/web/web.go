@@ -12,7 +12,9 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/timing"
 	"github.com/hashicorp/horizon/pkg/wire"
+	servertiming "github.com/mitchellh/go-server-timing"
 )
 
 type HostnameChecker interface {
@@ -71,7 +73,13 @@ func (f *Frontend) extractPrefixHost(host string) (string, string, bool) {
 }
 
 func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	ctx := req.Context()
+	var th servertiming.Header
+
+	var tr timing.DefaultTracker
+
+	ctx := timing.WithTracker(req.Context(), &tr)
+
+	start := time.Now()
 
 	ll := &pb.LabelSet{
 		Labels: []*pb.Label{
@@ -86,6 +94,8 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		prefixHost, deployId string
 		usingPrefix          bool
 	)
+
+	rm := th.NewMetric("resolve").Start()
 
 	account, target, err := f.client.ResolveLabelLink(ll)
 	if err != nil || target == nil {
@@ -118,6 +128,10 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		target.Finalize()
 	}
 
+	rm.Stop()
+
+	lu := th.NewMetric("lookup").Start()
+
 	reqId := pb.NewULID()
 
 	f.L.Info("request",
@@ -127,8 +141,6 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		"path", req.URL.Path,
 		"content-length", req.ContentLength,
 	)
-
-	start := time.Now()
 
 	defer func() {
 		f.L.Info("request finished", "id", reqId, "duration", time.Since(start))
@@ -150,13 +162,34 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rs := services[0]
+	lu.Stop()
 
-	if rs.Type != "http" {
-		f.L.Error("service was not type http", "type", rs.Type)
-		http.Error(w, "no http services available", http.StatusNotFound)
+	var wctx wire.Context
+
+	for _, rs := range services {
+		if rs.Type != "http" {
+			f.L.Warn("service was not type http", "service-id", rs.Id, "type", rs.Type)
+			continue
+		}
+
+		wctx, err = f.hub.ConnectToService(ctx, rs, account, "http", f.token)
+		if err == nil {
+			break
+		}
+
+		f.L.Warn("error connecting to service", "error", err, "labels", target, "service", rs.Id, "hub", rs.Hub)
+		continue
+	}
+
+	if wctx == nil {
+		f.L.Error("no viable service found", "labels", target, "candidates", len(services))
+		http.Error(w, "unable to find viable endpoint", http.StatusInternalServerError)
 		return
 	}
+
+	bt := th.NewMetric("request").Start()
+
+	defer wctx.Close()
 
 	var wreq pb.Request
 	wreq.Host = req.Host
@@ -178,15 +211,6 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		})
 	}
 
-	wctx, err := f.hub.ConnectToService(ctx, rs, account, "http", f.token)
-	if err != nil {
-		f.L.Error("error connecting to service", "error", err, "labels", target)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	defer wctx.Close()
-
 	err = wctx.WriteMarshal(1, &wreq)
 	if err != nil {
 		f.L.Error("error connecting to service", "error", err, "labels", target)
@@ -197,6 +221,10 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	adapter := wctx.Writer()
 	io.Copy(adapter, req.Body)
 	adapter.Close()
+
+	bt.Stop()
+
+	rt := th.NewMetric("response-header").Start()
 
 	var wresp pb.Response
 
@@ -213,6 +241,18 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			hdr.Add(h.Name, v)
 		}
 	}
+
+	rt.Stop()
+
+	for _, span := range tr.Spans() {
+		th.Add(&servertiming.Metric{
+			Name:     span.Name,
+			Duration: span.Duration,
+		})
+	}
+
+	hdr.Add("X-Horizon-Latency", time.Since(start).String())
+	hdr.Add(servertiming.HeaderKey, th.String())
 
 	w.WriteHeader(int(wresp.Code))
 

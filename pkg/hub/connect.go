@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/connect"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/timing"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/pierrec/lz4/v3"
 	"github.com/pkg/errors"
@@ -28,13 +29,15 @@ func (h *Hub) ConnectToService(
 		err  error
 	)
 
-	// Oh look it's for me!
+	// Oh look it's not for me!
 	if !target.Hub.Equal(h.id) {
 		wctx, err = h.connectToRemoteService(ctx, target, account, proto, token)
 		if err != nil {
 			return nil, err
 		}
 	} else {
+		defer timing.Track(ctx, "connect-local").Stop()
+
 		h.mu.RLock()
 		ac, ok := h.active[target.Id.SpecString()]
 		h.mu.RUnlock()
@@ -152,6 +155,8 @@ func (h *Hub) connectToRemoteService(
 	proto string,
 	token string,
 ) (wire.Context, error) {
+	defer timing.Track(ctx, "connect-remote").Stop()
+
 	L := ctxlog.L(ctx)
 
 	locs, err := h.cc.GetHubAddresses(ctx, target.Hub)

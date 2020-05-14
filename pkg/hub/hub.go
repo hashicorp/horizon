@@ -118,6 +118,10 @@ func (hub *Hub) Run(ctx context.Context, li net.Listener) error {
 			}
 		}
 
+		if err == http.ErrServerClosed {
+			return nil
+		}
+
 		return err
 	}
 
