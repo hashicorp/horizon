@@ -86,7 +86,7 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 	cert, key, err := testutils.SelfSignedCert()
 	require.NoError(t, err)
 
-	s.SetHubTLS(cert, key)
+	s.SetHubTLS(cert, key, "testdomain")
 
 	top, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

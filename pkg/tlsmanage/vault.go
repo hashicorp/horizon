@@ -18,7 +18,10 @@ func (m *Manager) FetchFromVault() ([]byte, []byte, error) {
 		return nil, nil, ErrNoTLSMaterial
 	}
 
-	data := sec.Data["data"].(map[string]interface{})
+	data, ok := sec.Data["data"].(map[string]interface{})
+	if !ok {
+		return nil, nil, ErrNoTLSMaterial
+	}
 
 	key, err := base64.StdEncoding.DecodeString(data["key"].(string))
 	if err != nil {

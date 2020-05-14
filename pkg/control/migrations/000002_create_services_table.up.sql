@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS services (
   id serial PRIMARY KEY,
-  service_id bytea NOT NULL UNIQUE,
+  service_id bytea NOT NULL,
   hub_id bytea NOT NULL,
   account_id bytea NOT NULL,
   type text NOT NULL,
@@ -11,3 +11,4 @@ CREATE TABLE IF NOT EXISTS services (
 );
 
 CREATE INDEX account_services ON services USING btree (account_id, id);
+CREATE INDEX service_by_service_id ON services USING (service_id);

@@ -14,6 +14,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/connect"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/dbx"
+	"github.com/hashicorp/horizon/pkg/discovery"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/testutils/central"
@@ -267,12 +268,10 @@ func TestHub(t *testing.T) {
 
 			require.NoError(t, err)
 
-			err = g.Start(ctx, []agent.HubConfig{
-				{
-					Addr:     setup.HubAddr,
-					Insecure: true,
-				},
-			})
+			err = g.Start(ctx, discovery.HubConfigs(discovery.HubConfig{
+				Addr:     setup.HubAddr,
+				Insecure: true,
+			}))
 			require.NoError(t, err)
 
 			go g.Wait(ctx)
@@ -369,12 +368,10 @@ func TestHub(t *testing.T) {
 
 			require.NoError(t, err)
 
-			err = g.Start(ctx, []agent.HubConfig{
-				{
-					Addr:     setup.HubAddr,
-					Insecure: true,
-				},
-			})
+			err = g.Start(ctx, discovery.HubConfigs(discovery.HubConfig{
+				Addr:     setup.HubAddr,
+				Insecure: true,
+			}))
 			require.NoError(t, err)
 
 			go g.Wait(ctx)

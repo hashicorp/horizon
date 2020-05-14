@@ -7,4 +7,5 @@ package pb;
 message NetworkLocation {
   repeated string addresses = 1;
   LabelSet labels = 2;
+  string name = 3;
 }

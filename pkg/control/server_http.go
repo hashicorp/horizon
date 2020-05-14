@@ -29,6 +29,11 @@ func (s *Server) GetAllNetworkLocations() ([]*pb.NetworkLocation, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		for _, loc := range hl {
+			loc.Name = h.StableIdULID().String() + "." + s.hubDomain
+		}
+
 		locs = append(locs, hl...)
 	}
 
@@ -38,6 +43,7 @@ func (s *Server) GetAllNetworkLocations() ([]*pb.NetworkLocation, error) {
 func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/healthz", s.httpHealthz)
 	s.mux.HandleFunc("/ip-info", s.httpIPInfo)
+	s.mux.HandleFunc("/ulid", s.genUlid)
 
 	var wk discovery.WellKnown
 	wk.GetNetlocs = s
@@ -51,6 +57,18 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (s *Server) httpHealthz(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(200)
+}
+
+func (s *Server) genUlid(w http.ResponseWriter, req *http.Request) {
+	u := pb.NewULID()
+
+	if req.Header.Get("Accept") == "application/json" {
+		json.NewEncoder(w).Encode(map[string]string{
+			"ulid": u.String(),
+		})
+	} else {
+		fmt.Fprintln(w, u.String())
+	}
 }
 
 func ipFromForwardedForHeader(v string) string {

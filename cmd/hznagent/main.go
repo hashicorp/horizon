@@ -160,21 +160,12 @@ func (c *connectRunner) Run(args []string) int {
 
 	L.Info("refreshing data")
 
-	err = dc.Refresh()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	best, err := dc.Best(1)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if len(best) == 0 {
-		log.Fatalln("no hubs connected to control plane")
-	}
-
 	ctx := context.Background()
+
+	err = dc.Refresh(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	L.Info("starting agent")
 
@@ -185,15 +176,7 @@ func (c *connectRunner) Run(args []string) int {
 
 	g.Token = *c.fToken
 
-	L.Info("connecting to hub", "address", best[0])
-
-	err = g.Start(ctx, []agent.HubConfig{
-		{
-			Addr:     best[0] + ":443",
-			Insecure: true,
-		},
-	})
-
+	err = g.Start(ctx, dc)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -301,23 +284,14 @@ func (a *agentRunner) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	ctx := context.Background()
+
 	L.Info("refreshing data")
 
-	err = dc.Refresh()
+	err = dc.Refresh(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	best, err := dc.Best(1)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if len(best) == 0 {
-		log.Fatalln("no hubs connected to control plane")
-	}
-
-	ctx := context.Background()
 
 	L.Info("starting agent")
 
@@ -354,15 +328,7 @@ func (a *agentRunner) Run(args []string) int {
 		}
 	}
 
-	L.Info("connecting to hub", "address", best[0])
-
-	err = g.Start(ctx, []agent.HubConfig{
-		{
-			Addr:     best[0] + ":443",
-			Insecure: true,
-		},
-	})
-
+	err = g.Start(ctx, dc)
 	if err != nil {
 		log.Fatal(err)
 	}

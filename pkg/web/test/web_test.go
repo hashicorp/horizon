@@ -12,6 +12,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
+	"github.com/hashicorp/horizon/pkg/discovery"
 	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils/central"
@@ -87,12 +88,10 @@ func TestWeb(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = a.Start(ctx, []agent.HubConfig{
-			{
-				Addr:     setup.HubAddr,
-				Insecure: true,
-			},
-		})
+		err = a.Start(ctx, discovery.HubConfigs(discovery.HubConfig{
+			Addr:     setup.HubAddr,
+			Insecure: true,
+		}))
 		require.NoError(t, err)
 
 		go a.Wait(ctx)

@@ -19,6 +19,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	_ "github.com/hashicorp/horizon/pkg/grpc/lz4"
@@ -59,8 +60,9 @@ type Server struct {
 	vaultPath   string
 	keyId       string
 
-	hubCert []byte
-	hubKey  []byte
+	hubCert   []byte
+	hubKey    []byte
+	hubDomain string
 
 	mu            sync.RWMutex
 	connectedHubs map[string]*connectedHub
@@ -195,9 +197,10 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	return s, nil
 }
 
-func (s *Server) SetHubTLS(cert, key []byte) {
+func (s *Server) SetHubTLS(cert, key []byte, domain string) {
 	s.hubCert = cert
 	s.hubKey = key
+	s.hubDomain = domain
 }
 
 type Account struct {
@@ -356,6 +359,10 @@ type Hub struct {
 	CreatedAt time.Time
 }
 
+func (h *Hub) StableIdULID() *pb.ULID {
+	return pb.ULIDFromBytes(h.StableID)
+}
+
 func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.ConfigResponse, error) {
 	_, err := s.checkFromHub(ctx)
 	if err != nil {
@@ -445,10 +452,23 @@ func (s *Server) HubDisconnect(ctx context.Context, req *pb.HubDisconnectRequest
 		return nil, err
 	}
 
-	// Leave the record, just nukes its services. We'll have a background task cleanup the old hub records.
-	// Those records are useful to be able to track the fluxation of hubs.
+	s.L.Info("removing hub services", "id", req.StableId)
 
-	return &pb.Noop{}, s.removeHubServices(ctx, s.db, req.InstanceId)
+	serr := s.removeHubServices(ctx, s.db, req.InstanceId)
+	if err != nil {
+		err = multierror.Append(err, serr)
+	}
+
+	s.L.Info("removing hub", "id", req.StableId)
+
+	serr = dbx.Check(s.db.Where("stable_id = ?", req.StableId.Bytes()).Delete(&Hub{}))
+	if serr != nil {
+		err = multierror.Append(err, serr)
+	}
+
+	s.L.Info("hub cleaned up", "possible-error", err)
+
+	return &pb.Noop{}, err
 }
 
 func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {

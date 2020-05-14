@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/dbx"
+	"github.com/hashicorp/horizon/pkg/discovery"
 	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils/central"
@@ -53,12 +54,10 @@ func TestAgent(t *testing.T) {
 
 			require.NoError(t, err)
 
-			err = agent.Start(ctx, []HubConfig{
-				{
-					Addr:     setup.HubAddr,
-					Insecure: true,
-				},
-			})
+			err = agent.Start(ctx, discovery.HubConfigs(discovery.HubConfig{
+				Addr:     setup.HubAddr,
+				Insecure: true,
+			}))
 			require.NoError(t, err)
 
 			go agent.Wait(ctx)

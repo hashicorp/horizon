@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/pkg/discovery"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
@@ -118,11 +119,19 @@ type Agent struct {
 	Token     string
 	Labels    []string
 
-	mu       sync.RWMutex
-	services map[string]*Service
-	sessions []*yamux.Session
+	mu         sync.RWMutex
+	services   map[string]*Service
+	sessions   []*yamux.Session
+	activeHubs map[string]discovery.HubConfig
+	hcp        discovery.HubConfigProvider
 
 	statuses chan hubStatus
+}
+
+type hubStatus struct {
+	cfg       discovery.HubConfig
+	connected bool
+	err       error
 }
 
 func NewAgent(L hclog.Logger) (*Agent, error) {
@@ -135,10 +144,11 @@ func NewAgent(L hclog.Logger) (*Agent, error) {
 	cfg.LogOutput = nil
 
 	agent := &Agent{
-		L:        L,
-		cfg:      cfg,
-		services: make(map[string]*Service),
-		statuses: make(chan hubStatus),
+		L:          L,
+		cfg:        cfg,
+		services:   make(map[string]*Service),
+		statuses:   make(chan hubStatus),
+		activeHubs: make(map[string]discovery.HubConfig),
 	}
 
 	return agent, nil
@@ -156,20 +166,8 @@ func (a *Agent) AddService(serv *Service) (*pb.ULID, error) {
 	return serv.Id, nil
 }
 
-type HubConfig struct {
-	Addr       string
-	Insecure   bool
-	PinnedCert *x509.Certificate
-}
-
-type hubStatus struct {
-	cfg       HubConfig
-	connected bool
-	err       error
-}
-
-func (a *Agent) Run(ctx context.Context, initialHubs []HubConfig) error {
-	err := a.Start(ctx, initialHubs)
+func (a *Agent) Run(ctx context.Context, hcp discovery.HubConfigProvider) error {
+	err := a.Start(ctx, hcp)
 	if err != nil {
 		return err
 	}
@@ -177,44 +175,72 @@ func (a *Agent) Run(ctx context.Context, initialHubs []HubConfig) error {
 	return a.Wait(ctx)
 }
 
-func (a *Agent) Start(ctx context.Context, initialHubs []HubConfig) error {
-	for _, cfg := range initialHubs {
-		go a.connectToHub(ctx, cfg, a.statuses)
+func (a *Agent) Start(ctx context.Context, hcp discovery.HubConfigProvider) error {
+	a.hcp = hcp
+
+	for i := 0; i < 5; i++ {
+		cfg, ok := hcp.Take(ctx)
+		if ok {
+			go a.connectToHub(ctx, cfg, a.statuses)
+		}
 	}
 
+	// process status updates until we see a successfully connection, then
+	// return. The later Wait() call will process the rest of the status
+	// updates.
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case stat := <-a.statuses:
-			// Wait for one to connect, then return
-			if stat.connected {
-				a.L.Info("connected to hub", "addr", stat.cfg.Addr)
-				return nil
+		connected, err := a.processStatus(ctx)
+		if err != nil {
+			return err
+		}
+
+		if connected {
+			return nil
+		}
+	}
+}
+
+func (a *Agent) processStatus(ctx context.Context) (bool, error) {
+	select {
+	case <-ctx.Done():
+		return false, ctx.Err()
+	case stat := <-a.statuses:
+		if !stat.connected {
+			a.L.Warn("disconnected from hub", "error", stat.err, "addr", stat.cfg.Addr)
+
+			a.hcp.Return(stat.cfg)
+
+			newcfg, ok := a.hcp.Take(ctx)
+			if ok {
+				// If we returned the config and got the same one, don't spam
+				// it.
+				if newcfg.Addr == stat.cfg.Addr {
+					a.L.Debug("delaying before reconnecting to same hub", "addr", stat.cfg.Addr)
+					time.AfterFunc(10*time.Second, func() {
+						go a.connectToHub(ctx, newcfg, a.statuses)
+					})
+				} else {
+					a.L.Debug("connecting to hub", "addr", newcfg.Addr)
+					go a.connectToHub(ctx, newcfg, a.statuses)
+				}
+			} else {
+				a.L.Warn("hub config provider failed to return new config")
 			}
+			return false, nil
+		} else {
+			a.L.Info("connected to hub", "addr", stat.cfg.Addr)
+			return true, nil
 		}
 	}
 }
 
 func (a *Agent) Wait(ctx context.Context) error {
 	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case stat := <-a.statuses:
-			if !stat.connected {
-				a.L.Warn("connection to hub disconnected", "addr", stat.cfg.Addr)
-				time.AfterFunc(10*time.Second, func() {
-					go a.connectToHub(ctx, stat.cfg, a.statuses)
-				})
-			} else {
-				a.L.Info("connected to hub", "addr", stat.cfg.Addr)
-			}
-		}
+		a.processStatus(ctx)
 	}
 }
 
-func (a *Agent) connectToHub(ctx context.Context, hub HubConfig, status chan hubStatus) {
+func (a *Agent) connectToHub(ctx context.Context, hub discovery.HubConfig, status chan hubStatus) {
 	a.L.Info("connecting to hub", "addr", hub.Addr)
 
 	var clientTlsConfig tls.Config
@@ -225,6 +251,8 @@ func (a *Agent) connectToHub(ctx context.Context, hub HubConfig, status chan hub
 		clientTlsConfig.RootCAs = x509.NewCertPool()
 		clientTlsConfig.RootCAs.AddCert(hub.PinnedCert)
 	}
+
+	clientTlsConfig.ServerName = hub.Name
 
 	conn, err := tls.Dial("tcp", hub.Addr, &clientTlsConfig)
 	if err != nil {
@@ -243,7 +271,7 @@ func (a *Agent) connectToHub(ctx context.Context, hub HubConfig, status chan hub
 
 var ErrProtocolError = errors.New("protocol error detected")
 
-func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg HubConfig, status chan hubStatus) error {
+func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg discovery.HubConfig, status chan hubStatus) error {
 	id := pb.NewULID()
 
 	fw, err := wire.NewFramingWriter(conn)
@@ -333,7 +361,7 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 	return nil
 }
 
-func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux.Session, fr *wire.FramingReader, hubCfg HubConfig, status chan hubStatus, useLZ4 bool) {
+func (a *Agent) watchSession(ctx context.Context, L hclog.Logger, session *yamux.Session, fr *wire.FramingReader, hubCfg discovery.HubConfig, status chan hubStatus, useLZ4 bool) {
 	defer fr.Recycle()
 	defer func() {
 		status <- hubStatus{

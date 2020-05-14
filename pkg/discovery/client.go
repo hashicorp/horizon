@@ -1,11 +1,13 @@
 package discovery
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -16,9 +18,14 @@ import (
 type Client struct {
 	URL string
 
+	mu sync.Mutex
+
 	location []*pb.NetworkLocation
 
 	lastData *DiscoveryData
+
+	avaliable []HubConfig
+	results   chan *pb.NetworkLocation
 }
 
 func NewClient(surl string) (*Client, error) {
@@ -49,7 +56,7 @@ func NewClient(surl string) (*Client, error) {
 	}, nil
 }
 
-func (c *Client) Refresh() error {
+func (c *Client) Refresh(ctx context.Context) error {
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -72,12 +79,77 @@ func (c *Client) Refresh() error {
 
 	c.lastData = &dd
 
+	ch, err := c.search(ctx)
+	if err != nil {
+		return err
+	}
+
+	c.results = ch
+
 	return nil
 }
 
-func (c *Client) Best(count int) ([]string, error) {
+func (c *Client) search(ctx context.Context) (chan *pb.NetworkLocation, error) {
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	input := &netloc.BestInput{
+		Local:      c.location,
+		Remote:     c.lastData.Hubs,
+		PublicOnly: true,
+		Latency: func(addr string) error {
+			hclog.L().Info("testing latency", "addr", addr)
+			resp, err := client.Get(fmt.Sprintf("http://%s/healthz", addr))
+			if err == nil {
+				resp.Body.Close()
+			}
+			return err
+		},
+	}
+
+	ch := make(chan *pb.NetworkLocation, 1)
+
+	go netloc.FindBestLive(ctx, input, ch)
+
+	return ch, nil
+}
+
+func (c *Client) Take(ctx context.Context) (HubConfig, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if len(c.avaliable) > 0 {
+		addr := c.avaliable[0]
+		c.avaliable = c.avaliable[1:]
+		return addr, true
+	}
+
+	select {
+	case <-ctx.Done():
+		return HubConfig{}, false
+	case loc, ok := <-c.results:
+		if !ok {
+			return HubConfig{}, false
+		}
+
+		return HubConfig{
+			Addr: loc.Addresses[0] + ":443",
+			Name: loc.Name,
+		}, true
+	}
+}
+
+func (c *Client) Return(cfg HubConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.avaliable = append(c.avaliable, cfg)
+}
+
+func (c *Client) Best(ctx context.Context, count int) ([]string, error) {
 	if c.lastData == nil {
-		err := c.Refresh()
+		err := c.Refresh(ctx)
 		if err != nil {
 			return nil, err
 		}
