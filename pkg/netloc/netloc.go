@@ -266,6 +266,106 @@ func uniq(input []string) []string {
 	return out
 }
 
+func FastLocate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
+	var privateAddrs, publicAddrs, publicAddrs6 []string
+
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, iface := range ifaces {
+		addrs, err := iface.Addrs()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, addr := range addrs {
+			if ipaddr, ok := addr.(*net.IPNet); ok {
+				ip := ipaddr.IP
+				if ipv4 := ip.To4(); ipv4 != nil {
+					if !ipv4.IsGlobalUnicast() {
+						continue
+					}
+
+					if isPrivateIP(ipv4) {
+						privateAddrs = append(privateAddrs, ip.String())
+					} else {
+						publicAddrs = append(publicAddrs, ip.String())
+					}
+				} else if ipv6 := ipaddr.IP.To16(); ipv6 != nil {
+					if ipv6Loopback.Contains(ipv6) || ipv6LinkLocal.Contains(ipv6) {
+						continue
+					}
+
+					if isPrivateIP(ipv6) {
+						privateAddrs = append(privateAddrs, ip.String())
+					} else {
+						publicAddrs6 = append(publicAddrs6, ip.String())
+					}
+				}
+			}
+		}
+	}
+
+	var (
+		privateLabels = pb.ParseLabelSet("type=private")
+		pubLabels     = pb.ParseLabelSet("type=public")
+		pubLabels6    = pb.ParseLabelSet("type=public")
+	)
+
+	if defaultLabels != nil {
+		privateLabels.Labels = append(privateLabels.Labels, defaultLabels.Labels...)
+		pubLabels.Labels = append(pubLabels.Labels, defaultLabels.Labels...)
+		pubLabels6.Labels = append(pubLabels6.Labels, defaultLabels.Labels...)
+	}
+
+	privateLabels.Finalize()
+	pubLabels.Finalize()
+	pubLabels6.Finalize()
+
+	var netlocs []*pb.NetworkLocation
+
+	privateAddrs = uniq(privateAddrs)
+	publicAddrs = uniq(publicAddrs)
+	publicAddrs6 = uniq(publicAddrs6)
+
+	if len(privateAddrs) != 0 {
+		netlocs = append(netlocs, &pb.NetworkLocation{
+			Addresses: privateAddrs,
+			Labels:    privateLabels,
+		})
+	}
+
+	// Simplify the output if the v4 and v6 labels are the same (common case)
+	if pubLabels.Equal(pubLabels6) {
+		addrs := append(publicAddrs, publicAddrs6...)
+
+		if len(addrs) != 0 {
+			netlocs = append(netlocs, &pb.NetworkLocation{
+				Addresses: addrs,
+				Labels:    pubLabels,
+			})
+		}
+	} else {
+		if len(publicAddrs) != 0 {
+			netlocs = append(netlocs, &pb.NetworkLocation{
+				Addresses: publicAddrs,
+				Labels:    pubLabels,
+			})
+		}
+
+		if len(publicAddrs6) != 0 {
+			netlocs = append(netlocs, &pb.NetworkLocation{
+				Addresses: publicAddrs6,
+				Labels:    pubLabels6,
+			})
+		}
+	}
+
+	return netlocs, nil
+}
+
 func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 	ec2InfoC := make(chan *ec2Info, 1)
 
