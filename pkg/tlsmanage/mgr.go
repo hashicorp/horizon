@@ -207,6 +207,18 @@ func (m *Manager) SetupHubCert(ctx context.Context) error {
 	return nil
 }
 
+func (m *Manager) RefreshFromVault() ([]byte, []byte, error) {
+	cert, key, err := m.FetchFromVault()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	m.hubCert = cert
+	m.hubKey = key
+
+	return cert, key, nil
+}
+
 func (m *Manager) HubMaterial(ctx context.Context) ([]byte, []byte, error) {
 	if len(m.hubCert) > 0 {
 		return m.hubCert, m.hubKey, nil

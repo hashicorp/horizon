@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/periodic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	gcreds "google.golang.org/grpc/credentials"
@@ -318,19 +319,13 @@ func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string
 
 	L.Info("refreshing bootstrap config", "period", period)
 
-	var refresh func()
-
-	refresh = func() {
+	periodic.Run(ctx, period, func() {
 		L.Info("periodic rebootstraping of hub config")
 		err := c.BootstrapConfig(ctx)
 		if err != nil {
 			L.Error("error bootstraping new configuration", "error", err)
 		}
-
-		time.AfterFunc(period, refresh)
-	}
-
-	time.AfterFunc(period, refresh)
+	})
 
 	L.Info("client ingress running")
 

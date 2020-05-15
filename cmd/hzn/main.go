@@ -23,6 +23,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/hashicorp/horizon/pkg/periodic"
 	"github.com/hashicorp/horizon/pkg/tlsmanage"
 	"github.com/hashicorp/horizon/pkg/workq"
 	"github.com/hashicorp/vault/api"
@@ -301,6 +302,18 @@ func (c *controlServer) Run(args []string) int {
 	}
 
 	s.SetHubTLS(cert, key, hubDomain)
+
+	// So that when they are refreshed by the background job, we eventually pick
+	// them up. Hubs are also refreshing their config on an hourly basis so they'll
+	// end up picking up the new TLS material that way too.
+	periodic.Run(ctx, time.Hour, func() {
+		cert, key, err := tlsmgr.RefreshFromVault()
+		if err != nil {
+			L.Error("error refreshing hub certs from vault")
+		} else {
+			s.SetHubTLS(cert, key, hubDomain)
+		}
+	})
 
 	gs := grpc.NewServer()
 	pb.RegisterControlServicesServer(gs, s)
