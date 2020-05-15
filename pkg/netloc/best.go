@@ -82,12 +82,8 @@ func FindBestLive(ctx context.Context, input *BestInput, locs chan *pb.NetworkLo
 
 		for i, loc := range best {
 			go func(i int, loc *pb.NetworkLocation) {
-				t := time.Now()
 				addr := loc.Addresses[0]
 				err := input.Latency(addr)
-				latency := time.Since(t)
-
-				hclog.L().Info("latency", "addr", addr, "latency", latency)
 
 				var ok bool
 

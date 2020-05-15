@@ -1,16 +1,17 @@
 package discovery
 
 import (
+	"container/list"
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 )
@@ -24,8 +25,10 @@ type Client struct {
 
 	lastData *DiscoveryData
 
-	avaliable []HubConfig
+	available *list.List
 	results   chan *pb.NetworkLocation
+	known     map[string]struct{}
+	latest    map[string]struct{}
 }
 
 func NewClient(surl string) (*Client, error) {
@@ -45,14 +48,17 @@ func NewClient(surl string) (*Client, error) {
 		surl = u.String()
 	}
 
-	locs, err := netloc.Locate(nil)
+	locs, err := netloc.FastLocate(nil)
 	if err != nil {
 		return nil, err
 	}
 
 	return &Client{
-		URL:      surl,
-		location: locs,
+		URL:       surl,
+		location:  locs,
+		available: list.New(),
+		known:     make(map[string]struct{}),
+		latest:    make(map[string]struct{}),
 	}, nil
 }
 
@@ -86,8 +92,53 @@ func (c *Client) Refresh(ctx context.Context) error {
 
 	c.results = ch
 
+	go c.backgroundRefresh(ctx)
+
 	return nil
 }
+
+func (c *Client) backgroundRefresh(ctx context.Context) {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+
+	var (
+		results chan *pb.NetworkLocation
+	)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			results, _ = c.search(ctx)
+			c.latest = make(map[string]struct{})
+		case loc, ok := <-results:
+			if !ok {
+				results = nil
+				continue
+			}
+
+			c.mu.Lock()
+
+			c.latest[loc.Name] = struct{}{}
+
+			if _, ok := c.known[loc.Name]; !ok {
+				cfg := HubConfig{
+					Addr: loc.Addresses[0] + ":443",
+					Name: loc.Name,
+				}
+
+				c.known[loc.Name] = struct{}{}
+
+				c.available.PushBack(cfg)
+			}
+
+			c.mu.Unlock()
+		}
+	}
+}
+
+var ErrBadServer = errors.New("bad server")
 
 func (c *Client) search(ctx context.Context) (chan *pb.NetworkLocation, error) {
 	client := &http.Client{
@@ -99,11 +150,15 @@ func (c *Client) search(ctx context.Context) (chan *pb.NetworkLocation, error) {
 		Remote:     c.lastData.Hubs,
 		PublicOnly: true,
 		Latency: func(addr string) error {
-			hclog.L().Info("testing latency", "addr", addr)
-			resp, err := client.Get(fmt.Sprintf("http://%s/healthz", addr))
+			resp, err := client.Get(fmt.Sprintf("http://%s/__hzn/healthz", addr))
 			if err == nil {
 				resp.Body.Close()
+
+				if resp.StatusCode != 200 {
+					return ErrBadServer
+				}
 			}
+
 			return err
 		},
 	}
@@ -119,10 +174,10 @@ func (c *Client) Take(ctx context.Context) (HubConfig, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if len(c.avaliable) > 0 {
-		addr := c.avaliable[0]
-		c.avaliable = c.avaliable[1:]
-		return addr, true
+	if front := c.available.Front(); front != nil {
+		cfg := front.Value.(HubConfig)
+		c.available.Remove(front)
+		return cfg, true
 	}
 
 	select {
@@ -132,6 +187,9 @@ func (c *Client) Take(ctx context.Context) (HubConfig, bool) {
 		if !ok {
 			return HubConfig{}, false
 		}
+
+		c.known[loc.Name] = struct{}{}
+		c.latest[loc.Name] = struct{}{}
 
 		return HubConfig{
 			Addr: loc.Addresses[0] + ":443",
@@ -144,7 +202,11 @@ func (c *Client) Return(cfg HubConfig) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.avaliable = append(c.avaliable, cfg)
+	// This will automatically prune out broken addresses
+	// that the centrial tier is no longer advertising.
+	if _, ok := c.latest[cfg.Name]; ok {
+		c.available.PushBack(cfg)
+	}
 }
 
 func (c *Client) Best(ctx context.Context, count int) ([]string, error) {
@@ -165,7 +227,6 @@ func (c *Client) Best(ctx context.Context, count int) ([]string, error) {
 		Remote:     c.lastData.Hubs,
 		PublicOnly: true,
 		Latency: func(addr string) error {
-			hclog.L().Info("testing latency", "addr", addr)
 			resp, err := client.Get(fmt.Sprintf("http://%s/healthz", addr))
 			if err == nil {
 				resp.Body.Close()

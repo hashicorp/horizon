@@ -336,7 +336,7 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 
 	st := time.Unix(int64(wc.Time.Sec), int64(wc.Time.Nsec))
 
-	skew := time.Since(st)
+	skew := latency - time.Since(st)
 
 	bc := &wire.ComposedConn{
 		Reader: fr.BufReader(),

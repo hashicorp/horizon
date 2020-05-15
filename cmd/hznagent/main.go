@@ -22,18 +22,6 @@ var (
 	buildTime string // when the executable was built
 )
 
-/*
-var (
-	fControl    = pflag.String("control", "control.alpha.hzn.network", "address of control plane")
-	fToken      = pflag.String("token", "", "authentication token")
-	fLocalAddr  = pflag.String("addr", "", "address to forward http traffic to")
-	fLabels     = pflag.String("labels", "", "labels to associate with service")
-	fTest       = pflag.String("test", "", "run a test http server on the given port")
-	fTCP        = pflag.String("tcp", "", "address of tcp server to advertise")
-	fTCPConnect = pflag.String("tcp-connect", "", "address to listen on which will be bridge to the given service")
-)
-*/
-
 func main() {
 	var ver string
 	if sha1ver == "" {

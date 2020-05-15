@@ -199,8 +199,14 @@ type agentConn struct {
 
 	sess        *yamux.Session
 	useLZ4      bool
-	cleanup     func()
+	cleanups    []func()
 	connectOnly bool
+}
+
+func (ai *agentConn) cleanup() {
+	for _, f := range ai.cleanups {
+		f()
+	}
 }
 
 func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.FramingWriter) (*agentConn, error) {
@@ -314,7 +320,7 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 		preamble:      &preamble,
 		token:         vt,
 		useLZ4:        useLZ4,
-		cleanup:       cleanup,
+		cleanups:      []func(){cleanup},
 		connectOnly:   len(preamble.Services) == 0,
 	}
 
@@ -334,8 +340,10 @@ func (h *Hub) registerAgent(ai *agentConn) error {
 	}
 	h.mu.Unlock()
 
-	old := ai.cleanup
-	ai.cleanup = func() {
+	h.L.Debug("register agent", "id", ai.ID)
+
+	ai.cleanups = append(ai.cleanups, func() {
+		h.L.Debug("unregister agent", "id", ai.ID)
 		atomic.AddInt64(h.activeAgents, -1)
 
 		h.mu.Lock()
@@ -343,11 +351,7 @@ func (h *Hub) registerAgent(ai *agentConn) error {
 			delete(h.active, serv.ServiceId.SpecString())
 		}
 		h.mu.Unlock()
-
-		if old != nil {
-			old()
-		}
-	}
+	})
 
 	return nil
 }
@@ -377,9 +381,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		return
 	}
 
-	if ai.cleanup != nil {
-		defer ai.cleanup()
-	}
+	defer ai.cleanup()
 
 	bc := &wire.ComposedConn{
 		Reader: fr.BufReader(),
