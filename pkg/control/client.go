@@ -82,9 +82,10 @@ type Client struct {
 	recentLabelLinks     []*pb.LabelLink
 	lessRecentLabelLinks []*pb.LabelLink
 
-	tlsCert  []byte
-	tlsKey   []byte
-	tokenPub ed25519.PublicKey
+	rawtlsCert []byte
+	rawtlsKey  []byte
+	tlsCert    *tls.Certificate
+	tokenPub   ed25519.PublicKey
 
 	hubActivity chan *pb.HubActivity
 
@@ -224,9 +225,16 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 		return err
 	}
 
-	c.tlsCert = resp.TlsCert
-	c.tlsKey = resp.TlsKey
+	c.rawtlsCert = resp.TlsCert
+	c.rawtlsKey = resp.TlsKey
 	c.tokenPub = resp.TokenPub
+
+	cert, err := tls.X509KeyPair(c.rawtlsCert, c.rawtlsKey)
+	if err != nil {
+		return err
+	}
+
+	c.tlsCert = &cert
 
 	if resp.S3AccessKey != "" {
 		L := c.L
@@ -260,13 +268,20 @@ type NPNHandler func(hs *http.Server, c *tls.Conn, h http.Handler)
 func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string]NPNHandler, h http.Handler) error {
 	L := c.L
 
-	cert, err := tls.X509KeyPair(c.tlsCert, c.tlsKey)
-	if err != nil {
-		return err
+	var cfg tls.Config
+
+	if c.tlsCert == nil {
+		cert, err := tls.X509KeyPair(c.rawtlsCert, c.rawtlsKey)
+		if err != nil {
+			return err
+		}
+
+		c.tlsCert = &cert
 	}
 
-	var cfg tls.Config
-	cfg.Certificates = []tls.Certificate{cert}
+	cfg.GetCertificate = func(hello *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		return c.tlsCert, nil
+	}
 
 	hs := &http.Server{
 		Handler:   h,
@@ -292,14 +307,32 @@ func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string
 		hs.TLSNextProto[proto] = fn
 	}
 
-	L.Info("client ingress running")
-
 	go func() {
 		<-ctx.Done()
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		hs.Shutdown(ctx)
 	}()
+
+	period := time.Hour
+
+	L.Info("refreshing bootstrap config", "period", period)
+
+	var refresh func()
+
+	refresh = func() {
+		L.Info("periodic rebootstraping of hub config")
+		err := c.BootstrapConfig(ctx)
+		if err != nil {
+			L.Error("error bootstraping new configuration", "error", err)
+		}
+
+		time.AfterFunc(period, refresh)
+	}
+
+	time.AfterFunc(period, refresh)
+
+	L.Info("client ingress running")
 
 	return hs.ServeTLS(li, "", "")
 }

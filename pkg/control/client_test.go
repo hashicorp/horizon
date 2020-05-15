@@ -960,6 +960,12 @@ func TestClient(t *testing.T) {
 		s, err := NewServer(cfg)
 		require.NoError(t, err)
 
+		cert, key, err := testutils.SelfSignedCert()
+		require.NoError(t, err)
+
+		s.hubCert = cert
+		s.hubKey = key
+
 		top := context.Background()
 
 		md := make(metadata.MD)
@@ -1029,6 +1035,7 @@ func TestClient(t *testing.T) {
 			AccountId: pb.NewULID(),
 			Namespace: "/",
 		}).Key()
+
 		so.Labels = pb.ParseLabelSet("test=env").AsStringArray()
 
 		err = dbx.Check(db.Create(&so))
@@ -1061,6 +1068,12 @@ func TestClient(t *testing.T) {
 
 		s, err := NewServer(cfg)
 		require.NoError(t, err)
+
+		cert, key, err := testutils.SelfSignedCert()
+		require.NoError(t, err)
+
+		s.hubCert = cert
+		s.hubKey = key
 
 		top := context.Background()
 

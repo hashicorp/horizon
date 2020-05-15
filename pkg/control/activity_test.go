@@ -78,7 +78,7 @@ func TestActivity(t *testing.T) {
 		err = dbx.Check(db.Create(&ae))
 		require.NoError(t, err)
 
-		err = cleanupActivityLog("cleanup-activity-log", 0)
+		err = cleanupActivityLog(nil, "cleanup-activity-log", 0)
 		require.NoError(t, err)
 
 		var ae2 ActivityLog
