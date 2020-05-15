@@ -8,7 +8,7 @@ import (
 
 // A default registry that other packages can easily register their types
 // against.
-var GlobalRegistry Registry
+var GlobalRegistry = &Registry{}
 
 // Register a job and handler with the default registry.
 func RegisterHandler(jobType string, h interface{}) {

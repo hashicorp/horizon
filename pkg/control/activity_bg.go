@@ -1,6 +1,7 @@
 package control
 
 import (
+	context "context"
 	"time"
 
 	"github.com/hashicorp/horizon/pkg/config"
@@ -15,7 +16,7 @@ func init() {
 	workq.RegisterPeriodicJob("cleanup-activity-log", "default", "cleanup-activity-log", 0, time.Hour)
 }
 
-func cleanupActivityLog(jobType string, noop int) error {
+func cleanupActivityLog(ctx context.Context, jobType string, noop int) error {
 	return dbx.Check(
 		config.DB().Exec("DELETE FROM activity_logs WHERE created_at < now() - ?::interval", LogPruneInterval),
 	)

@@ -1,6 +1,7 @@
 package workq
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
@@ -16,7 +17,7 @@ func TestRegistry(t *testing.T) {
 			Age  int
 		}
 
-		f := func(jt string, f *foo) error {
+		f := func(ctx context.Context, jt string, f *foo) error {
 			assert.Equal(t, jt, "foo_happened")
 			assert.Equal(t, "boo", f.Name)
 			assert.Equal(t, 42, f.Age)
@@ -30,7 +31,7 @@ func TestRegistry(t *testing.T) {
 		data, err := json.Marshal(&foo{Name: "boo", Age: 42})
 		require.NoError(t, err)
 
-		err = r.Handle(&Job{
+		err = r.Handle(context.TODO(), &Job{
 			JobType: "foo_happened",
 			Payload: data,
 		})

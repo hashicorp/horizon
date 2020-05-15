@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/tlsmanage"
+	"github.com/hashicorp/horizon/pkg/workq"
 	"github.com/hashicorp/vault/api"
 	"github.com/jinzhu/gorm"
 	"github.com/mitchellh/cli"
@@ -329,6 +330,17 @@ func (c *controlServer) Run(args []string) int {
 			InferLevels: true,
 		}),
 	}
+
+	tlsmgr.RegisterRenewHandler(L, workq.GlobalRegistry)
+
+	L.Info("starting background worker")
+
+	workq.GlobalRegistry.PrintHandlers(L)
+
+	worker := workq.NewWorker(L, db, []string{"default"})
+	go worker.Run(ctx, workq.RunConfig{
+		ConnInfo: url,
+	})
 
 	err = hs.ListenAndServeTLS("", "")
 	if err != nil {

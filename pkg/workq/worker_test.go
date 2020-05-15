@@ -380,7 +380,7 @@ func TestWorker(t *testing.T) {
 			ConnInfo:    connect,
 			PopInterval: time.Minute,
 			Concurrency: 1,
-			Handler: func(j *Job) error {
+			Handler: func(ctx context.Context, j *Job) error {
 				mu.Lock()
 				defer mu.Unlock()
 				jobs = append(jobs, j)

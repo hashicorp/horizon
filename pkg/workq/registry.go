@@ -1,10 +1,13 @@
 package workq
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 
+	"github.com/hashicorp/go-hclog"
 	"github.com/pkg/errors"
 )
 
@@ -22,6 +25,17 @@ type Registry struct {
 	types map[string]registeredHandler
 }
 
+func (r *Registry) PrintHandlers(L hclog.Logger) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	L.Info("registry handlers", "total", len(r.types))
+
+	for jt := range r.types {
+		L.Info("registered handler for job type", "type", jt)
+	}
+}
+
 func (r *Registry) Register(jobType string, h interface{}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -37,12 +51,18 @@ func (r *Registry) Register(jobType string, h interface{}) {
 
 	ft := v.Type()
 
-	if ft.NumIn() != 2 {
-		panic("register func takes 2 arguments")
+	if ft.NumIn() != 3 {
+		panic("register func takes 3 arguments")
 	}
 
-	if ft.In(0) != reflect.TypeOf("") {
-		panic("register func first arg must be a string")
+	ct := reflect.TypeOf((*context.Context)(nil)).Elem()
+
+	if ft.In(0) != ct {
+		panic(fmt.Sprintf("register func first arg must be a context, was %s", ct))
+	}
+
+	if ft.In(1) != reflect.TypeOf("") {
+		panic("register func second arg must be a string")
 	}
 
 	var err error
@@ -51,7 +71,7 @@ func (r *Registry) Register(jobType string, h interface{}) {
 		panic("register out must return an error")
 	}
 
-	argt := ft.In(1)
+	argt := ft.In(2)
 
 	r.types[jobType] = registeredHandler{
 		argType: argt,
@@ -59,7 +79,7 @@ func (r *Registry) Register(jobType string, h interface{}) {
 	}
 }
 
-func (r *Registry) Handle(job *Job) error {
+func (r *Registry) Handle(ctx context.Context, job *Job) error {
 	r.mu.RLock()
 
 	rh, ok := r.types[job.JobType]
@@ -78,7 +98,7 @@ func (r *Registry) Handle(job *Job) error {
 	}
 
 	out := rh.f.Call([]reflect.Value{
-		reflect.ValueOf(job.JobType), arg,
+		reflect.ValueOf(ctx), reflect.ValueOf(job.JobType), arg,
 	})
 
 	v := out[0]

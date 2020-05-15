@@ -170,14 +170,14 @@ type RunConfig struct {
 	PopInterval  time.Duration
 	Concurrency  int
 	CleanupCheck time.Duration
-	Handler      func(j *Job) error
+	Handler      func(ctx context.Context, j *Job) error
 }
 
 const listenChannel = "work_available"
 
 // Setup a pq listener and watch for events (and still pop every once in a while)"
 func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
-	L := hclog.FromContext(ctx)
+	L := w.L
 
 	// setup any default periodics
 	periodMu.Lock()
@@ -186,6 +186,13 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 	inj.db = w.db
 
 	for _, pe := range defaultPeriodics {
+		L.Info("added periodic job",
+			"name", pe.name,
+			"queue", pe.queue,
+			"job-type", pe.jobType,
+			"period", pe.period,
+		)
+
 		inj.AddPeriodicJobRaw(pe.name, pe.queue, pe.jobType, pe.payload, pe.period)
 	}
 
@@ -217,6 +224,8 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 		if GlobalRegistry.Size() == 0 {
 			return fmt.Errorf("no handler and default registry is empty")
 		}
+
+		GlobalRegistry.PrintHandlers(L)
 		cfg.Handler = GlobalRegistry.Handle
 	}
 
@@ -288,7 +297,7 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 	}
 }
 
-func (w *Worker) processJobs(ctx context.Context, wc chan *RunningJob, f func(*Job) error) {
+func (w *Worker) processJobs(ctx context.Context, wc chan *RunningJob, f func(context.Context, *Job) error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -297,7 +306,7 @@ func (w *Worker) processJobs(ctx context.Context, wc chan *RunningJob, f func(*J
 			func() {
 				defer job.Abort()
 
-				err := f(&job.Job)
+				err := f(ctx, &job.Job)
 				if err == nil {
 					job.Close()
 				}
