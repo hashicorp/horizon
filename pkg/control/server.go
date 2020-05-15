@@ -20,7 +20,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
-	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	_ "github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -369,7 +368,7 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 		return nil, err
 	}
 
-	L := ctxlog.L(ctx)
+	L := s.L
 
 	L.Info("fetching configuration", "hub", req.StableId.SpecString())
 
@@ -564,32 +563,6 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 
 	key := msg.HubReg.Hub.SpecString()
 
-	/*
-		data, err := json.Marshal(msg.HubReg.Locations)
-		if err != nil {
-			return err
-		}
-
-		L := ctxlog.L(stream.Context())
-
-			L.Info("creating/updating hub record", "id", key)
-
-			var hr Hub
-			hr.InstanceID = msg.HubReg.Hub.Bytes()
-			hr.ConnectionInfo = data
-			hr.LastCheckin = time.Now()
-
-			de := s.db.Set(
-				"gorm:insert_option",
-				`ON CONFLICT (instance_id) DO UPDATE SET connection_info=EXCLUDED.connection_info, last_checkin=EXCLUDED.last_checkin`,
-			).Create(&hr)
-
-			err = dbx.Check(de)
-			if err != nil {
-				return err
-			}
-	*/
-
 	ch := &connectedHub{
 		xmit:     make(chan *pb.CentralActivity),
 		messages: new(int64),
@@ -655,7 +628,7 @@ func (s *Server) StartActivityReader(ctx context.Context, dbtype, conn string) e
 	}
 
 	go func() {
-		L := ctxlog.L(ctx)
+		L := s.L
 
 		for {
 			select {

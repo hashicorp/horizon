@@ -24,7 +24,6 @@ import (
 	lego53 "github.com/go-acme/lego/v3/providers/dns/route53"
 	"github.com/go-acme/lego/v3/registration"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/vault/api"
 	"github.com/pkg/errors"
 )
@@ -173,7 +172,7 @@ func (m *Manager) SetupRoute53(sess *session.Session, zoneId string) error {
 func (m *Manager) SetupHubCert(ctx context.Context) error {
 	domain := m.cfg.Domain
 
-	log.Logger = ctxlog.L(ctx).StandardLogger(&hclog.StandardLoggerOptions{InferLevels: true})
+	log.Logger = hclog.FromContext(ctx).StandardLogger(&hclog.StandardLoggerOptions{InferLevels: true})
 
 	// A client facilitates communication with the CA server.
 	client, err := lego.NewClient(m.lcfg)

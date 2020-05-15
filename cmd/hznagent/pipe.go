@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -19,6 +20,7 @@ type pipeRunner struct {
 	fToken   *string
 	fId      *string
 	fListen  *bool
+	fVerbose *int
 }
 
 func (c *pipeRunner) init() error {
@@ -27,6 +29,7 @@ func (c *pipeRunner) init() error {
 	c.fToken = c.flags.String("token", "", "authentication token")
 	c.fId = c.flags.String("id", "", "pipe identifier")
 	c.fListen = c.flags.Bool("listen", false, "listen for a pipe connection")
+	c.fVerbose = c.flags.CountP("verbose", "v", "increase verbosity of output")
 	return nil
 }
 
@@ -62,21 +65,30 @@ func (p *pipeHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx ag
 func (c *pipeRunner) Run(args []string) int {
 	c.flags.Parse(args)
 
-	level := hclog.Info
+	level := hclog.Warn
+
+	switch *c.fVerbose {
+	case 1:
+		level = hclog.Info
+	case 2:
+		level = hclog.Debug
+	case 3:
+		level = hclog.Trace
+	}
+
 	L := hclog.New(&hclog.LoggerOptions{
-		Name:   "hznagent",
-		Level:  level,
-		Output: os.Stderr,
+		Name:  "hznagent",
+		Level: level,
 	})
 
-	L.Info("discovering hubs")
+	L.Debug("discovering hubs")
 
 	dc, err := discovery.NewClient(*c.fControl)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	L.Info("refreshing data")
+	L.Debug("refreshing data")
 
 	ctx := context.Background()
 
@@ -85,14 +97,14 @@ func (c *pipeRunner) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	L.Info("starting agent")
+	L.Debug("starting agent")
 
 	g, err := agent.NewAgent(L.Named("agent"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	g.Token = *c.fToken
+	g.Token = Token(c.fToken)
 
 	if *c.fId == "" {
 		*c.fId = pb.NewULID().SpecString()
@@ -123,6 +135,8 @@ func (c *pipeRunner) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	fmt.Fprintf(os.Stderr, "Identifier: %s", *c.fId)
+
 	L.Info("pipe identifier", "id", *c.fId, "labels", labels)
 
 	if !*c.fListen {
@@ -145,6 +159,7 @@ func (c *pipeRunner) Run(args []string) int {
 		}()
 	}
 
+	L.Debug("agent running")
 	err = g.Wait(ctx)
 	if err != nil {
 		log.Fatal(err)

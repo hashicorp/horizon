@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
@@ -42,7 +45,7 @@ func main() {
 			return r, nil
 		},
 		"proxy": func() (cli.Command, error) {
-			r := &connectRunner{}
+			r := &proxyRunner{}
 			if err := r.init(); err != nil {
 				return nil, err
 			}
@@ -75,78 +78,93 @@ func main() {
 	os.Exit(exitStatus)
 }
 
-type agentRunner struct {
-	flags      *pflag.FlagSet
-	fControl   *string
-	fToken     *string
-	fLocalAddr *string
-	fLabels    *string
-	fTest      *string
-	fTCP       *string
+func Token(flag *string) string {
+	token := *flag
+	if token != "" {
+		return ""
+	}
+
+	token = os.Getenv("HORIZON_TOKEN")
+	if token == "" {
+		log.Fatalln("no token provided")
+	}
+
+	if token[0] == '@' {
+		data, err := ioutil.ReadFile(token[1:])
+		if err != nil {
+			log.Fatalf("error reading file specified by HORIZON_TOKEN: %s", err)
+		}
+
+		token = strings.TrimSpace(string(data))
+	}
+
+	return token
 }
 
-func (a *agentRunner) init() error {
-	a.flags = pflag.NewFlagSet("agent", pflag.ExitOnError)
-	a.fControl = a.flags.String("control", "control.alpha.hzn.network", "address of control plane")
-	a.fToken = a.flags.String("token", "", "authentication token")
-	a.fLocalAddr = a.flags.String("addr", "", "address to forward http traffic to")
-	a.fLabels = a.flags.String("labels", "", "labels to associate with service")
-	a.fTest = a.flags.String("test", "", "run a test http server on the given port")
-	a.fTCP = a.flags.String("tcp", "", "address of tcp server to advertise")
-
-	return nil
+type proxyRunner struct {
+	flags    *pflag.FlagSet
+	fControl *string
+	fToken   *string
+	fLabels  *string
+	fListen  *string
+	fVerbose *int
 }
 
-func (a *agentRunner) Help() string {
-	str := "horizon agent:"
-	str += a.flags.FlagUsagesWrapped(4)
-	return str
-}
-
-func (a *agentRunner) Synopsis() string {
-	return "run the horizon agent"
-}
-
-type connectRunner struct {
-	flags       *pflag.FlagSet
-	fControl    *string
-	fToken      *string
-	fLabels     *string
-	fTCPConnect *string
-}
-
-func (c *connectRunner) init() error {
+func (c *proxyRunner) init() error {
 	c.flags = pflag.NewFlagSet("agent", pflag.ExitOnError)
 	c.fControl = c.flags.String("control", "control.alpha.hzn.network", "address of control plane")
 	c.fToken = c.flags.String("token", "", "authentication token")
-	c.fLabels = c.flags.String("labels", "", "labels to associate with service")
-	c.fTCPConnect = c.flags.String("connect", "", "address to listen on which will be bridge to the given service")
+	c.fLabels = c.flags.StringP("labels", "l", "", "labels to associate with service")
+	c.fListen = c.flags.StringP("listen", "p", "", "address to listen on which will be bridge to the given service")
+	c.fVerbose = c.flags.CountP("verbose", "v", "increase verbosity of output")
 	return nil
 }
 
-func (c *connectRunner) Help() string {
+func (c *proxyRunner) Help() string {
 	str := "horizon connect:"
 	str += c.flags.FlagUsagesWrapped(4)
 	return str
 }
 
-func (c *connectRunner) Run(args []string) int {
+func (c *proxyRunner) Run(args []string) int {
 	c.flags.Parse(args)
 
 	level := hclog.Info
+
+	switch *c.fVerbose {
+	case 1:
+		level = hclog.Debug
+	case 2:
+		level = hclog.Trace
+	}
+
 	L := hclog.New(&hclog.LoggerOptions{
 		Name:  "hznagent",
 		Level: level,
 	})
 
-	L.Info("discovering hubs")
+	target := *c.fListen
+	if strings.IndexByte(target, ':') == -1 {
+		_, err := strconv.Atoi(target)
+		if err == nil {
+			target = "127.0.0.1:" + target
+		} else {
+			fmt.Fprintf(os.Stderr, "Unable to interpret '%s' as TCP target address", target)
+			return 1
+		}
+	}
+
+	labels := pb.ParseLabelSet(*c.fLabels)
+	L.Info("starting tcp listener", "addr", target, "labels", labels)
+
+	L.Debug("discovering hubs")
 
 	dc, err := discovery.NewClient(*c.fControl)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	L.Info("refreshing data")
+	L.Debug("refreshing data")
 
 	ctx := context.Background()
 
@@ -155,23 +173,21 @@ func (c *connectRunner) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	L.Info("starting agent")
+	L.Debug("starting agent")
 
 	g, err := agent.NewAgent(L.Named("agent"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	g.Token = *c.fToken
+	g.Token = Token(c.fToken)
 
 	err = g.Start(ctx, dc)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	labels := pb.ParseLabelSet(*c.fLabels)
-	L.Info("starting tcp listener", "addr", *c.fTCPConnect, "labels", labels)
-	l, err := net.Listen("tcp", *c.fTCPConnect)
+	l, err := net.Listen("tcp", target)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -201,11 +217,11 @@ func (c *connectRunner) Run(args []string) int {
 				}()
 
 				io.Copy(lc, rc)
-				L.Info("tcp session ended")
 			}()
 		}
 	}()
 
+	L.Info("agent running")
 	err = g.Wait(ctx)
 	if err != nil {
 		log.Fatal(err)
@@ -214,7 +230,7 @@ func (c *connectRunner) Run(args []string) int {
 	return 0
 }
 
-func (c *connectRunner) Synopsis() string {
+func (c *proxyRunner) Synopsis() string {
 	return "proxy to a TCP server provided by a horizon service"
 }
 
@@ -256,70 +272,144 @@ func (t *testRunner) Run(args []string) int {
 	return 0
 }
 
+type agentRunner struct {
+	flags    *pflag.FlagSet
+	fControl *string
+	fToken   *string
+	fHTTP    *string
+	fLabels  *string
+	fTCP     *string
+	fVerbose *int
+}
+
+func (a *agentRunner) init() error {
+	a.flags = pflag.NewFlagSet("agent", pflag.ExitOnError)
+	a.fControl = a.flags.String("control", "control.alpha.hzn.network", "address of control plane")
+	a.fToken = a.flags.String("token", "", "authentication token")
+	a.fLabels = a.flags.StringP("labels", "l", "", "labels to associate with service")
+	a.fTCP = a.flags.String("tcp", "", "address of tcp server to advertise")
+	a.fHTTP = a.flags.String("http", "", "address to forward http traffic to")
+	a.fVerbose = a.flags.CountP("verbose", "v", "increase verbosity of output")
+
+	return nil
+}
+
+func (a *agentRunner) Help() string {
+	str := "horizon agent:"
+	str += a.flags.FlagUsagesWrapped(4)
+	return str
+}
+
+func (a *agentRunner) Synopsis() string {
+	return "run the horizon agent"
+}
+
 func (a *agentRunner) Run(args []string) int {
 	a.flags.Parse(args)
 
 	level := hclog.Info
+
+	switch *a.fVerbose {
+	case 1:
+		level = hclog.Debug
+	case 2:
+		level = hclog.Trace
+	}
+
 	L := hclog.New(&hclog.LoggerOptions{
 		Name:  "hznagent",
 		Level: level,
 	})
 
-	L.Info("discovering hubs")
+	ctx := hclog.WithContext(context.Background(), L)
 
-	dc, err := discovery.NewClient(*a.fControl)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	ctx := context.Background()
-
-	L.Info("refreshing data")
-
-	err = dc.Refresh(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	L.Info("starting agent")
+	L.Debug("starting agent")
 
 	g, err := agent.NewAgent(L.Named("agent"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	g.Token = *a.fToken
+	g.Token = Token(a.fToken)
 
-	if *a.fLocalAddr != "" {
-		L.Info("registered http service", "address", *a.fLocalAddr)
+	var setup bool
+
+	if *a.fHTTP != "" {
+		target := *a.fHTTP
+		if strings.IndexByte(target, ':') == -1 {
+			_, err := strconv.Atoi(target)
+			if err == nil {
+				target = "127.0.0.1:" + target
+			} else {
+				target = target + ":80"
+			}
+		}
+
+		L.Info("registered http service", "address", target)
 		_, err = g.AddService(&agent.Service{
 			Type:    "http",
 			Labels:  pb.ParseLabelSet(*a.fLabels),
-			Handler: agent.HTTPHandler("http://" + *a.fLocalAddr),
+			Handler: agent.HTTPHandler("http://" + target),
 		})
 
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		setup = true
 	}
 
 	if *a.fTCP != "" {
-		L.Info("registered tcp service", "address", *a.fTCP)
+		target := *a.fTCP
+		if strings.IndexByte(target, ':') == -1 {
+			_, err := strconv.Atoi(target)
+			if err == nil {
+				target = "127.0.0.1:" + target
+			} else {
+				fmt.Fprintf(os.Stderr, "Unable to interpret '%s' as TCP target address", target)
+				return 1
+			}
+		}
+
+		L.Info("registered tcp service", "address", target)
 		_, err = g.AddService(&agent.Service{
 			Type:    "tcp",
 			Labels:  pb.ParseLabelSet(*a.fLabels),
-			Handler: agent.TCPHandler(*a.fTCP),
+			Handler: agent.TCPHandler(target),
 		})
 
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		setup = true
+	}
+
+	if !setup {
+		L.Error("no services defined therefore no reason to run")
+		return 1
+	}
+
+	L.Debug("discovering hubs")
+
+	dc, err := discovery.NewClient(*a.fControl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	L.Debug("refreshing data")
+
+	err = dc.Refresh(ctx)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	err = g.Start(ctx, dc)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	L.Info("agent running")
 
 	err = g.Wait(ctx)
 	if err != nil {

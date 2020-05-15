@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/jinzhu/gorm"
 	"github.com/lib/pq"
@@ -39,7 +38,7 @@ func NewActivityReader(ctx context.Context, dbtype, conn string) (*ActivityReade
 		return nil, err
 	}
 
-	L := ctxlog.L(ctx)
+	L := hclog.FromContext(ctx)
 
 	reportProblem := func(ev pq.ListenerEventType, err error) {
 		if err != nil {

@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/horizon/pkg/connect"
-	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/hashicorp/yamux"
@@ -118,7 +117,7 @@ func (h *Hub) bridgeToTarget(
 	req *pb.ConnectRequest,
 	wctx wire.Context,
 ) error {
-	L := ctxlog.L(ctx)
+	L := h.L
 
 	L.Trace("bridging connection to hub", "from", h.id, "to", target.Hub)
 
@@ -313,7 +312,7 @@ func (h *Hub) forwardToTarget(
 	req *pb.ConnectRequest,
 	wctx wire.Context,
 ) error {
-	L := ctxlog.L(ctx)
+	L := h.L
 
 	locs, err := h.cc.GetHubAddresses(ctx, target.Hub)
 	if err != nil {

@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/horizon/pkg/connect"
-	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/timing"
 	"github.com/hashicorp/horizon/pkg/wire"
@@ -157,7 +156,7 @@ func (h *Hub) connectToRemoteService(
 ) (wire.Context, error) {
 	defer timing.Track(ctx, "connect-remote").Stop()
 
-	L := ctxlog.L(ctx)
+	L := h.L
 
 	locs, err := h.cc.GetHubAddresses(ctx, target.Hub)
 	if err != nil {

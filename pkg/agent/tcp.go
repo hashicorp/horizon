@@ -21,7 +21,6 @@ func TCPHandler(addr string) ServiceHandler {
 
 func (h *tcpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx ServiceContext) error {
 	defer sctx.Close()
-	L.Info("tcp handler started")
 	proto := sctx.ProtocolId()
 
 	if !(proto == "" || proto == "tcp") {
@@ -35,7 +34,7 @@ func (h *tcpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Ser
 
 	id := pb.NewULID()
 
-	L.Info("tcp session started", "id", id, "addr", h.addr, "session-addr", c.LocalAddr())
+	L.Trace("tcp session started", "id", id, "addr", h.addr, "session-addr", c.LocalAddr())
 
 	r := sctx.Reader()
 	w := sctx.Writer()
@@ -46,7 +45,6 @@ func (h *tcpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Ser
 	go func() {
 		defer wg.Done()
 		defer w.Close()
-		L.Info("read closed")
 
 		io.Copy(w, c)
 	}()
@@ -60,7 +58,7 @@ func (h *tcpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Ser
 
 	wg.Wait()
 
-	L.Info("tcp session ended", "id", id)
+	L.Trace("tcp session ended", "id", id)
 
 	return nil
 }

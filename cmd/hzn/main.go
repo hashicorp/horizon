@@ -63,7 +63,6 @@ func main() {
 	}
 
 	os.Exit(exitStatus)
-
 }
 
 func controlFactory() (cli.Command, error) {
@@ -146,6 +145,10 @@ func (c *controlServer) Run(args []string) int {
 			hclog.ExcludeByPrefix("http: TLS handshake error from").Exclude,
 		}.Exclude,
 	})
+
+	if os.Getenv("DEBUG") != "" {
+		L.SetLevel(hclog.Trace)
+	}
 
 	vcfg := api.DefaultConfig()
 
@@ -261,7 +264,7 @@ func (c *controlServer) Run(args []string) int {
 
 	go StartHealthz(L)
 
-	ctx := context.Background()
+	ctx := hclog.WithContext(context.Background(), L)
 
 	cert, key, err := tlsmgr.HubMaterial(ctx)
 	if err != nil {
@@ -370,7 +373,9 @@ func (h *hubRunner) Run(args []string) int {
 
 	httpPort := os.Getenv("HTTP_PORT")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx := hclog.WithContext(context.Background(), L)
+
+	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	sigs := make(chan os.Signal, 1)

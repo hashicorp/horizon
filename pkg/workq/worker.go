@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/jinzhu/gorm"
@@ -178,7 +177,7 @@ const listenChannel = "work_available"
 
 // Setup a pq listener and watch for events (and still pop every once in a while)"
 func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
-	L := ctxlog.L(ctx)
+	L := hclog.FromContext(ctx)
 
 	// setup any default periodics
 	periodMu.Lock()

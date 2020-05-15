@@ -228,7 +228,7 @@ func (a *Agent) processStatus(ctx context.Context) (bool, error) {
 			}
 			return false, nil
 		} else {
-			a.L.Info("connected to hub", "addr", stat.cfg.Addr)
+			a.L.Debug("connected to hub", "addr", stat.cfg.Addr)
 			return true, nil
 		}
 	}
@@ -241,7 +241,7 @@ func (a *Agent) Wait(ctx context.Context) error {
 }
 
 func (a *Agent) connectToHub(ctx context.Context, hub discovery.HubConfig, status chan hubStatus) {
-	a.L.Info("connecting to hub", "addr", hub.Addr)
+	a.L.Debug("connecting to hub", "addr", hub.Addr)
 
 	var clientTlsConfig tls.Config
 	clientTlsConfig.NextProtos = []string{"hzn"}
@@ -354,7 +354,7 @@ func (a *Agent) Nego(ctx context.Context, L hclog.Logger, conn net.Conn, hubCfg 
 
 	a.sessions = append(a.sessions, session)
 
-	L.Info("connected successfully", "status", wc.Status, "latency", latency, "skew", skew)
+	L.Debug("connected successfully", "status", wc.Status, "latency", latency, "skew", skew)
 
 	go a.watchSession(ctx, L, session, fr, hubCfg, status, useLZ4)
 

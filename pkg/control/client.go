@@ -23,7 +23,6 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/horizon/pkg/ctxlog"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -230,7 +229,7 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 	c.tokenPub = resp.TokenPub
 
 	if resp.S3AccessKey != "" {
-		L := ctxlog.L(ctx)
+		L := c.L
 
 		L.Info("reconfiguring s3 access to use server provided credentials",
 			"bucket", resp.S3Bucket,
@@ -259,7 +258,7 @@ func (c *Client) TokenPub() ed25519.PublicKey {
 type NPNHandler func(hs *http.Server, c *tls.Conn, h http.Handler)
 
 func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string]NPNHandler, h http.Handler) error {
-	L := ctxlog.L(ctx)
+	L := c.L
 
 	cert, err := tls.X509KeyPair(c.tlsCert, c.tlsKey)
 	if err != nil {
@@ -373,7 +372,7 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 
 		c.accountServices[accStr] = info
 
-		c.refreshAcconut(ctxlog.L(ctx), info)
+		c.refreshAcconut(c.L, info)
 	}
 
 	for _, service := range info.Recent {
