@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/agent"
 	"github.com/hashicorp/horizon/pkg/connect"
@@ -92,7 +93,14 @@ func TestHub(t *testing.T) {
 			clientTlsConfig.InsecureSkipVerify = true
 			clientTlsConfig.NextProtos = []string{"hzn"}
 
+			fmt.Println("here0")
 			cconn, err := tls.Dial("tcp", setup.HubAddr, &clientTlsConfig)
+			fmt.Println("here1")
+
+			if err != nil {
+				spew.Dump(err)
+			}
+
 			require.NoError(t, err)
 
 			serviceId := pb.NewULID()

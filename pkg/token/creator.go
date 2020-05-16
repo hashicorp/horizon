@@ -18,7 +18,7 @@ type TokenCreator struct {
 	Issuer          string
 	AccountId       *pb.ULID
 	AccuntNamespace string
-	Capabilities    map[string]string
+	Capabilities    map[pb.Capability]string
 	Metadata        map[string]string
 	ValidDuration   time.Duration
 
@@ -33,13 +33,8 @@ func (c *TokenCreator) body() ([]byte, error) {
 	capa := c.RawCapabilities
 
 	for k, v := range c.Capabilities {
-		capId, ok := CapabilityMapping[k]
-		if !ok {
-			return nil, fmt.Errorf("unknown capability: %s", k)
-		}
-
 		capa = append(capa, pb.TokenCapability{
-			Capability: capId,
+			Capability: k,
 			Value:      v,
 		})
 	}

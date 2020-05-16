@@ -10,14 +10,7 @@ func (t *ValidToken) Account() *pb.Account {
 	return t.Body.Account
 }
 
-func (t *ValidToken) HasCapability(name string) (bool, string) {
-	id, ok := CapabilityMapping[name]
-	if !ok {
-		return false, ""
-	}
-
-	target := pb.Capability(id)
-
+func (t *ValidToken) HasCapability(target pb.Capability) (bool, string) {
 	for _, capa := range t.Body.Capabilities {
 		if capa.Capability == target {
 			return true, capa.Value
@@ -29,7 +22,7 @@ func (t *ValidToken) HasCapability(name string) (bool, string) {
 
 func (t *ValidToken) AllowAccount(ns string) bool {
 	// First, this token has to have the capability to access other accounts
-	ok, val := t.HasCapability(CapaAccess)
+	ok, val := t.HasCapability(pb.ACCESS)
 	if !ok {
 		return false
 	}

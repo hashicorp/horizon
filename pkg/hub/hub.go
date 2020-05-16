@@ -252,7 +252,7 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 	}
 
 	if len(preamble.Services) > 0 {
-		ok, _ := vt.HasCapability("hzn:serve")
+		ok, _ := vt.HasCapability(pb.SERVE)
 		if !ok {
 			wc.Status = "bad-token-capability"
 

@@ -725,8 +725,8 @@ func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.Con
 
 	var tc token.TokenCreator
 	tc.Role = pb.MANAGE
-	tc.Capabilities = map[string]string{
-		token.CapaAccess: rec.Namespace,
+	tc.Capabilities = map[pb.Capability]string{
+		pb.ACCESS: rec.Namespace,
 	}
 
 	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)

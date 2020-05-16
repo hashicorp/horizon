@@ -221,7 +221,7 @@ func TestServer(t *testing.T) {
 
 		assert.Equal(t, 1, len(ht.Body.Capabilities))
 
-		ok, _ := ht.HasCapability(token.CapaServe)
+		ok, _ := ht.HasCapability(pb.SERVE)
 		require.True(t, ok)
 	})
 
@@ -339,7 +339,7 @@ func TestServer(t *testing.T) {
 
 		assert.Equal(t, 1, len(ht.Body.Capabilities))
 
-		ok, _ := ht.HasCapability(token.CapaServe)
+		ok, _ := ht.HasCapability(pb.SERVE)
 		require.True(t, ok)
 	})
 

@@ -17,9 +17,9 @@ func TestToken(t *testing.T) {
 		var tc TokenCreator
 		tc.AccountId = pb.NewULID()
 		tc.AccuntNamespace = "/test"
-		tc.Capabilities = map[string]string{
-			CapaConnect: "",
-			CapaServe:   "",
+		tc.Capabilities = map[pb.Capability]string{
+			pb.CONNECT: "",
+			pb.SERVE:   "",
 		}
 
 		pub, key, err := ed25519.GenerateKey(rand.Reader)
@@ -35,9 +35,9 @@ func TestToken(t *testing.T) {
 			return ok
 		}
 
-		assert.True(t, cb(vt.HasCapability(CapaConnect)))
-		assert.True(t, cb(vt.HasCapability(CapaServe)))
-		assert.False(t, cb(vt.HasCapability(CapaAccess)))
+		assert.True(t, cb(vt.HasCapability(pb.CONNECT)))
+		assert.True(t, cb(vt.HasCapability(pb.SERVE)))
+		assert.False(t, cb(vt.HasCapability(pb.ACCESS)))
 		assert.Equal(t, "k1", vt.KeyId)
 	})
 
@@ -45,9 +45,9 @@ func TestToken(t *testing.T) {
 		var tc TokenCreator
 		tc.AccountId = pb.NewULID()
 		tc.AccuntNamespace = "/test"
-		tc.Capabilities = map[string]string{
-			CapaConnect: "",
-			CapaServe:   "",
+		tc.Capabilities = map[pb.Capability]string{
+			pb.CONNECT: "",
+			pb.SERVE:   "",
 		}
 
 		pub, key, err := ed25519.GenerateKey(rand.Reader)
@@ -91,9 +91,9 @@ func TestToken(t *testing.T) {
 		var tc TokenCreator
 		tc.AccountId = pb.NewULID()
 		tc.AccuntNamespace = "/test"
-		tc.Capabilities = map[string]string{
-			CapaConnect: "",
-			CapaServe:   "",
+		tc.Capabilities = map[pb.Capability]string{
+			pb.CONNECT: "",
+			pb.SERVE:   "",
 		}
 
 		_, key, err := ed25519.GenerateKey(rand.Reader)
@@ -114,9 +114,9 @@ func TestToken(t *testing.T) {
 		var tc TokenCreator
 		tc.AccountId = pb.NewULID()
 		tc.AccuntNamespace = "/test"
-		tc.Capabilities = map[string]string{
-			CapaConnect: "",
-			CapaServe:   "",
+		tc.Capabilities = map[pb.Capability]string{
+			pb.CONNECT: "",
+			pb.SERVE:   "",
 		}
 		tc.ValidDuration = time.Second
 
@@ -146,9 +146,9 @@ func TestToken(t *testing.T) {
 		var tc TokenCreator
 		tc.AccountId = pb.NewULID()
 		tc.AccuntNamespace = "/test"
-		tc.Capabilities = map[string]string{
-			CapaConnect: "",
-			CapaServe:   "",
+		tc.Capabilities = map[pb.Capability]string{
+			pb.CONNECT: "",
+			pb.SERVE:   "",
 		}
 
 		pub, key, err := ed25519.GenerateKey(rand.Reader)
