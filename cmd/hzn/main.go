@@ -87,7 +87,12 @@ func (mr *migrateRunner) Run(args []string) int {
 		log.Fatal("no DATABASE_URL provided")
 	}
 
-	m, err := migrate.New("file:///migrations", url)
+	migPath := os.Getenv("MIGRATIONS_PATH")
+	if migPath == "" {
+		migPath = "/migrations"
+	}
+
+	m, err := migrate.New("file://"+migPath, url)
 	if err != nil {
 		log.Fatal(err)
 	}

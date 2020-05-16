@@ -8,7 +8,6 @@ DOCKER_TAG_PREFIX ?= TC
 BUILD_COUNTER ?= $(CIRCLE_BUILD_NUM)
 
 EFFECTIVE_LD_FLAGS ?= "-X main.GitCommit=$(GIT_COMMIT) $(LD_FLAGS)"
-JUNIT_XML ?= work/junit.xml
 
 ## fully-qualified path to this Makefile
 MKFILE_PATH := $(realpath $(lastword $(MAKEFILE_LIST)))
@@ -30,18 +29,9 @@ help:
 require-%:
 	$(if ${${*}},,$(error You must pass the $* environment variable))
 
-## utility for transforming go test output to junit xml for test reporting in ci
-GO_JUNIT_REPORT := work/go-junit-report
-$(GO_JUNIT_REPORT): $(GO_MOD_SOURCES)
-	go build -o $@ github.com/jstemmer/go-junit-report
-
-## run tests only when sources have changed
-work/.tests-ran: $(SOURCES) $(TEST_SOURCES) $(GO_JUNIT_REPORT)
-ifdef CI ## set by CircleCI
-	bash -c 'go test -v ./... | tee >( $(GO_JUNIT_REPORT) > $(JUNIT_XML) )'
-else
-	go test -v ./...
-endif
+## run tests only when sources have change
+work/.tests-ran: $(SOURCES) $(TEST_SOURCES)
+	go test -v ./... || exit 1
 	@touch $@
 
 .PHONY: test

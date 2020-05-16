@@ -1,139 +1,126 @@
 ---
 version: 2
 
-## capture YAML references here, rather than defining them inline
-references:
-    images:
-        go-docker: &GODOCKER_IMAGE circleci/golang:1.14
-        py-docker: &PYDOCKER_IMAGE circleci/python:3
+jobs:
+  build-and-package:
+    docker:
+      - image: circleci/golang:1.14
+      - image: localstack/localstack:latest
+      - image: circleci/postgres:9.6.2-alpine
+        environment:
+          POSTGRES_USER: horizon
+          POSTGRES_DB: horizon_test
+      - image: vault
+        command: ["server", "-dev", "-dev-root-token-id=hznroot"]
 
-    paths:
-        test-results-dir: &TEST_RESULTS_DIR /tmp/test-results
+    #### TEMPLATE_NOTE: go expects specific checkout path representing url
+    #### expecting it in the form of
+    ####   /go/src/github.com/circleci/go-tool
+    ####   /go/src/bitbucket.org/circleci/go-tool
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            ## hashicorp-ci github "machine" user, which allows go to fetch
+            ## source for private modules.
+            ## hostname must be set to "github.com":
+            ## https://circleci.com/docs/2.0/gh-bb-integration/#creating-a-github-user-key
+            - "c6:96:98:82:dc:04:6c:39:dd:ac:83:05:e3:15:1c:98"
 
-    cache:
-        gomod: &GOMOD_CACHE_KEY v1-dependencies-{{ checksum "go.mod" }}-{{ checksum "go.sum" }}
-        awscli: &AWSCLI awscli==1.16.115 ## also a pip dep string!
+      - checkout
 
-    ## environment gets reused across jobs
-    environment: &ENVIRONMENT
-        TEST_RESULTS_DIR: *TEST_RESULTS_DIR
-        GO111MODULE: "on"
+      ## There's no great way to emulate TeamCity's BUILD_NUMBER, an
+      ## atomically-increating integer that identifies which build is
+      ## "after" another, without having to inspect the repository.
+      ## Circle's `CIRCLE_BUILD_NUM` is not unique to the *workflow*, only
+      ## to the *job*; so build-and-package can be 42 docker-push would be
+      ## 43: presumably always greater, but not shared.
+      ##
+      ## Since this step is always run first, it gets to create the
+      ## canonical build identifier.
+      - run:
+          name: Create unique build identifier
+          command: |
+              short_git_sha=$( git rev-parse --short HEAD )
 
-        DOCKER_TAG_PREFIX: b-
+              # the always-increasing counter, based on CIRCLE_BUILD_NUM
+              BUILD_COUNTER="${CIRCLE_BUILD_NUM}"
+              echo "export BUILD_COUNTER=${BUILD_COUNTER}" >> "${BASH_ENV}"
 
-        DOCKER_URL: quay.io
-        DOCKER_ORG: hashicorp
+              # the build identifier, which includes the short git sha
+              BUILD_NUMBER="${DOCKER_TAG_PREFIX}${BUILD_COUNTER}-${short_git_sha}"
+              echo "export BUILD_NUMBER=${BUILD_NUMBER}" >> "${BASH_ENV}"
+
+              # output build id and counter
+              echo -e "\nbuild counter: ${BUILD_COUNTER}; build id: ${BUILD_NUMBER}\n"
+
+      - run: sudo apt-get update
+      - run: sudo apt-get install postgresql-client-11
+
+      # specify any bash command here prefixed with `run: `
+      - run: go get -v -t -d ./...
+      - run:
+          name: Waiting for Postgres to be ready
+          command: |
+            for i in `seq 1 10`;
+            do
+              nc -z localhost 5432 && echo Success && exit 0
+              echo -n .
+              sleep 1
+            done
+            echo Failed waiting for Postgres && exit 1
+
+      - run:
+          name: Running tests
+          environment:
+            DATABASE_URL: "postgres://horizon@localhost:5432/horizon_test?sslmode=disable"
+          command: |
+            go build -o bin/hzn ./cmd/hzn
+            MIGRATIONS_PATH=./pkg/control/migrations ./bin/hzn migrate
+            go test -v ./...
+
+      - run:
+          name: Persist build number
+          command: cp "${BASH_ENV}" bash-env
+
+      - persist_to_workspace:
+          root: "."
+          paths:
+              - "*"
+
+  docker-push:
+    docker:
+      - image: circleci/golang:1.12
+
+    environment:
+      ## this along with CIRCLE_BUILD_NUM and BUILD_NUMBER (computed) are used
+      ## to uniquely identify tag Docker images.
+      ## TODO: refactor these when TeamCity is no longer being used.
+      DOCKER_TAG_PREFIX: b-
+
+      DOCKER_URL: quay.io
+      DOCKER_ORG: hashicorp
+
+    steps:
+      - attach_workspace:
+          at: "."
+
+      ## restore the computed build number into the environment
+      - run:
+          name: Restore build number
+          command: cat bash-env >> "${BASH_ENV}"
+
+      - setup_remote_docker:
+          docker_layer_caching: true
+
+      ## requires DOCKER_USER and DOCKER_PASS for DOCKER_URL to be set as
+      ## secure environment variables.
+      - run: make pkg-docker
 
 workflows:
-    version: 2
-
-    build-and-upload:
-        jobs:
+  version: 2
+  build-and-upload:
+    jobs:
+      - build-and-package
+      - docker-push:
+          requires:
             - build-and-package
-
-            - docker-push:
-                requires:
-                    - build-and-package
-jobs:
-    build-and-package:
-        docker:
-            - image: *GODOCKER_IMAGE
-
-        environment: *ENVIRONMENT
-
-        steps:
-            - run: mkdir -p ${TEST_RESULTS_DIR}
-
-            - add_ssh_keys:
-                fingerprints:
-                  ## hashicorp-ci github "machine" user, which allows go to fetch
-                  ## source for private modules.
-                  ## hostname must be set to "github.com":
-                  ## https://circleci.com/docs/2.0/gh-bb-integration/#creating-a-github-user-key
-                  - "c6:96:98:82:dc:04:6c:39:dd:ac:83:05:e3:15:1c:98"
-
-            - checkout
-
-            ## There's no great way to emulate TeamCity's BUILD_NUMBER, an
-            ## atomically-increating integer that identifies which build is
-            ## "after" another, without having to inspect the repository.
-            ## Circle's `CIRCLE_BUILD_NUM` is not unique to the *workflow*, only
-            ## to the *job*; so build-and-package can be 42 docker-push would be
-            ## 43: presumably always greater, but not shared.
-            ##
-            ## Since this step is always run first, it gets to create the
-            ## canonical build identifier.
-            - run:
-                name: Create unique build identifier
-                command: |
-                    short_git_sha=$( git rev-parse --short HEAD )
-
-                    # the always-increasing counter, based on CIRCLE_BUILD_NUM
-                    BUILD_COUNTER="${CIRCLE_BUILD_NUM}"
-                    echo "export BUILD_COUNTER=${BUILD_COUNTER}" >> "${BASH_ENV}"
-
-                    # the build identifier, which includes the short git sha
-                    BUILD_NUMBER="${DOCKER_TAG_PREFIX}${BUILD_COUNTER}-${short_git_sha}"
-                    echo "export BUILD_NUMBER=${BUILD_NUMBER}" >> "${BASH_ENV}"
-
-                    # output build id and counter
-                    echo -e "\nbuild counter: ${BUILD_COUNTER}; build id: ${BUILD_NUMBER}\n"
-
-            - restore_cache:
-                keys:
-                    - *GOMOD_CACHE_KEY
-
-            - run:
-                name: test
-                command: make test JUNIT_XML=${TEST_RESULTS_DIR}/junit.xml
-
-            - save_cache:
-                key: *GOMOD_CACHE_KEY
-                paths:
-                    - /go/pkg
-
-            - store_artifacts:
-                path: pkg
-
-            - store_test_results:
-                path: *TEST_RESULTS_DIR
-
-            ## save the computed build number into the workspace; `work` created
-            ## by the Makefile
-            - run:
-                name: Persist build number
-                command: cp "${BASH_ENV}" work/bash-env
-
-            ## persist everything: created binaries, source, etc.
-            - persist_to_workspace:
-                root: "."
-                paths:
-                    - "*"
-
-    docker-push:
-        docker:
-            - image: *GODOCKER_IMAGE
-
-        environment: *ENVIRONMENT
-
-        steps:
-            - attach_workspace:
-                at: "."
-
-            ## restore the computed build number into the environment
-            - run:
-                name: Restore build number
-                command: cat work/bash-env >> "${BASH_ENV}"
-
-            ## `go list` in makefile still benefits from the go package cache
-            - restore_cache:
-                keys:
-                    - *GOMOD_CACHE_KEY
-
-            - setup_remote_docker:
-                docker_layer_caching: true
-
-            ## requires DOCKER_USER and DOCKER_PASS for DOCKER_URL to be set as
-            ## secure environment variables.
-            - run: make pkg-docker
-
