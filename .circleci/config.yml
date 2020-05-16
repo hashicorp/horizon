@@ -6,6 +6,11 @@ jobs:
     docker:
       - image: circleci/golang:1.14
       - image: localstack/localstack:latest
+      - image: letsencrypt/pebble
+        command: ["pebble"]
+        environment:
+          PEBBLE_VA_NOSLEEP: 1
+          PEBBLE_VA_ALWAYS_VALID: 1
       - image: circleci/postgres:11-alpine
         environment:
           POSTGRES_USER: horizon
