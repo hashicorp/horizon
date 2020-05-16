@@ -319,7 +319,7 @@ func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string
 
 	L.Info("refreshing bootstrap config", "period", period)
 
-	periodic.Run(ctx, period, func() {
+	go periodic.Run(ctx, period, func() {
 		L.Info("periodic rebootstraping of hub config")
 		err := c.BootstrapConfig(ctx)
 		if err != nil {

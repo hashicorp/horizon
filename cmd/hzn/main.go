@@ -306,7 +306,7 @@ func (c *controlServer) Run(args []string) int {
 	// So that when they are refreshed by the background job, we eventually pick
 	// them up. Hubs are also refreshing their config on an hourly basis so they'll
 	// end up picking up the new TLS material that way too.
-	periodic.Run(ctx, time.Hour, func() {
+	go periodic.Run(ctx, time.Hour, func() {
 		cert, key, err := tlsmgr.RefreshFromVault()
 		if err != nil {
 			L.Error("error refreshing hub certs from vault")
