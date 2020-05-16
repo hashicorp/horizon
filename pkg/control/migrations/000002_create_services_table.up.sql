@@ -11,4 +11,4 @@ CREATE TABLE IF NOT EXISTS services (
 );
 
 CREATE INDEX account_services ON services USING btree (account_id, id);
-CREATE INDEX service_by_service_id ON services USING (service_id);
+CREATE INDEX service_by_service_id ON services USING btree (service_id);
