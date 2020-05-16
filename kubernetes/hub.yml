@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hub
+  labels:
+    app: hub
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hub
+  template:
+    metadata:
+      labels:
+        app: hub
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "17001"
+
+    spec:
+      containers:
+      - name: hub
+        image: 074735953993.dkr.ecr.us-west-2.amazonaws.com/horizon:latest
+        args:
+          - hub
+        env:
+          - name: AWS_REGION
+            value: us-west-2
+
+          - name: CONTROL_ADDR
+            valueFrom:
+              configMapKeyRef:
+                name: hub
+                key: control-addr
+
+          - name: STABLE_ID
+            valueFrom:
+              configMapKeyRef:
+                name: hub
+                key: stable-id
+
+          - name: TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: hub
+                key: token
+
+          - name: HTTP_PORT
+            value: "80"
+
+          - name: DEBUG
+            valueFrom:
+              configMapKeyRef:
+                name: hub
+                key: debug
+
+          - name: PORT
+            value: "443"
+
+        ports:
+          - name: hzn
+            containerPort: 443
+          - name: monitoring
+            containerPort: 17001
+          - name: http
+            containerPort: 80
+
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: monitoring
+          initialDelaySeconds: 3
+          periodSeconds: 3
+

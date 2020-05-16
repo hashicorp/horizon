@@ -1,0 +1,20 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-west-2:074735953993:certificate/56d500a2-a8b5-4734-b73b-6d246eab9afe
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+
+  name: control
+spec:
+  rules:
+    - host: control.alpha.hzn.network
+      http:
+        paths:
+          - path: /+
+            backend:
+              serviceName: control
+              servicePort: 80
+

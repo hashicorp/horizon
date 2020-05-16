@@ -1,0 +1,178 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control
+  labels:
+    app: control
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: control
+  template:
+    metadata:
+      labels:
+        app: control
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "17001"
+
+        ad.datadoghq.com/control.check_names: |
+          ["openmetrics"]
+        ad.datadoghq.com/control.init_configs: |
+          [{}]
+        ad.datadoghq.com/control.instances: |
+          [
+            {
+              "prometheus_url": "http://%%host%%:17001/metrics",
+              "namespace": "control",
+              "metrics": [
+                {"go_goroutines":"goroutines"},
+                {"go_memstats_heap_sys_bytes":"heap_size"},
+                {"control_total_messages":"total.messages"},
+                {"control_total_bytes":"total.bytes"}
+              ]
+            }
+          ]
+
+    spec:
+      initContainers:
+      - name: geoip-setup
+        image: 074735953993.dkr.ecr.us-west-2.amazonaws.com/horizon:util-1
+        command:
+          - sh
+          - -c
+          - "aws s3 cp s3://${CONFIG_BUCKET}/${ASNDB_KEY} /geoip/asn.mmdb"
+        env:
+          - name: AWS_REGION
+            value: us-west-2
+
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: control-iam
+                key: access_key
+
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: control-iam
+                key: secret_key
+
+          - name: CONFIG_BUCKET
+            valueFrom:
+              configMapKeyRef:
+                name: s3
+                key: config_bucket
+
+          - name: ASNDB_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: s3
+                key: asn_db
+
+        volumeMounts:
+          - mountPath: /geoip
+            name: geoip
+
+      containers:
+      - name: control
+        image: 074735953993.dkr.ecr.us-west-2.amazonaws.com/horizon:latest
+        args:
+          - control
+        env:
+          - name: AWS_REGION
+            value: us-west-2
+
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              secretKeyRef:
+                name: control-iam
+                key: access_key
+
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: control-iam
+                key: secret_key
+
+          - name: VAULT_ADDR
+            value: "http://$(VAULT_SERVICE_HOST):8200"
+
+          - name: DATABASE_URL
+            valueFrom:
+              secretKeyRef:
+                name: rds
+                key: url
+
+          - name: S3_BUCKET
+            valueFrom:
+              configMapKeyRef:
+                name: s3
+                key: bucket
+
+          - name: HUB_DOMAIN
+            value: "*.alpha.hzn.network"
+
+          - name: ZONE_ID
+            valueFrom:
+              configMapKeyRef:
+                name: route53
+                key: zone_id
+
+          - name: REGISTER_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: tokens
+                key: register
+
+          - name: OPS_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: tokens
+                key: ops
+
+          - name: DYNAMO_TABLE
+            valueFrom:
+              configMapKeyRef:
+                name: dynamodb
+                key: table
+
+          - name: HUB_ACCESS_KEY
+            valueFrom:
+              secretKeyRef:
+                name: hub-iam
+                key: access_key
+
+          - name: HUB_SECRET_KEY
+            valueFrom:
+              secretKeyRef:
+                name: hub-iam
+                key: secret_key
+
+          - name: PORT
+            value: "443"
+
+          - name: ASNDB
+            value: /geoip/asn.mmdb
+
+        ports:
+          - name: tls
+            containerPort: 443
+          - name: monitoring
+            containerPort: 17001
+
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: monitoring
+          initialDelaySeconds: 30
+          periodSeconds: 3
+
+        volumeMounts:
+          - mountPath: /geoip
+            name: geoip
+      volumes:
+        - name: geoip
+          emptyDir: {}
