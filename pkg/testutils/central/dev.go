@@ -27,8 +27,10 @@ type DevSetup struct {
 	DB             *gorm.DB
 	ControlClient  *control.Client
 	ControlServer  *control.Server
+	MgmtClient     pb.ControlManagementClient
 	ServerAddr     string
 	AgentToken     string
+	RegisterToken  string
 	HubToken       string
 	HubAddr        string
 	Account        *pb.Account
@@ -140,6 +142,7 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 
 	gs := grpc.NewServer()
 	pb.RegisterControlServicesServer(gs, s)
+	pb.RegisterControlManagementServer(gs, s)
 
 	li, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
@@ -192,9 +195,11 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 	f(&DevSetup{
 		Top:           top,
 		DB:            db,
+		MgmtClient:    pb.NewControlManagementClient(gcc),
 		ControlClient: client,
 		ControlServer: s,
 		ServerAddr:    li.Addr().String(),
+		RegisterToken: "aabbcc",
 		HubToken:      ctr.Token,
 		HubAddr:       fmt.Sprintf("127.0.0.1:%d", ln.Addr().(*net.TCPAddr).Port),
 		AgentToken:    agentToken.Token,
