@@ -4,7 +4,6 @@ import (
 	context "context"
 	"errors"
 	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -69,10 +68,6 @@ func TestServer(t *testing.T) {
 
 	vc := testutils.SetupVault()
 
-	db := os.Getenv("DATABASE_URL")
-	if db == "" {
-		t.Skip("missing database url, skipping postgres tests")
-	}
 	sess := session.New(aws.NewConfig().
 		WithEndpoint("http://localhost:4566").
 		WithRegion("us-east-1").
@@ -669,9 +664,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("picks up activity from postgresql", func(t *testing.T) {
-		connect := os.Getenv("DATABASE_URL")
-
-		db, err := gorm.Open("postgres", connect)
+		db, err := gorm.Open("postgres", testutils.DbUrl)
 		require.NoError(t, err)
 
 		defer db.Close()
@@ -697,7 +690,7 @@ func TestServer(t *testing.T) {
 
 		require.NoError(t, err)
 
-		err = s.StartActivityReader(ctx, "postgres", connect)
+		err = s.StartActivityReader(ctx, "postgres", testutils.DbUrl)
 		require.NoError(t, err)
 
 		md2 := make(metadata.MD)

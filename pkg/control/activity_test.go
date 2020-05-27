@@ -2,7 +2,6 @@ package control
 
 import (
 	"context"
-	"os"
 	"testing"
 	"time"
 
@@ -14,15 +13,10 @@ import (
 )
 
 func TestActivity(t *testing.T) {
-	connect := os.Getenv("DATABASE_URL")
-	if connect == "" {
-		t.Skip("missing database url, skipping postgres tests")
-	}
-
 	testutils.SetupDB()
 
 	t.Run("reader can return new log events", func(t *testing.T) {
-		db, err := gorm.Open("postgres", connect)
+		db, err := gorm.Open("postgres", testutils.DbUrl)
 		require.NoError(t, err)
 
 		defer db.Close()
@@ -32,7 +26,7 @@ func TestActivity(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		ar, err := NewActivityReader(ctx, "postgres", connect)
+		ar, err := NewActivityReader(ctx, "postgres", testutils.DbUrl)
 		require.NoError(t, err)
 
 		defer ar.Close()
@@ -64,7 +58,7 @@ func TestActivity(t *testing.T) {
 	})
 
 	t.Run("prunes old logs", func(t *testing.T) {
-		db, err := gorm.Open("postgres", connect)
+		db, err := gorm.Open("postgres", testutils.DbUrl)
 		require.NoError(t, err)
 
 		defer db.Close()
@@ -78,7 +72,9 @@ func TestActivity(t *testing.T) {
 		err = dbx.Check(db.Create(&ae))
 		require.NoError(t, err)
 
-		err = cleanupActivityLog(nil, "cleanup-activity-log", 0)
+		var lc LogCleaner
+		lc.db = db
+		err = lc.CleanupActivityLog(nil, "cleanup-activity-log", 0)
 		require.NoError(t, err)
 
 		var ae2 ActivityLog

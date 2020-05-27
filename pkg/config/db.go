@@ -12,12 +12,14 @@ var (
 	db     *gorm.DB
 )
 
+var TestDBUrl = "postgres://localhost/horizon_test?sslmode=disable"
+
 func DB() *gorm.DB {
 	dbOnce.Do(func() {
 		if db == nil {
 			connect := os.Getenv("DATABASE_URL")
 			if connect == "" {
-				panic("no database configured")
+				connect = TestDBUrl
 			}
 
 			x, err := gorm.Open("postgres", connect)

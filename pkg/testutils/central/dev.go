@@ -44,11 +44,6 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 
 	vc := testutils.SetupVault()
 
-	dbUrl := os.Getenv("DATABASE_URL")
-	if dbUrl == "" {
-		t.Skip("missing database url, skipping postgres tests")
-	}
-
 	sess := session.New(aws.NewConfig().
 		WithEndpoint("http://localhost:4566").
 		WithRegion("us-east-1").

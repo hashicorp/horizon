@@ -2,25 +2,20 @@ package workq
 
 import (
 	"context"
-	"os"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/dbx"
+	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWorker(t *testing.T) {
-	connect := os.Getenv("DATABASE_URL")
-	if connect == "" {
-		t.Skip("missing database url, skipping postgres tests")
-	}
-
-	db, err := gorm.Open("postgres", connect)
+	db, err := gorm.Open("postgres", testutils.DbUrl)
 	require.NoError(t, err)
 
 	defer db.Close()
@@ -377,7 +372,7 @@ func TestWorker(t *testing.T) {
 		)
 
 		go w.Run(ctx, RunConfig{
-			ConnInfo:    connect,
+			ConnInfo:    testutils.DbUrl,
 			PopInterval: time.Minute,
 			Concurrency: 1,
 			Handler: func(ctx context.Context, j *Job) error {
