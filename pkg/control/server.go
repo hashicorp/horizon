@@ -196,6 +196,17 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	return s, nil
 }
 
+func (s *Server) TokenPub() ed25519.PublicKey {
+	return s.pubKey
+}
+
+// For management clients to be able valid horizon tokens themselves without having to ask
+// the control tier. This allows management clients to piggy back their authentication
+// off the horizon tokens as well.
+func (s *Server) GetTokenPublicKey(ctx context.Context, _ *pb.Noop) (*pb.TokenInfo, error) {
+	return &pb.TokenInfo{PublicKey: s.pubKey}, nil
+}
+
 func (s *Server) SetHubTLS(cert, key []byte, domain string) {
 	s.hubCert = cert
 	s.hubKey = key

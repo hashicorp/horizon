@@ -180,10 +180,15 @@ message ControlToken {
   string token = 1;
 }
 
+message TokenInfo {
+  bytes public_key = 1;
+}
+
 service ControlManagement {
   rpc Register(ControlRegister) returns (ControlToken) {}
   rpc AddLabelLink(AddLabelLinkRequest) returns (Noop) {}
   rpc RemoveLabelLink(RemoveLabelLinkRequest) returns (Noop) {}
   rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse) {}
   rpc IssueHubToken(Noop) returns (CreateTokenResponse) {}
+  rpc GetTokenPublicKey(Noop) returns (TokenInfo) {}
 }
