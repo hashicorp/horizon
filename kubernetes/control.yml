@@ -37,9 +37,12 @@ spec:
           ]
 
     spec:
+      imagePullSecrets:
+      - name: hashicorp-horizon-pull-secret
+
       initContainers:
       - name: geoip-setup
-        image: 074735953993.dkr.ecr.us-west-2.amazonaws.com/horizon:util-1
+        image: quay.io/hashicorp/horizon:util-1
         command:
           - sh
           - -c
@@ -78,7 +81,7 @@ spec:
 
       containers:
       - name: control
-        image: 074735953993.dkr.ecr.us-west-2.amazonaws.com/horizon:latest
+        image: quay.io/hashicorp/horizon:latest
         args:
           - control
         env:

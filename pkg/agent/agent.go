@@ -126,6 +126,7 @@ type Agent struct {
 	hcp        discovery.HubConfigProvider
 
 	statuses chan hubStatus
+	active   int
 }
 
 type hubStatus struct {
@@ -206,6 +207,7 @@ func (a *Agent) processStatus(ctx context.Context) (bool, error) {
 		return false, ctx.Err()
 	case stat := <-a.statuses:
 		if !stat.connected {
+			a.active--
 			a.L.Warn("disconnected from hub", "error", stat.err, "addr", stat.cfg.Addr)
 
 			a.hcp.Return(stat.cfg)
@@ -228,6 +230,7 @@ func (a *Agent) processStatus(ctx context.Context) (bool, error) {
 			}
 			return false, nil
 		} else {
+			a.active++
 			a.L.Debug("connected to hub", "addr", stat.cfg.Addr)
 			return true, nil
 		}
@@ -235,9 +238,30 @@ func (a *Agent) processStatus(ctx context.Context) (bool, error) {
 }
 
 func (a *Agent) Wait(ctx context.Context) error {
-	for {
-		a.processStatus(ctx)
+	var err error
+
+	for err == nil {
+		_, err = a.processStatus(ctx)
 	}
+
+	// wait up to 10 seconds to clearly shutdown
+	timer := time.NewTimer(10 * time.Second)
+	defer timer.Stop()
+
+	for a.active > 0 {
+		select {
+		case <-timer.C:
+			return nil
+		case stat := <-a.statuses:
+			if !stat.connected {
+				a.active--
+			} else {
+				a.active++
+			}
+		}
+	}
+
+	return nil
 }
 
 func (a *Agent) connectToHub(ctx context.Context, hub discovery.HubConfig, status chan hubStatus) {
