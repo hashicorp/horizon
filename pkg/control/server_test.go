@@ -393,6 +393,137 @@ func TestServer(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("can list all accounts in the namespace for a mgmt token", func(t *testing.T) {
+		db, err := gorm.Open("pgtest", "server")
+		require.NoError(t, err)
+
+		defer db.Close()
+
+		var s Server
+		s.L = L
+		s.db = db
+		s.vaultClient = vc
+		s.vaultPath = pb.NewULID().SpecString()
+		s.keyId = "k1"
+		s.registerToken = "aabbcc"
+
+		pub, err := token.SetupVault(vc, s.vaultPath)
+		require.NoError(t, err)
+
+		s.pubKey = pub
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/foo",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		accountId := pb.NewULID()
+		accountId2 := pb.NewULID()
+		accountId3 := pb.NewULID()
+
+		mgmtCtx := metadata.NewIncomingContext(top, md2)
+
+		_, err = s.CreateToken(
+			mgmtCtx,
+			&pb.CreateTokenRequest{
+				Account: &pb.Account{
+					Namespace: "/foo",
+					AccountId: accountId,
+				},
+			},
+		)
+		require.NoError(t, err)
+
+		_, err = s.CreateToken(
+			mgmtCtx,
+			&pb.CreateTokenRequest{
+				Account: &pb.Account{
+					Namespace: "/foo/bar",
+					AccountId: accountId2,
+				},
+			},
+		)
+		require.NoError(t, err)
+
+		ct2, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/qux",
+		})
+
+		require.NoError(t, err)
+
+		md3 := make(metadata.MD)
+		md3.Set("authorization", ct2.Token)
+
+		_, err = s.CreateToken(
+			metadata.NewIncomingContext(top, md3),
+			&pb.CreateTokenRequest{
+				Account: &pb.Account{
+					Namespace: "/qux",
+					AccountId: accountId3,
+				},
+			},
+		)
+		require.NoError(t, err)
+
+		list, err := s.ListAccounts(
+			mgmtCtx,
+			&pb.ListAccountsRequest{},
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, 2, len(list.Accounts))
+
+		assert.Equal(t, accountId, list.Accounts[0].AccountId)
+		assert.Equal(t, "/foo", list.Accounts[0].Namespace)
+		assert.Equal(t, accountId2, list.Accounts[1].AccountId)
+		assert.Equal(t, "/foo/bar", list.Accounts[1].Namespace)
+
+		list, err = s.ListAccounts(
+			mgmtCtx,
+			&pb.ListAccountsRequest{Limit: 1},
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(list.Accounts))
+
+		assert.Equal(t, accountId, list.Accounts[0].AccountId)
+
+		list, err = s.ListAccounts(
+			mgmtCtx,
+			&pb.ListAccountsRequest{
+				Limit:  1,
+				Marker: list.NextMarker,
+			},
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(list.Accounts))
+
+		assert.Equal(t, accountId2, list.Accounts[0].AccountId)
+
+		list, err = s.ListAccounts(
+			mgmtCtx,
+			&pb.ListAccountsRequest{
+				Limit:  1,
+				Marker: list.NextMarker,
+			},
+		)
+		require.NoError(t, err)
+
+		require.Equal(t, 0, len(list.Accounts))
+	})
+
 	t.Run("can create and remove a labellink for an account", func(t *testing.T) {
 		db, err := gorm.Open("pgtest", "server")
 		require.NoError(t, err)

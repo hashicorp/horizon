@@ -184,6 +184,16 @@ message TokenInfo {
   bytes public_key = 1;
 }
 
+message ListAccountsRequest {
+  int32 limit = 1;
+  bytes marker = 2;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+  bytes next_marker = 2;
+}
+
 service ControlManagement {
   rpc Register(ControlRegister) returns (ControlToken) {}
   rpc AddLabelLink(AddLabelLinkRequest) returns (Noop) {}
@@ -191,4 +201,5 @@ service ControlManagement {
   rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse) {}
   rpc IssueHubToken(Noop) returns (CreateTokenResponse) {}
   rpc GetTokenPublicKey(Noop) returns (TokenInfo) {}
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse) {}
 }

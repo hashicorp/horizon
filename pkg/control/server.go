@@ -952,6 +952,69 @@ func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*
 	return &pb.CreateTokenResponse{Token: token}, nil
 }
 
+const DefaultListAccountsLimit = 100
+
+func (s *Server) ListAccounts(ctx context.Context, req *pb.ListAccountsRequest) (*pb.ListAccountsResponse, error) {
+	caller, err := s.checkMgmtAllowed(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ok, ns := caller.HasCapability(pb.ACCESS)
+	if !ok {
+		return nil, ErrInvalidRequest
+	}
+
+	s.L.Info("list accounts request", "namespace", ns)
+
+	var accounts []*Account
+
+	limit := req.Limit
+	if limit == 0 {
+		limit = DefaultListAccountsLimit
+	}
+
+	if len(req.Marker) > 0 {
+		err = dbx.Check(
+			s.db.Where("id > ?", req.Marker).
+				Where("namespace = ? OR starts_with(namespace, ?)", ns, ns+"/").
+				Limit(limit).Order("id ASC").
+				Find(&accounts),
+		)
+	} else {
+		err = dbx.Check(
+			s.db.
+				Where("namespace = ? OR starts_with(namespace, ?)", ns, ns+"/").
+				Limit(limit).Order("id ASC").
+				Find(&accounts),
+		)
+	}
+
+	if err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return nil, err
+		}
+	}
+
+	var resp pb.ListAccountsResponse
+	if len(accounts) == 0 {
+		return &resp, nil
+	}
+
+	resp.NextMarker = accounts[len(accounts)-1].ID
+
+	for _, acc := range accounts {
+		acc, err := pb.AccountFromKey(acc.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		resp.Accounts = append(resp.Accounts, acc)
+	}
+
+	return &resp, nil
+}
+
 func (s *Server) AllHubs(ctx context.Context, _ *pb.Noop) (*pb.ListOfHubs, error) {
 	var hubs []*Hub
 
