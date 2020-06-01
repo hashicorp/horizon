@@ -12,6 +12,10 @@ import (
 	"github.com/lib/pq"
 )
 
+// A quick note. This activity system is different than the one used between the hubs and control.
+// This system is for managing an activity log that is in postgresql and shared between central
+// teir instances. We use it instead of a message queue system right now for simplicity.
+
 type ActivityLog struct {
 	Id        int64 `gorm:"primary_key"`
 	Event     []byte
