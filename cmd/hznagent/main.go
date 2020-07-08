@@ -81,7 +81,7 @@ func main() {
 func Token(flag *string) string {
 	token := *flag
 	if token != "" {
-		return ""
+		return token
 	}
 
 	token = os.Getenv("HORIZON_TOKEN")

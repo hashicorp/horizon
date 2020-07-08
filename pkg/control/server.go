@@ -699,6 +699,37 @@ type ManagementClient struct {
 
 var ErrBadAuthentication = errors.New("bad authentication information presented")
 
+func (s *Server) GetManagementToken(ctx context.Context, namespace string) (string, error) {
+	var rec ManagementClient
+
+	err := dbx.Check(s.db.Where("namespace LIKE ?", namespace+"%").First(&rec))
+	if err != nil {
+		if err != gorm.ErrRecordNotFound {
+			return "", err
+		}
+		rec.ID = pb.NewULID().Bytes()
+		rec.Namespace = namespace
+
+		err = dbx.Check(s.db.Create(&rec))
+		if err != nil {
+			return "", err
+		}
+	}
+
+	var tc token.TokenCreator
+	tc.Role = pb.MANAGE
+	tc.Capabilities = map[pb.Capability]string{
+		pb.ACCESS: namespace,
+	}
+
+	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
 func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.ControlToken, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {

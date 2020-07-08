@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +24,9 @@ type Client struct {
 
 	location []*pb.NetworkLocation
 
+	// A dev hub to always connect to.
+	dev string
+
 	lastData *DiscoveryData
 
 	available *list.List
@@ -32,6 +36,8 @@ type Client struct {
 }
 
 func NewClient(surl string) (*Client, error) {
+	var dev string
+
 	u, err := url.Parse(surl)
 	if err != nil {
 		surl = fmt.Sprintf("https://%s/%s", surl, HTTPPath)
@@ -45,6 +51,14 @@ func NewClient(surl string) (*Client, error) {
 			u.Path = HTTPPath
 		}
 
+		if u.Path == "" {
+			u.Path = HTTPPath
+		}
+
+		if u.Scheme == "dev" {
+			dev = u.Host
+		}
+
 		surl = u.String()
 	}
 
@@ -56,6 +70,7 @@ func NewClient(surl string) (*Client, error) {
 	return &Client{
 		URL:       surl,
 		location:  locs,
+		dev:       dev,
 		available: list.New(),
 		known:     make(map[string]struct{}),
 		latest:    make(map[string]struct{}),
@@ -63,6 +78,14 @@ func NewClient(surl string) (*Client, error) {
 }
 
 func (c *Client) Refresh(ctx context.Context) error {
+	if c.dev != "" {
+		c.available.PushFront(HubConfig{
+			Addr:     c.dev,
+			Insecure: true,
+		})
+		return nil
+	}
+
 	client := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
@@ -123,8 +146,13 @@ func (c *Client) backgroundRefresh(ctx context.Context) {
 			c.latest[loc.Name] = struct{}{}
 
 			if _, ok := c.known[loc.Name]; !ok {
+				addr := loc.Addresses[0]
+				if !strings.Contains(addr, ":") {
+					addr += ":443"
+				}
+
 				cfg := HubConfig{
-					Addr: loc.Addresses[0] + ":443",
+					Addr: addr,
 					Name: loc.Name,
 				}
 
@@ -191,8 +219,13 @@ func (c *Client) Take(ctx context.Context) (HubConfig, bool) {
 		c.known[loc.Name] = struct{}{}
 		c.latest[loc.Name] = struct{}{}
 
+		addr := loc.Addresses[0]
+		if !strings.Contains(addr, ":") {
+			addr += ":443"
+		}
+
 		return HubConfig{
-			Addr: loc.Addresses[0] + ":443",
+			Addr: addr,
 			Name: loc.Name,
 		}, true
 	}

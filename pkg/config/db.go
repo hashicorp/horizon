@@ -12,7 +12,10 @@ var (
 	db     *gorm.DB
 )
 
-var TestDBUrl = "postgres://localhost/horizon_test?sslmode=disable"
+var (
+	TestDBUrl = "postgres://localhost/horizon_test?sslmode=disable"
+	DevDBUrl  = "postgres://localhost/horizon_dev?sslmode=disable"
+)
 
 func DB() *gorm.DB {
 	dbOnce.Do(func() {
