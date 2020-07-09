@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
-	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -19,6 +18,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/jinzhu/gorm"
+	"github.com/mitchellh/go-testing-interface"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
@@ -43,7 +43,7 @@ type DevSetup struct {
 	HubServToken   string
 }
 
-func Dev(t *testing.T, f func(setup *DevSetup)) {
+func Dev(t testing.T, f func(setup *DevSetup)) {
 	vc := testutils.SetupVault()
 
 	sess := session.New(aws.NewConfig().
@@ -211,7 +211,7 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 	})
 }
 
-func (s *DevSetup) NewControlClient(t *testing.T, f func(c *control.Client, li net.Listener)) {
+func (s *DevSetup) NewControlClient(t testing.T, f func(c *control.Client, li net.Listener)) {
 	gcc, err := grpc.Dial(s.ServerAddr,
 		grpc.WithInsecure(),
 		grpc.WithPerRPCCredentials(control.Token(s.HubToken)),
