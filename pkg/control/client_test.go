@@ -23,16 +23,15 @@ import (
 	"cirello.io/dynamolock"
 	"github.com/armon/go-metrics"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/token"
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
@@ -40,15 +39,8 @@ import (
 )
 
 func TestClient(t *testing.T) {
-	testutils.SetupDB()
-
 	vc := testutils.SetupVault()
-
-	sess := session.New(aws.NewConfig().
-		WithEndpoint("http://localhost:4566").
-		WithRegion("us-east-1").
-		WithS3ForcePathStyle(true),
-	)
+	sess := testutils.AWSSession(t)
 
 	bucket := "hzntest-" + pb.NewULID().SpecString()
 	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
@@ -69,9 +61,7 @@ func TestClient(t *testing.T) {
 	}
 
 	t.Run("can create and remove a service", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -179,9 +169,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("lookup a service locally and remotely", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -331,9 +319,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("refreshes an account on response to activity from the server", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -456,9 +442,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("resolves label links", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -541,9 +525,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("bootstraps configuration from the server", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -599,9 +581,6 @@ func TestClient(t *testing.T) {
 		s.hubKey = keyBuf.Bytes()
 
 		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
-		require.NoError(t, err)
-
-		_, err = s.lockMgr.CreateTable(s.lockTable)
 		require.NoError(t, err)
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
@@ -701,9 +680,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("transmit a flow record up to the server", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -850,9 +827,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("can get a list of all hubs and locations", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -945,9 +920,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("removes a old hubs services connecting with the same stable id", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
@@ -1054,9 +1027,7 @@ func TestClient(t *testing.T) {
 	})
 
 	t.Run("reconnects the activity stream if disconnected", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "periodic")
 		defer db.Close()
 
 		cfg := scfg
