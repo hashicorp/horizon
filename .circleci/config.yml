@@ -13,7 +13,7 @@ jobs:
           PEBBLE_VA_ALWAYS_VALID: 1
       - image: circleci/postgres:11-alpine
         environment:
-          POSTGRES_USER: horizon
+          POSTGRES_USER: postgres
           POSTGRES_DB: horizon_test
       - image: vault
         command: ["server", "-dev", "-dev-root-token-id=hznroot"]
@@ -76,12 +76,8 @@ jobs:
 
       - run:
           name: Running tests
-          environment:
-            DATABASE_URL: "postgres://horizon@localhost:5432/horizon_test?sslmode=disable"
           command: |
-            go build -o bin/hzn ./cmd/hzn
-            MIGRATIONS_PATH=./pkg/control/migrations ./bin/hzn migrate
-            go test -v ./...
+            go test ./... -v -p 1
 
       - run:
           name: Persist build number
