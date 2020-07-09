@@ -28,6 +28,14 @@ services:
     volumes:
       - "${PWD}/tmp/localstack:/tmp/localstack"
 
+  postgres:
+    image: "postgres:12.3"
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=noop
+      - POSTGRES_PASSWORD=postgres
+
   vault:
     image: vault
     ports:

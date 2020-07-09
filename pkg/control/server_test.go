@@ -10,15 +10,14 @@ import (
 	"cirello.io/dynamolock"
 	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/token"
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/metadata"
@@ -67,12 +66,7 @@ func TestServer(t *testing.T) {
 	testutils.SetupDB()
 
 	vc := testutils.SetupVault()
-
-	sess := session.New(aws.NewConfig().
-		WithEndpoint("http://localhost:4566").
-		WithRegion("us-east-1").
-		WithS3ForcePathStyle(true),
-	)
+	sess := testutils.AWSSession(t)
 
 	bucket := "hzntest"
 
@@ -95,9 +89,7 @@ func TestServer(t *testing.T) {
 	L := hclog.L()
 
 	t.Run("can register a new management client", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -158,9 +150,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("can create a new agent token using a management token", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -221,9 +211,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("disallows creating an agent token in a different namespace", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -276,9 +264,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("allows creating a token in a sub-namespace", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -339,9 +325,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("disallows creating an agent token in a common prefix but without separater", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -394,9 +378,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("can list all accounts in the namespace for a mgmt token", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -525,9 +507,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("can create and remove a labellink for an account", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -649,9 +629,7 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("can create and remove a service for an account", func(t *testing.T) {
-		db, err := gorm.Open("pgtest", "server")
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
 
 		var s Server
@@ -665,10 +643,8 @@ func TestServer(t *testing.T) {
 		s.bucket = bucket
 		s.lockTable = "hzntest"
 
+		var err error
 		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
-		require.NoError(t, err)
-
-		_, err = s.lockMgr.CreateTable(s.lockTable)
 		require.NoError(t, err)
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
@@ -795,12 +771,8 @@ func TestServer(t *testing.T) {
 	})
 
 	t.Run("picks up activity from postgresql", func(t *testing.T) {
-		db, err := gorm.Open("postgres", testutils.DbUrl)
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, "hzn")
 		defer db.Close()
-
-		defer testutils.CleanupDB()
 
 		cfg := scfg
 		cfg.DB = db
@@ -821,7 +793,7 @@ func TestServer(t *testing.T) {
 
 		require.NoError(t, err)
 
-		err = s.StartActivityReader(ctx, "postgres", testutils.DbUrl)
+		err = s.StartActivityReader(ctx, "postgres", testsql.TestPostgresDBString(t, "hzn"))
 		require.NoError(t, err)
 
 		md2 := make(metadata.MD)

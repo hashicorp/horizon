@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -42,13 +44,12 @@ type DevSetup struct {
 }
 
 func Dev(t *testing.T, f func(setup *DevSetup)) {
-	testutils.SetupDB()
-
 	vc := testutils.SetupVault()
 
 	sess := session.New(aws.NewConfig().
 		WithEndpoint("http://localhost:4566").
 		WithRegion("us-east-1").
+		WithCredentials(credentials.NewStaticCredentials("hzn", "hzn", "hzn")).
 		WithS3ForcePathStyle(true),
 	)
 
@@ -59,13 +60,8 @@ func Dev(t *testing.T, f func(setup *DevSetup)) {
 
 	defer testutils.DeleteBucket(s3.New(sess), bucket)
 
-	db, err := gorm.Open("pgtest", "server")
-	require.NoError(t, err)
-
+	db := testsql.TestPostgresDB(t, "hzn_test")
 	defer db.Close()
-
-	defer db.Exec("TRUNCATE management_clients CASCADE")
-	defer db.Exec("TRUNCATE accounts CASCADE")
 
 	s, err := control.NewServer(control.ServerConfig{
 		DB:                db,

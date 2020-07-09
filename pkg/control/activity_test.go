@@ -5,20 +5,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/testutils"
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestActivity(t *testing.T) {
-	testutils.SetupDB()
+	const testDbName = "hzn_control"
 
 	t.Run("reader can return new log events", func(t *testing.T) {
-		db, err := gorm.Open("postgres", testutils.DbUrl)
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, testDbName)
 		defer db.Close()
 
 		defer testutils.CleanupDB()
@@ -26,7 +24,8 @@ func TestActivity(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		ar, err := NewActivityReader(ctx, "postgres", testutils.DbUrl)
+		ar, err := NewActivityReader(ctx, "postgres",
+			testsql.TestPostgresDBString(t, testDbName))
 		require.NoError(t, err)
 
 		defer ar.Close()
@@ -58,9 +57,7 @@ func TestActivity(t *testing.T) {
 	})
 
 	t.Run("prunes old logs", func(t *testing.T) {
-		db, err := gorm.Open("postgres", testutils.DbUrl)
-		require.NoError(t, err)
-
+		db := testsql.TestPostgresDB(t, testDbName)
 		defer db.Close()
 
 		defer testutils.CleanupDB()
@@ -69,7 +66,7 @@ func TestActivity(t *testing.T) {
 		ae.CreatedAt = time.Now().Add(-6 * time.Hour)
 		ae.Event = []byte(`1`)
 
-		err = dbx.Check(db.Create(&ae))
+		err := dbx.Check(db.Create(&ae))
 		require.NoError(t, err)
 
 		var lc LogCleaner
