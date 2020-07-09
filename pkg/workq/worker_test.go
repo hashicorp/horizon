@@ -7,23 +7,19 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/dbx"
-	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWorker(t *testing.T) {
-	db, err := gorm.Open("postgres", testutils.DbUrl)
-	require.NoError(t, err)
-
-	defer db.Close()
-
 	L := hclog.L()
 
 	t.Run("fetches an available job", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -60,7 +56,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("skips jobs being run by other workers", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -132,7 +129,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("picks a unique set of jobs per worker", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -205,7 +203,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("picks up failed jobs by next worker", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -240,7 +239,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("cleans up finished jobs", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -309,7 +309,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("respects the queue on a job", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -359,7 +360,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("invokes a handler using LISTEN", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		w := NewWorker(L, db, []string{"a"})
 
@@ -372,7 +374,7 @@ func TestWorker(t *testing.T) {
 		)
 
 		go w.Run(ctx, RunConfig{
-			ConnInfo:    testutils.DbUrl,
+			ConnInfo:    testsql.TestPostgresDBString(t, "periodic"),
 			PopInterval: time.Minute,
 			Concurrency: 1,
 			Handler: func(ctx context.Context, j *Job) error {
@@ -393,7 +395,7 @@ func TestWorker(t *testing.T) {
 
 		job.Set("test", 1)
 
-		err = i.Inject(job)
+		err := i.Inject(job)
 		require.NoError(t, err)
 
 		time.Sleep(time.Second)
@@ -408,7 +410,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("skips a job in cooloff", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -433,7 +436,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("picks up jobs that have cooled off", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -460,7 +464,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("abort advances the cool off timer", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 
@@ -494,7 +499,8 @@ func TestWorker(t *testing.T) {
 	})
 
 	t.Run("gives up on a job after a maximum attempt counter is reached", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		tx := db.Begin()
 

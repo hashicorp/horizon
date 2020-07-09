@@ -5,24 +5,18 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/dbx"
-	"github.com/hashicorp/horizon/pkg/testutils"
-	"github.com/jinzhu/gorm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestPeriodic(t *testing.T) {
-	db, err := gorm.Open("postgres", testutils.DbUrl)
-	require.NoError(t, err)
-
-	defer db.Close()
-
 	L := hclog.L()
 
 	t.Run("creates jobs from periodic jobs", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
-		db.Exec("TRUNCATE periodic_jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		var pjob PeriodicJob
 
@@ -32,7 +26,7 @@ func TestPeriodic(t *testing.T) {
 		pjob.JobType = "test"
 		pjob.Payload = []byte("1")
 
-		err = dbx.Check(db.Create(&pjob))
+		err := dbx.Check(db.Create(&pjob))
 		require.NoError(t, err)
 
 		w := NewWorker(L, db, []string{"a"})
@@ -60,8 +54,8 @@ func TestPeriodic(t *testing.T) {
 	})
 
 	t.Run("creates or updates periodic jobs", func(t *testing.T) {
-		db.Exec("TRUNCATE jobs")
-		db.Exec("TRUNCATE periodic_jobs")
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
 
 		var i Injector
 		i.db = db

@@ -22,7 +22,7 @@ require (
 	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
-	github.com/hashicorp/vault/api v1.0.4
+	github.com/hashicorp/vault/api v1.0.5-0.20190909201928-35325e2c3262
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
 	github.com/jinzhu/gorm v1.9.12
 	github.com/kr/pretty v0.2.0 // indirect
@@ -30,6 +30,7 @@ require (
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mitchellh/cli v1.0.0
 	github.com/mitchellh/go-server-timing v1.0.0
+	github.com/mitchellh/go-testing-interface v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/mr-tron/base58 v1.1.3
 	github.com/oklog/ulid v1.3.1
