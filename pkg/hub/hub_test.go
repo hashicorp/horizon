@@ -16,7 +16,6 @@ import (
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/discovery"
 	"github.com/hashicorp/horizon/pkg/pb"
-	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/testutils/central"
 	"github.com/hashicorp/horizon/pkg/wire"
 	"github.com/stretchr/testify/assert"
@@ -24,8 +23,6 @@ import (
 )
 
 func TestHub(t *testing.T) {
-	testutils.SetupDB()
-
 	t.Run("is registered in control server database", func(t *testing.T) {
 		central.Dev(t, func(setup *central.DevSetup) {
 			L := hclog.L()

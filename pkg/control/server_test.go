@@ -63,8 +63,6 @@ func (s *staticServerStream) RecvMsg(m interface{}) error {
 }
 
 func TestServer(t *testing.T) {
-	testutils.SetupDB()
-
 	vc := testutils.SetupVault()
 	sess := testutils.AWSSession(t)
 
