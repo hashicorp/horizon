@@ -111,6 +111,7 @@ jobs:
           command: cat bash-env >> "${BASH_ENV}"
 
       - setup_remote_docker:
+          version: 18.09.3
           docker_layer_caching: true
 
       ## requires DOCKER_USER and DOCKER_PASS for DOCKER_URL to be set as
