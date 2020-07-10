@@ -65,7 +65,7 @@ func TestActivity(t *testing.T) {
 		require.NoError(t, err)
 
 		var lc LogCleaner
-		lc.db = db
+		lc.DB = db
 		err = lc.CleanupActivityLog(nil, "cleanup-activity-log", 0)
 		require.NoError(t, err)
 
