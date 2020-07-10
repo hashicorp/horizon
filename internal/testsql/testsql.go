@@ -279,11 +279,7 @@ func testMigrate(t testing.T, family, dbName string) {
 	// of just searching up directories until we find
 	// "models/migrations". This assumes any tests run
 	// will be a child of the root folder.
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("err getting working dir: %s", err)
-	}
-	dir = testMigrateDir(t, dir)
+	dir := testMigrateDir(t)
 
 	db := testDBConnectWithUser(t, "postgres", dbName, "postgres", "postgres")
 	defer db.Close()
