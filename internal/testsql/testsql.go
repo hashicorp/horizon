@@ -12,8 +12,10 @@ package testsql
 import (
 	"flag"
 	"fmt"
+	"go/build"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -281,25 +283,7 @@ func testMigrate(t testing.T, family, dbName string) {
 	if err != nil {
 		t.Fatalf("err getting working dir: %s", err)
 	}
-	for {
-		current := filepath.Join(dir, MigrationsDir)
-		_, err := os.Stat(current)
-		if err == nil {
-			// Found it!
-			dir = current
-			break
-		}
-		if err != nil && !os.IsNotExist(err) {
-			t.Fatalf("error at %s: %s", dir, err)
-		}
-
-		// Traverse to parent
-		next := filepath.Dir(dir)
-		if dir == next {
-			t.Fatal("cannot use DB helpers outside of folder with models/migrations")
-		}
-		dir = next
-	}
+	dir = testMigrateDir(t, dir)
 
 	db := testDBConnectWithUser(t, "postgres", dbName, "postgres", "postgres")
 	defer db.Close()
@@ -325,6 +309,89 @@ func testMigrate(t testing.T, family, dbName string) {
 	if err := migrator.Up(); err != nil {
 		t.Fatalf("err migrating: %s", err)
 	}
+}
+
+// testMigrateDir attempts to find the directory with migrations. This will
+// search the working directory and parents first, then will fall back to
+// the Go Modules directory.
+func testMigrateDir(t testing.T) string {
+	search := func(root string) string {
+		for {
+			current := filepath.Join(root, MigrationsDir)
+			_, err := os.Stat(current)
+			if err == nil {
+				// Found it!
+				return current
+			}
+			if err != nil && !os.IsNotExist(err) {
+				t.Fatalf("error at %s: %s", root, err)
+			}
+
+			// Traverse to parent
+			next := filepath.Dir(root)
+			if root == next {
+				return ""
+			}
+			root = next
+		}
+	}
+
+	// Search our working directory first
+	dir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("err getting working dir: %s", err)
+	}
+	if v := search(dir); v != "" {
+		return v
+	}
+
+	// Search for a gomod directory
+	dir = gomodDir(t)
+	if dir != "" {
+		return search(dir)
+	}
+
+	return ""
+}
+
+// gomodDir finds the Horizon module with the latest version.
+func gomodDir(t testing.T) string {
+	// Get the first GOPATH element
+	gopath := build.Default.GOPATH
+	if idx := strings.Index(gopath, ":"); idx != -1 {
+		gopath = gopath[:idx]
+	}
+	if gopath == "" {
+		return ""
+	}
+
+	// Open the directory to list all modules for HashiCorp
+	root := filepath.Join(gopath, "pkg", "mod", "github.com", "hashicorp")
+	dirh, err := os.Open(root)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return ""
+		}
+
+		t.Fatalf("error looking for migrations: %s", err)
+	}
+	defer dirh.Close()
+
+	// Read all the directories and sort them
+	names, err := dirh.Readdirnames(-1)
+	if err != nil {
+		t.Fatalf("error looking for migrations: %s", err)
+	}
+	sort.Sort(sort.Reverse(sort.StringSlice(names)))
+
+	// Find the horizon one
+	for _, n := range names {
+		if strings.HasPrefix(n, "horizon@") {
+			return filepath.Join(root, n)
+		}
+	}
+
+	return ""
 }
 
 // migrateLogger implements migrate.Logger so that we can have logging
