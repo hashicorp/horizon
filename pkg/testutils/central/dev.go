@@ -12,9 +12,11 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
+	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/jinzhu/gorm"
@@ -185,8 +187,11 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 
 	ln, err := net.Listen("tcp", ":0")
 	require.NoError(t, err)
-
 	defer ln.Close()
+
+	hubclient, err := hub.NewHub(hclog.L(), client, ctr.Token)
+	require.NoError(t, err)
+	go hubclient.Run(ctx, ln)
 
 	f(&DevSetup{
 		Top:           top,
