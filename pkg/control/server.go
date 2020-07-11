@@ -331,6 +331,31 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 	return &pb.ServiceResponse{}, nil
 }
 
+func (s *Server) ListServices(ctx context.Context, req *pb.ListServicesRequest) (*pb.ListServicesResponse, error) {
+	var services []*Service
+	err := dbx.Check(s.db.Where("account_id = ?", req.Account.Key()).Find(&services))
+	if err != nil {
+		return nil, err
+	}
+
+	var resp pb.ListServicesResponse
+	for _, svc := range services {
+		var labelSet pb.LabelSet
+		if err := labelSet.Scan(svc.Labels); err != nil {
+			return nil, err
+		}
+
+		resp.Services = append(resp.Services, &pb.Service{
+			Id:     pb.ULIDFromBytes(svc.ServiceId),
+			Hub:    pb.ULIDFromBytes(svc.HubId),
+			Type:   svc.Type,
+			Labels: &labelSet,
+		})
+	}
+
+	return &resp, nil
+}
+
 func (s *Server) removeHubServices(ctx context.Context, db *gorm.DB, hubId *pb.ULID) error {
 	var sos []*Service
 

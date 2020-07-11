@@ -138,9 +138,26 @@ message ServiceTokenResponse {
   string token = 1;
 }
 
+message ListServicesRequest {
+  Account account = 1;
+}
+
+message ListServicesResponse {
+  repeated Service services = 1;
+}
+
+message Service {
+  ULID id = 1;
+  ULID hub = 2;
+  string type = 3;
+  LabelSet labels = 4;
+  repeated KVPair metadata = 5;
+}
+
 service ControlServices {
   rpc AddService(ServiceRequest) returns (ServiceResponse) {}
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
+  rpc ListServices(ListServicesRequest) returns (ListServicesResponse) {}
   rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
   rpc StreamActivity(stream HubActivity) returns (stream CentralActivity) {}
   rpc SyncHub(HubSync) returns (HubSyncResponse) {}

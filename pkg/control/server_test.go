@@ -732,6 +732,20 @@ func TestServer(t *testing.T) {
 		assert.Equal(t, labels, sr.Labels)
 		assert.Equal(t, "test", sr.Type)
 
+		{
+			// Verify we have the service
+			resp, err := s.ListServices(
+				metadata.NewIncomingContext(top, md3),
+				&pb.ListServicesRequest{
+					Account: account,
+				},
+			)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.Len(t, resp.Services, 1)
+			require.Equal(t, resp.Services[0].Id, serviceId)
+		}
+
 		_, err = s.RemoveService(
 			metadata.NewIncomingContext(top, md3),
 			&pb.ServiceRequest{
