@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/golang-migrate/migrate/v4"
@@ -574,6 +575,7 @@ func (c *devServer) Run(args []string) int {
 	sess := session.New(aws.NewConfig().
 		WithEndpoint("http://localhost:4566").
 		WithRegion("us-east-1").
+		WithCredentials(credentials.NewStaticCredentials("hzn", "hzn", "hzn")).
 		WithS3ForcePathStyle(true),
 	)
 
