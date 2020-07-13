@@ -283,7 +283,9 @@ func testMigrate(t testing.T, family, dbName string) {
 
 	db := testDBConnectWithUser(t, "postgres", dbName, "postgres", "postgres")
 	defer db.Close()
-	driver, err := migratePostgres.WithInstance(db.DB(), &migratePostgres.Config{})
+	driver, err := migratePostgres.WithInstance(db.DB(), &migratePostgres.Config{
+		MigrationsTable: "hzn_test_migrations",
+	})
 	if err != nil {
 		t.Fatalf("err: %s", err)
 	}
