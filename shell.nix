@@ -64,5 +64,5 @@ in pkgs.mkShell rec {
   PGDATABASE = "noop";
   PGUSER = "postgres";
   PGPASSWORD = "postgres";
-  DATABASE_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=disablie";
+  DATABASE_URL = "postgresql://${PGUSER}:${PGPASSWORD}@${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=disable";
 }
