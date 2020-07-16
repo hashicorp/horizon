@@ -566,6 +566,8 @@ func (c *Client) streamActivity(
 				return
 			}
 
+			L.Debug("received acvitity from control", "activity", ca)
+
 			select {
 			case <-ctx.Done():
 				return
@@ -591,12 +593,15 @@ func (c *Client) Run(ctx context.Context) error {
 	activityChan := make(chan *pb.CentralActivity)
 
 	if c.client != nil {
+		L.Debug("configuring activity stream")
 		activity, err = c.streamActivity(ctx, L, activityChan)
 		if err != nil {
 			return err
 		}
 
 		defer activity.CloseSend()
+	} else {
+		L.Debug("no client present, activity stream disabled")
 	}
 
 	ticker := time.NewTicker(time.Minute)
@@ -645,6 +650,8 @@ func (c *Client) Run(ctx context.Context) error {
 }
 
 func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev *pb.CentralActivity) {
+	L.Debug("processing activity from central")
+
 	for _, acc := range ev.AccountServices {
 		u := acc.Account.StringKey()
 
@@ -664,6 +671,7 @@ func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev 
 	}
 
 	if ev.NewLabelLinks != nil {
+		L.Debug("updating recent label links")
 		c.recentLabelLinks = append(c.recentLabelLinks, ev.NewLabelLinks.LabelLinks...)
 	}
 }
@@ -783,8 +791,14 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 
 	label.Finalize()
 
+	c.L.Debug("label-links to consider",
+		"recent", len(c.recentLabelLinks),
+		"less-recent", len(c.lessRecentLabelLinks),
+		"mature", len(c.labelLinks.LabelLinks),
+	)
+
 	for _, ll := range c.recentLabelLinks {
-		if ll.Equal(label) {
+		if ll.Labels.Equal(label) {
 			return ll.Account, ll.Target, nil
 		}
 	}
@@ -793,7 +807,7 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 	// This 2 layer technique means we have no gaps where we might miss an
 	// immediate update.
 	for _, ll := range c.lessRecentLabelLinks {
-		if ll.Equal(label) {
+		if ll.Labels.Equal(label) {
 			return ll.Account, ll.Target, nil
 		}
 	}

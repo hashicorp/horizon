@@ -167,15 +167,20 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		mux:           http.NewServeMux(),
 	}
 
+	L.Debug("setting up routes")
+
 	s.setupRoutes()
 
 	if cfg.ASNDB != "" {
+		L.Debug("loading ASNDB")
+
 		r, err := geoip2.Open(cfg.ASNDB)
 		if err == nil {
 			s.asnDB = r
 		}
 	}
 
+	L.Debug("configuring lock in dynamodb")
 	s.lockMgr, err = dynamolock.New(dynamodb.New(s.awsSess), s.lockTable)
 	if err != nil {
 		return nil, err
@@ -184,6 +189,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	// The table might exist, don't error out
 	s.lockMgr.CreateTable(s.lockTable)
 
+	L.Debug("setting up vault access")
 	pub, err := token.SetupVault(s.vaultClient, s.vaultPath)
 	if err != nil {
 		return nil, err
@@ -585,19 +591,24 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 	ctx := stream.Context()
 	_, err := s.checkFromHub(ctx)
 	if err != nil {
+		s.L.Debug("acvitity stream request authentication failed", "err", err)
 		return err
 	}
 
 	msg, err := stream.Recv()
 	if err != nil {
+		s.L.Debug("acvitity stream request error on early read", "err", err)
 		return err
 	}
 
 	if msg.HubReg == nil {
+		s.L.Debug("acvitity stream request did not contain a hub reg record")
 		return nil
 	}
 
 	key := msg.HubReg.Hub.SpecString()
+
+	s.L.Info("streaming activity to and from hub", "hub", key)
 
 	ch := &connectedHub{
 		xmit:     make(chan *pb.CentralActivity),
@@ -624,6 +635,8 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 	}()
 
 	defer func() {
+		s.L.Debug("hub disconnecting", "hub", key)
+
 		s.mu.Lock()
 		delete(s.connectedHubs, key)
 		s.mu.Unlock()
@@ -648,6 +661,8 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 			if !ok {
 				return nil
 			}
+
+			s.L.Debug("sending data to hub", "hub", key, "activity", act.String())
 
 			err = stream.Send(act)
 			if err != nil {
@@ -705,12 +720,16 @@ func (s *Server) broadcastActivity(ctx context.Context, act *pb.CentralActivity)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for _, hub := range s.connectedHubs {
+	s.L.Debug("broadcasting activity to hubs", "hubs", len(s.connectedHubs))
+
+	for key, hub := range s.connectedHubs {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case hub.xmit <- act:
 			// ok
+		case <-time.After(5 * time.Second):
+			s.L.Debug("time out sending activity to hub channel", "hub", key)
 		}
 	}
 
@@ -869,8 +888,17 @@ type LabelLink struct {
 }
 
 func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) (*pb.Noop, error) {
+	L := s.L.Named("add-label-link")
+
+	L.Info("adding new label-link",
+		"account", req.Account.SpecString(),
+		"labels", req.Labels.SpecString(),
+		"target", req.Target.SpecString(),
+	)
+
 	caller, err := s.checkMgmtAllowed(ctx)
 	if err != nil {
+		L.Error("error checking mgmt token", "err", err)
 		return nil, err
 	}
 
@@ -879,6 +907,12 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 	}
 
 	if !caller.AllowAccount(req.Account.Namespace) {
+		L.Error(
+			"rejected access to account based on caller namespace",
+			"caller-namespace", caller.Account().Namespace,
+			"requested-namespace", req.Account.Namespace,
+		)
+
 		return nil, errors.Wrapf(ErrInvalidRequest, "invalid namespace requested")
 	}
 
@@ -890,8 +924,11 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 
 	err = dbx.Check(de)
 	if err != nil {
+		L.Error("error reading account information for labellink", "error", err)
 		return nil, err
 	}
+
+	L.Trace("account for label-link initialized correctly")
 
 	var llr LabelLink
 	llr.AccountID = req.Account.Key()
@@ -900,8 +937,11 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 
 	err = dbx.Check(s.db.Create(&llr))
 	if err != nil {
+		L.Error("error creating label-link record", "error", err)
 		return nil, err
 	}
+
+	L.Trace("label-link saved to database")
 
 	var out pb.LabelLinks
 	out.LabelLinks = []*pb.LabelLink{{
@@ -910,6 +950,7 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 		Target:  req.Target,
 	}}
 
+	L.Trace("broadcasting new label-link activity")
 	s.broadcastActivity(ctx, &pb.CentralActivity{
 		NewLabelLinks: &out,
 	})
