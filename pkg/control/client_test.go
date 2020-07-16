@@ -29,6 +29,7 @@ import (
 	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
+	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/hashicorp/horizon/pkg/token"
@@ -106,7 +107,7 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)),
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)),
 			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 		)
 
@@ -214,7 +215,7 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)))
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)))
 
 		require.NoError(t, err)
 
@@ -364,7 +365,7 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)))
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)))
 
 		require.NoError(t, err)
 
@@ -620,7 +621,7 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)))
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)))
 
 		require.NoError(t, err)
 
@@ -726,7 +727,7 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)))
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)))
 
 		require.NoError(t, err)
 
@@ -867,7 +868,7 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)),
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)),
 			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 		)
 
@@ -966,7 +967,7 @@ func TestClient(t *testing.T) {
 
 		gcc, err := grpc.Dial(li.Addr().String(),
 			grpc.WithInsecure(),
-			grpc.WithPerRPCCredentials(Token(ctr.Token)),
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)),
 			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 		)
 

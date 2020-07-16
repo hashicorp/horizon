@@ -8,8 +8,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
+	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/mitchellh/cli"
 	"github.com/spf13/pflag"
@@ -78,7 +78,7 @@ func (h *hubTokenCreate) Run(args []string) int {
 	}
 
 	opts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(control.Token(*token)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(*token)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
@@ -143,7 +143,7 @@ func (h *mgmtTokenCreate) Run(args []string) int {
 	}
 
 	opts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(control.Token(*token)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(*token)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
@@ -210,7 +210,7 @@ func (h *llCreate) Run(args []string) int {
 	}
 
 	opts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(control.Token(*token)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(*token)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
@@ -284,7 +284,7 @@ func (h *agentTokenCreate) Run(args []string) int {
 	}
 
 	opts := []grpc.DialOption{
-		grpc.WithPerRPCCredentials(control.Token(*token)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(*token)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 

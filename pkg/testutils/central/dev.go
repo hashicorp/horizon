@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/horizon/internal/testsql"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
+	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/testutils"
 	"github.com/jinzhu/gorm"
@@ -152,7 +153,7 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 
 	gcc, err := grpc.Dial(li.Addr().String(),
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(control.Token(ctr.Token)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	)
 
@@ -162,7 +163,7 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 
 	mgmtConn, err := grpc.Dial(li.Addr().String(),
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(control.Token(mgmtToken)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(mgmtToken)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	)
 
@@ -227,7 +228,7 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 func (s *DevSetup) NewControlClient(t testing.T, f func(c *control.Client, li net.Listener)) {
 	gcc, err := grpc.Dial(s.ServerAddr,
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(control.Token(s.HubToken)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(s.HubToken)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	)
 
