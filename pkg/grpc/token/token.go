@@ -1,9 +1,13 @@
-package control
+package token
 
 import (
-	context "context"
+	"context"
+
+	"google.golang.org/grpc/credentials"
 )
 
+// Token implements the credentials provider interface to provide the
+// given string token in the way that Horizon expects authentication.
 type Token string
 
 func (t Token) GetRequestMetadata(ctx context.Context, uri ...string) (map[string]string, error) {
@@ -15,3 +19,5 @@ func (t Token) GetRequestMetadata(ctx context.Context, uri ...string) (map[strin
 func (t Token) RequireTransportSecurity() bool {
 	return false
 }
+
+var _ credentials.PerRPCCredentials = Token("")

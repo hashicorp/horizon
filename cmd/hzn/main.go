@@ -27,6 +27,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/discovery"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
+	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/hub"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/periodic"
@@ -786,7 +787,7 @@ func (h *devServer) RunHub(ctx context.Context, token, addr string, sess *sessio
 
 	gcc, err := grpc.Dial(addr,
 		grpc.WithInsecure(),
-		grpc.WithPerRPCCredentials(control.Token(token)),
+		grpc.WithPerRPCCredentials(grpctoken.Token(token)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	)
 	if err != nil {

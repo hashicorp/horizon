@@ -23,6 +23,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
+	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/periodic"
@@ -121,7 +122,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	gClient := cfg.Client
 	if gClient == nil && cfg.Addr != "" {
 		opts := []grpc.DialOption{
-			grpc.WithPerRPCCredentials(Token(cfg.Token)),
+			grpc.WithPerRPCCredentials(grpctoken.Token(cfg.Token)),
 			grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 		}
 
