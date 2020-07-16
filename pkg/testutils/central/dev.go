@@ -147,9 +147,22 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 
 	go gs.Serve(li)
 
+	mgmtToken, err := s.GetManagementToken(context.Background(), "/")
+	require.NoError(t, err)
+
 	gcc, err := grpc.Dial(li.Addr().String(),
 		grpc.WithInsecure(),
 		grpc.WithPerRPCCredentials(control.Token(ctr.Token)),
+		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+	)
+
+	require.NoError(t, err)
+
+	defer gcc.Close()
+
+	mgmtConn, err := grpc.Dial(li.Addr().String(),
+		grpc.WithInsecure(),
+		grpc.WithPerRPCCredentials(control.Token(mgmtToken)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	)
 
@@ -191,7 +204,7 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 	f(&DevSetup{
 		Top:           top,
 		DB:            db,
-		MgmtClient:    pb.NewControlManagementClient(gcc),
+		MgmtClient:    pb.NewControlManagementClient(mgmtConn),
 		ControlClient: client,
 		ControlServer: s,
 		ServerAddr:    li.Addr().String(),
