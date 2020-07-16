@@ -157,17 +157,21 @@ func (c *controlServer) Synopsis() string {
 }
 
 func (c *controlServer) Run(args []string) int {
+	level := hclog.Info
+	if os.Getenv("DEBUG") != "" {
+		level = hclog.Trace
+	}
+
 	L := hclog.New(&hclog.LoggerOptions{
 		Name:  "control",
-		Level: hclog.Info,
+		Level: level,
 		Exclude: hclog.ExcludeFuncs{
 			hclog.ExcludeByPrefix("http: TLS handshake error from").Exclude,
 		}.Exclude,
 	})
 
-	if os.Getenv("DEBUG") != "" {
-		L.SetLevel(hclog.Trace)
-	}
+	L.Info("log level configured", "level", level)
+	L.Trace("starting server")
 
 	vcfg := api.DefaultConfig()
 
@@ -291,7 +295,8 @@ func (c *controlServer) Run(args []string) int {
 	}
 
 	s, err := control.NewServer(control.ServerConfig{
-		DB: db,
+		Logger: L,
+		DB:     db,
 
 		RegisterToken: regTok,
 		OpsToken:      opsTok,
