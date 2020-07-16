@@ -798,7 +798,7 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 	)
 
 	for _, ll := range c.recentLabelLinks {
-		if ll.Equal(label) {
+		if ll.Labels.Equal(label) {
 			return ll.Account, ll.Target, nil
 		}
 	}
@@ -807,7 +807,7 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 	// This 2 layer technique means we have no gaps where we might miss an
 	// immediate update.
 	for _, ll := range c.lessRecentLabelLinks {
-		if ll.Equal(label) {
+		if ll.Labels.Equal(label) {
 			return ll.Account, ll.Target, nil
 		}
 	}
