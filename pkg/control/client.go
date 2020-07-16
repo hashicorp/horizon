@@ -16,7 +16,6 @@ import (
 
 	"golang.org/x/net/http2"
 
-	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -493,7 +492,7 @@ func (c *Client) refreshAcconut(L hclog.Logger, info *accountInfo) {
 		return
 	}
 
-	data, err := zstd.Decompress(nil, compressedData)
+	data, err := zstdDecompress(compressedData)
 	if err != nil {
 		L.Error("error uncompressing data", "error", err)
 		return
@@ -754,7 +753,7 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 		return err
 	}
 
-	data, err := zstd.Decompress(nil, compressedData)
+	data, err := zstdDecompress(compressedData)
 	if err != nil {
 		return err
 	}

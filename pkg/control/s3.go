@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"cirello.io/dynamolock"
-	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -78,7 +77,7 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 		return nil, err
 	}
 
-	return zstd.Compress(nil, data)
+	return zstdCompress(data)
 }
 
 func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account) error {
@@ -228,7 +227,7 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 		return err
 	}
 
-	outData, err := zstd.Compress(nil, data)
+	outData, err := zstdCompress(data)
 	if err != nil {
 		return err
 	}

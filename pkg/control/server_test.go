@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"cirello.io/dynamolock"
-	"github.com/DataDog/zstd"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -572,7 +571,7 @@ func TestServer(t *testing.T) {
 		compressedData, err := ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
 
-		data, err := zstd.Decompress(nil, compressedData)
+		data, err := zstdDecompress(compressedData)
 		require.NoError(t, err)
 
 		var lls pb.LabelLinks
@@ -615,7 +614,7 @@ func TestServer(t *testing.T) {
 		compressedData, err = ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
 
-		data, err = zstd.Decompress(nil, compressedData)
+		data, err = zstdDecompress(compressedData)
 		require.NoError(t, err)
 
 		var lls2 pb.LabelLinks
@@ -715,7 +714,7 @@ func TestServer(t *testing.T) {
 		compressedData, err := ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
 
-		data, err := zstd.Decompress(nil, compressedData)
+		data, err := zstdDecompress(compressedData)
 		require.NoError(t, err)
 
 		var accs pb.AccountServices
@@ -771,7 +770,7 @@ func TestServer(t *testing.T) {
 		compressedData, err = ioutil.ReadAll(resp.Body)
 		require.NoError(t, err)
 
-		data, err = zstd.Decompress(nil, compressedData)
+		data, err = zstdDecompress(compressedData)
 		require.NoError(t, err)
 
 		var accs2 pb.AccountServices

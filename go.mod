@@ -4,8 +4,6 @@ go 1.13
 
 require (
 	cirello.io/dynamolock v1.3.3
-	github.com/DATA-DOG/go-txdb v0.1.3
-	github.com/DataDog/zstd v1.4.4
 	github.com/armon/go-metrics v0.3.3
 	github.com/aws/aws-sdk-go v1.25.41
 	github.com/caddyserver/certmagic v0.10.3
@@ -25,6 +23,7 @@ require (
 	github.com/hashicorp/vault/api v1.0.5-0.20190909201928-35325e2c3262
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
 	github.com/jinzhu/gorm v1.9.12
+	github.com/klauspost/compress v1.10.10
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-colorable v0.1.6 // indirect
