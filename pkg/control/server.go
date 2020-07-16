@@ -720,12 +720,16 @@ func (s *Server) broadcastActivity(ctx context.Context, act *pb.CentralActivity)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for _, hub := range s.connectedHubs {
+	s.L.Debug("broadcasting activity to hubs", "hubs", len(s.connectedHubs))
+
+	for key, hub := range s.connectedHubs {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case hub.xmit <- act:
 			// ok
+		case <-time.After(5 * time.Second):
+			s.L.Debug("time out sending activity to hub channel", "hub", key)
 		}
 	}
 
