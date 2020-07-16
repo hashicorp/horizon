@@ -78,7 +78,7 @@ pkg-docker: require-docker-vars ## Creates a docker container and uploads it to 
 
 dev-setup:
 	createdb horizon_dev || true
-	DATABASE_URL=postgres://localhost/horizon_dev?sslmode=disable MIGRATIONS_PATH=./pkg/control/migrations  go run ./cmd/hzn/main.go migrate
+	DATABASE_URL=postgres://localhost/horizon_dev?sslmode=disable MIGRATIONS_PATH=./pkg/control/migrations  go run ./cmd/hzn/main.go migrate || true
 	docker-compose up -d
 
 .PHONY: dev-setup
