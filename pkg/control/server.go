@@ -882,6 +882,7 @@ func (s *Server) AddAccount(ctx context.Context, req *pb.AddAccountRequest) (*pb
 
 	L.Info("adding new account",
 		"account", req.Account.SpecString(),
+		"limits", req.Limits.String(),
 	)
 
 	caller, err := s.checkMgmtAllowed(ctx)

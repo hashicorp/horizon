@@ -21,6 +21,12 @@ import (
 	"golang.org/x/time/rate"
 )
 
+// When attempt to reserve a request slot, if one isn't available but
+// the delay is less than SleepDelayThreshold, we do a time.Sleep()
+// to wait for the slot to open up. If the delay is greater than this
+// value, we return a 429 error and give the time slice back.
+var SleepDelayThreshold = 10 * time.Millisecond
+
 type HostnameChecker interface {
 	HandlingHostname(name string) bool
 }
@@ -187,17 +193,26 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		f.rates.Add(account.SpecString(), rates)
 	}
 
-	if !rates.requests.Allow() {
-		res := rates.requests.Reserve()
-		defer res.Cancel()
+	res := rates.requests.Reserve()
 
-		f.L.Info("request limit hit", "target", target.SpecString(), "account", account.SpecString())
+	if !res.OK() {
+		delay := res.Delay()
 
-		http.Error(
-			w,
-			fmt.Sprintf("request exceeded configured account. Time til next opening: %s", res.Delay()),
-			429,
-		)
+		if delay <= SleepDelayThreshold {
+			time.Sleep(delay)
+		} else {
+			res.Cancel()
+
+			f.L.Info("request limit hit", "target", target.SpecString(), "account", account.SpecString())
+
+			w.Header().Add("X-Horizon-Warn", "per request limit exceeded")
+
+			http.Error(
+				w,
+				fmt.Sprintf("Request exceeded configured limits on this account. Time til next request can be performed: %s", delay),
+				429,
+			)
+		}
 
 		return
 	}
