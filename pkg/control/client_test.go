@@ -476,6 +476,15 @@ func TestClient(t *testing.T) {
 		label := pb.ParseLabelSet(":hostname=foo.com")
 		target := pb.ParseLabelSet("service=www,env=prod")
 
+		_, err = s.AddAccount(
+			metadata.NewIncomingContext(top, md2),
+			&pb.AddAccountRequest{
+				Account: account,
+			},
+		)
+
+		require.NoError(t, err)
+
 		_, err = s.AddLabelLink(
 			metadata.NewIncomingContext(top, md2),
 			&pb.AddLabelLinkRequest{
@@ -518,7 +527,7 @@ func TestClient(t *testing.T) {
 
 		time.Sleep(time.Second)
 
-		labelAccount, labelTarget, err := client.ResolveLabelLink(label)
+		labelAccount, labelTarget, _, err := client.ResolveLabelLink(label)
 		require.NoError(t, err)
 
 		assert.Equal(t, account, labelAccount)

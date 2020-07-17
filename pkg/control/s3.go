@@ -210,10 +210,21 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 				return err
 			}
 
+			var acc Account
+
+			err = dbx.Check(s.db.First(&acc, ll.AccountID))
+			if err != nil {
+				return err
+			}
+
+			var pblimit pb.Account_Limits
+			acc.Data.Get("limits", &pblimit)
+
 			out.LabelLinks = append(out.LabelLinks, &pb.LabelLink{
 				Account: account,
 				Labels:  ExplodeLabels(ll.Labels),
 				Target:  ExplodeLabels(ll.Target),
+				Limits:  &pblimit,
 			})
 		}
 

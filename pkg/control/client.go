@@ -785,7 +785,7 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 	return err
 }
 
-func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet, error) {
+func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet, *pb.Account_Limits, error) {
 	c.labelMu.RLock()
 	defer c.labelMu.RUnlock()
 
@@ -799,7 +799,7 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 
 	for _, ll := range c.recentLabelLinks {
 		if ll.Labels.Equal(label) {
-			return ll.Account, ll.Target, nil
+			return ll.Account, ll.Target, ll.Limits, nil
 		}
 	}
 
@@ -808,21 +808,21 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 	// immediate update.
 	for _, ll := range c.lessRecentLabelLinks {
 		if ll.Labels.Equal(label) {
-			return ll.Account, ll.Target, nil
+			return ll.Account, ll.Target, ll.Limits, nil
 		}
 	}
 
 	if c.labelLinks == nil {
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
 	for _, ll := range c.labelLinks.LabelLinks {
 		if ll.Labels.Equal(label) {
-			return ll.Account, ll.Target, nil
+			return ll.Account, ll.Target, ll.Limits, nil
 		}
 	}
 
-	return nil, nil, nil
+	return nil, nil, nil, nil
 }
 
 func (c *Client) AllHubs(ctx context.Context) ([]*pb.HubInfo, error) {

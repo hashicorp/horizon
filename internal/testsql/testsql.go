@@ -56,6 +56,10 @@ var (
 	postgresDBInitialized = false
 )
 
+type nopLogger struct{}
+
+func (_ nopLogger) Print(v ...interface{}) {}
+
 var gormDebug = flag.Bool("gorm-debug", false, "set to true to have Gorm log all generated SQL.")
 
 // TestDBOptions collects options that customize the test databases.
@@ -101,6 +105,7 @@ func TestPostgresDBWithOpts(t testing.T, dbName string, opts *TestDBOptions) *go
 	// a potentially existing database, create a new one, and migrate it to the
 	// latest version.
 	if !opts.ReuseDB || !postgresDBInitialized {
+		db.SetLogger(nopLogger{})
 		// Sometimes a Postgres database can't be dropped because of some internal
 		// Postgres housekeeping (Postgres runs as a collection of collaborating
 		// OS processes). Before trying to drop it, terminate all other connections.
@@ -121,6 +126,7 @@ func TestPostgresDBWithOpts(t testing.T, dbName string, opts *TestDBOptions) *go
 		}
 
 		db = testDBConnectWithUser(t, "postgres", dbName, "postgres", "postgres")
+		db.SetLogger(nopLogger{})
 		db.Exec("GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO " + UserName + ";")
 		db.Exec("GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO " + UserName + ";")
 

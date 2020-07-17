@@ -122,6 +122,7 @@ func TestWeb(t *testing.T) {
 
 			w := httptest.NewRecorder()
 
+			t.Log("sending the request")
 			f.ServeHTTP(w, req)
 
 			assert.Equal(t, 247, w.Code)

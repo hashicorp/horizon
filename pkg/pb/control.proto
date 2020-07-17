@@ -27,6 +27,7 @@ message LabelLink {
   Account account = 1;
   LabelSet labels = 2;
   LabelSet target = 3;
+  Account.Limits limits = 4;
 }
 
 message LabelLinks {
@@ -166,6 +167,11 @@ service ControlServices {
   rpc RequestServiceToken(ServiceTokenRequest) returns (ServiceTokenResponse) {}
 }
 
+message AddAccountRequest {
+  Account account = 1;
+  Account.Limits limits = 2;
+}
+
 message AddLabelLinkRequest {
   LabelSet labels = 1;
   Account account = 2;
@@ -213,6 +219,7 @@ message ListAccountsResponse {
 
 service ControlManagement {
   rpc Register(ControlRegister) returns (ControlToken) {}
+  rpc AddAccount(AddAccountRequest) returns (Noop) {}
   rpc AddLabelLink(AddLabelLinkRequest) returns (Noop) {}
   rpc RemoveLabelLink(RemoveLabelLinkRequest) returns (Noop) {}
   rpc CreateToken(CreateTokenRequest) returns (CreateTokenResponse) {}

@@ -20,6 +20,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/horizon/internal/sqljson"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	_ "github.com/hashicorp/horizon/pkg/grpc/lz4"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -222,6 +223,8 @@ func (s *Server) SetHubTLS(cert, key []byte, domain string) {
 type Account struct {
 	ID        []byte `gorm:"primary_key"`
 	Namespace string
+
+	Data sqljson.Data
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
@@ -874,6 +877,52 @@ func (s *Server) checkMgmtAllowed(ctx context.Context) (*token.ValidToken, error
 	return token, nil
 }
 
+func (s *Server) AddAccount(ctx context.Context, req *pb.AddAccountRequest) (*pb.Noop, error) {
+	L := s.L.Named("add-account")
+
+	L.Info("adding new account",
+		"account", req.Account.SpecString(),
+	)
+
+	caller, err := s.checkMgmtAllowed(ctx)
+	if err != nil {
+		L.Error("error checking mgmt token", "err", err)
+		return nil, err
+	}
+
+	if req.Account.Namespace == "" {
+		req.Account.Namespace = caller.Account().Namespace
+	}
+
+	if !caller.AllowAccount(req.Account.Namespace) {
+		L.Error(
+			"rejected access to account based on caller namespace",
+			"caller-namespace", caller.Account().Namespace,
+			"requested-namespace", req.Account.Namespace,
+		)
+
+		return nil, errors.Wrapf(ErrInvalidRequest, "invalid namespace requested")
+	}
+
+	var ao Account
+	ao.ID = req.Account.Key()
+	ao.Namespace = req.Account.Namespace
+	err = ao.Data.Set("limits", req.Limits)
+	if err != nil {
+		return nil, errors.Wrapf(ErrInvalidRequest, "error parsing limits: %s", err)
+	}
+
+	de := s.db.Create(&ao)
+
+	err = dbx.Check(de)
+	if err != nil {
+		L.Error("error reading account information for labellink", "error", err)
+		return nil, err
+	}
+
+	return &pb.Noop{}, nil
+}
+
 type LabelLink struct {
 	ID int `gorm:"primary_key"`
 
@@ -917,15 +966,13 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 	}
 
 	var ao Account
-	ao.ID = req.Account.Key()
-	ao.Namespace = req.Account.Namespace
 
-	de := s.db.Set("gorm:insert_option", "ON CONFLICT (id) DO UPDATE SET namespace=EXCLUDED.namespace").Create(&ao)
+	de := s.db.First(&ao, req.Account.Key())
 
 	err = dbx.Check(de)
 	if err != nil {
-		L.Error("error reading account information for labellink", "error", err)
-		return nil, err
+		L.Error("error reading account information for label-link", "error", err)
+		return nil, errors.Wrapf(err, "account for label-link not found")
 	}
 
 	L.Trace("account for label-link initialized correctly")
@@ -943,11 +990,15 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 
 	L.Trace("label-link saved to database")
 
+	var pblimit pb.Account_Limits
+	ao.Data.Get("limits", &pblimit)
+
 	var out pb.LabelLinks
 	out.LabelLinks = []*pb.LabelLink{{
 		Account: req.Account,
 		Labels:  req.Labels,
 		Target:  req.Target,
+		Limits:  &pblimit,
 	}}
 
 	L.Trace("broadcasting new label-link activity")
