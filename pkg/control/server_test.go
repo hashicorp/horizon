@@ -543,6 +543,23 @@ func TestServer(t *testing.T) {
 		label := pb.ParseLabelSet(":hostname=foo.com")
 		target := pb.ParseLabelSet("service=emp,env=test")
 
+		_, err = s.AddAccount(
+			metadata.NewIncomingContext(top, md2),
+			&pb.AddAccountRequest{
+				Account: &pb.Account{
+					AccountId: accountId,
+					Namespace: "/",
+				},
+
+				Limits: &pb.Account_Limits{
+					HttpRequests: 1000,
+					Bandwidth:    872,
+				},
+			},
+		)
+
+		require.NoError(t, err)
+
 		_, err = s.AddLabelLink(
 			metadata.NewIncomingContext(top, md2),
 			&pb.AddLabelLinkRequest{
@@ -586,6 +603,11 @@ func TestServer(t *testing.T) {
 		assert.Equal(t, accountId, ll.Account.AccountId)
 		assert.Equal(t, label, ll.Labels)
 		assert.Equal(t, target, ll.Target)
+
+		require.NotNil(t, ll.Limits)
+
+		assert.Equal(t, float64(1000), ll.Limits.HttpRequests)
+		assert.Equal(t, float64(872), ll.Limits.Bandwidth)
 
 		_, err = s.RemoveLabelLink(
 			metadata.NewIncomingContext(top, md2),

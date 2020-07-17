@@ -7,14 +7,18 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/timing"
 	"github.com/hashicorp/horizon/pkg/wire"
 	servertiming "github.com/mitchellh/go-server-timing"
+	"golang.org/x/time/rate"
 )
 
 type HostnameChecker interface {
@@ -31,20 +35,38 @@ type Connector interface {
 	) (wire.Context, error)
 }
 
+type ratesPerAccount struct {
+	bandwidth *rate.Limiter
+	requests  *rate.Limiter
+
+	clampValue int
+
+	warn *int64
+}
+
 type Frontend struct {
 	L       hclog.Logger
 	client  *control.Client
 	hub     Connector
 	Checker HostnameChecker
 	token   string
+
+	mu    sync.Mutex
+	rates *lru.ARCCache
 }
 
 func NewFrontend(L hclog.Logger, h Connector, cl *control.Client, token string) (*Frontend, error) {
+	lr, err := lru.NewARC(10000)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Frontend{
 		L:      L,
 		client: cl,
 		hub:    h,
 		token:  token,
+		rates:  lr,
 	}, nil
 }
 
@@ -73,6 +95,7 @@ func (f *Frontend) extractPrefixHost(host string) (string, string, bool) {
 }
 
 func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Add rate limiting here.
 	var th servertiming.Header
 
 	var tr timing.DefaultTracker
@@ -97,7 +120,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	rm := th.NewMetric("resolve").Start()
 
-	account, target, err := f.client.ResolveLabelLink(ll)
+	account, target, limits, err := f.client.ResolveLabelLink(ll)
 	if err != nil || target == nil {
 		prefixHost, deployId, usingPrefix = f.extractPrefixHost(req.Host)
 		if !usingPrefix {
@@ -113,7 +136,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			},
 		}
 
-		account, target, err = f.client.ResolveLabelLink(ll)
+		account, target, limits, err = f.client.ResolveLabelLink(ll)
 		if err != nil || target == nil {
 			f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
 			http.Error(w, fmt.Sprintf("no registered application for hostname: %s", req.Host), http.StatusInternalServerError)
@@ -128,7 +151,65 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		target.Finalize()
 	}
 
+	// we should always have limits, but in the case that something is using an old API and
+	// we see this as nil, just use an empty value.
+	if limits == nil {
+		limits = &pb.Account_Limits{}
+	}
+
 	rm.Stop()
+
+	var rates *ratesPerAccount
+
+	rv, ok := f.rates.Get(account.SpecString())
+	if ok {
+		rates = rv.(*ratesPerAccount)
+	} else {
+		bwLimit := rate.Limit(limits.Bandwidth)
+
+		if limits.Bandwidth < 0.00001 {
+			bwLimit = rate.Inf
+		}
+
+		reqLimit := rate.Limit(limits.HttpRequests)
+
+		if limits.HttpRequests < 0.00001 {
+			reqLimit = rate.Inf
+		}
+
+		rates = &ratesPerAccount{
+			bandwidth:  rate.NewLimiter(bwLimit, int(limits.Bandwidth/10)),
+			requests:   rate.NewLimiter(reqLimit, 1),
+			clampValue: int(limits.Bandwidth / 10),
+			warn:       new(int64),
+		}
+
+		f.rates.Add(account.SpecString(), rates)
+	}
+
+	if !rates.requests.Allow() {
+		res := rates.requests.Reserve()
+		defer res.Cancel()
+
+		f.L.Info("request limit hit", "target", target.SpecString(), "account", account.SpecString())
+
+		http.Error(
+			w,
+			fmt.Sprintf("request exceeded configured account. Time til next opening: %s", res.Delay()),
+			429,
+		)
+
+		return
+	}
+
+	if atomic.LoadInt64(rates.warn) != 0 {
+		res := rates.bandwidth.Reserve()
+		if res.OK() {
+			atomic.StoreInt64(rates.warn, 0)
+		}
+
+		res.Cancel()
+	}
 
 	lu := th.NewMetric("lookup").Start()
 
@@ -254,8 +335,51 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	hdr.Add("X-Horizon-Latency", time.Since(start).String())
 	hdr.Add(servertiming.HeaderKey, th.String())
 
+	if atomic.LoadInt64(rates.warn) != 0 {
+		hdr.Add("X-Horizon-Warn", "This account is experiencing rate limiting.")
+	}
+
 	w.WriteHeader(int(wresp.Code))
 
 	f.L.Trace("copying request body", "id", reqId)
-	io.Copy(w, wctx.Reader())
+	io.Copy(w, &ratedReader{f: f, r: wctx.Reader(), acc: rates})
+}
+
+type ratedReader struct {
+	f   *Frontend
+	r   io.Reader
+	acc *ratesPerAccount
+}
+
+func (r *ratedReader) Read(b []byte) (int, error) {
+	if r.acc.clampValue > 0 {
+		if len(b) > r.acc.clampValue {
+			b = b[:r.acc.clampValue]
+		}
+	}
+
+	n, err := r.r.Read(b)
+	if err != nil {
+		return n, err
+	}
+
+	tokens := n / 1024
+	if tokens == 0 {
+		tokens = 1
+	}
+
+	res := r.acc.bandwidth.ReserveN(time.Now(), tokens)
+	defer res.Cancel()
+
+	if res.OK() {
+		return n, nil
+	}
+
+	if atomic.CompareAndSwapInt64(r.acc.warn, 0, 1) {
+		r.f.L.Debug("introducing delay to manage bandwidth usage", "delay", res.Delay())
+	}
+
+	time.Sleep(res.Delay())
+
+	return n, nil
 }

@@ -9,5 +9,10 @@ message Account {
   option (gogoproto.stringer) =  false;
   string namespace = 1;
   ULID account_id = 2;
+
+  message Limits {
+    double http_requests = 1; // per second
+    double bandwidth = 2; // in KB/s
+  }
 }
 
