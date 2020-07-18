@@ -51,11 +51,12 @@ type ratesPerAccount struct {
 }
 
 type Frontend struct {
-	L       hclog.Logger
-	client  *control.Client
-	hub     Connector
-	Checker HostnameChecker
-	token   string
+	L          hclog.Logger
+	client     *control.Client
+	hub        Connector
+	Checker    HostnameChecker
+	token      string
+	endpointId string
 
 	mu    sync.Mutex
 	rates *lru.ARCCache
@@ -68,11 +69,12 @@ func NewFrontend(L hclog.Logger, h Connector, cl *control.Client, token string) 
 	}
 
 	return &Frontend{
-		L:      L,
-		client: cl,
-		hub:    h,
-		token:  token,
-		rates:  lr,
+		L:          L,
+		client:     cl,
+		hub:        h,
+		token:      token,
+		rates:      lr,
+		endpointId: cl.Id().SpecString(),
 	}, nil
 }
 
@@ -347,6 +349,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		})
 	}
 
+	hdr.Add("X-Horizon-Endpoint", f.endpointId)
 	hdr.Add("X-Horizon-Latency", time.Since(start).String())
 	hdr.Add(servertiming.HeaderKey, th.String())
 
