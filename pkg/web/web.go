@@ -197,24 +197,26 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	res := rates.requests.Reserve()
 
-	if !res.OK() {
-		delay := res.Delay()
+	delay := res.Delay()
 
-		if delay <= SleepDelayThreshold {
-			time.Sleep(delay)
-		} else {
-			res.Cancel()
+	switch {
+	case delay == 0:
+		// ok
+	case delay <= SleepDelayThreshold:
+		time.Sleep(delay)
+	default:
+		res.Cancel()
 
-			f.L.Info("request limit hit", "target", target.SpecString(), "account", account.SpecString())
+		f.L.Info("request limit hit", "target", target.SpecString(), "account", account.SpecString())
 
-			w.Header().Add("X-Horizon-Warn", "per request limit exceeded")
+		w.Header().Add("X-Horizon-Endpoint", f.endpointId)
+		w.Header().Add("X-Horizon-Warn", "per request limit exceeded")
 
-			http.Error(
-				w,
-				fmt.Sprintf("Request exceeded configured limits on this account. Time til next request can be performed: %s", delay),
-				429,
-			)
-		}
+		http.Error(
+			w,
+			fmt.Sprintf("Request exceeded configured limits on this account. Time til next request can be performed: %s", delay),
+			429,
+		)
 
 		return
 	}
