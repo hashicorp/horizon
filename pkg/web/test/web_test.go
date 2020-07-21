@@ -98,22 +98,22 @@ func TestWeb(t *testing.T) {
 
 		time.Sleep(time.Second)
 
+		name := "fuzz.localdomain"
+
+		_, err = setup.ControlServer.AddLabelLink(setup.MgmtCtx,
+			&pb.AddLabelLinkRequest{
+				Labels:  pb.ParseLabelSet(":hostname=" + name),
+				Account: setup.Account,
+				Target:  pb.ParseLabelSet("env=test1"),
+			})
+
+		require.NoError(t, err)
+
+		time.Sleep(time.Second)
+
+		require.NoError(t, setup.ControlClient.ForceLabelLinkUpdate(ctx, L))
+
 		t.Run("routes requests to the agent", func(t *testing.T) {
-			name := "fuzz.localdomain"
-
-			_, err := setup.ControlServer.AddLabelLink(setup.MgmtCtx,
-				&pb.AddLabelLinkRequest{
-					Labels:  pb.ParseLabelSet(":hostname=" + name),
-					Account: setup.Account,
-					Target:  pb.ParseLabelSet("env=test1"),
-				})
-
-			require.NoError(t, err)
-
-			time.Sleep(time.Second)
-
-			require.NoError(t, setup.ControlClient.ForceLabelLinkUpdate(ctx, L))
-
 			f, err := web.NewFrontend(L, hub, setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
 
@@ -133,22 +133,7 @@ func TestWeb(t *testing.T) {
 		})
 
 		t.Run("supports deployment routes", func(t *testing.T) {
-			prefixHost := "fuzz-.localdomain"
-
-			_, err = setup.ControlServer.AddLabelLink(setup.MgmtCtx,
-				&pb.AddLabelLinkRequest{
-					Labels:  pb.ParseLabelSet(":hostname=" + prefixHost),
-					Account: setup.Account,
-					Target:  pb.ParseLabelSet("env=test1"),
-				})
-
-			require.NoError(t, err)
-
-			time.Sleep(time.Second)
-
-			require.NoError(t, setup.ControlClient.ForceLabelLinkUpdate(ctx, L))
-
-			target := "fuzz-aabbcc.localdomain"
+			target := "fuzz--aabbcc.localdomain"
 
 			f, err := web.NewFrontend(L, hub, setup.ControlClient, setup.HubServToken)
 			require.NoError(t, err)
