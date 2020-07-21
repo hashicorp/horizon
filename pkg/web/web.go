@@ -82,7 +82,7 @@ func (f *Frontend) Serve(l net.Listener) error {
 	return http.Serve(l, f)
 }
 
-func (f *Frontend) extractPrefixHost(host string) (string, string, bool) {
+func (f *Frontend) extractHost(host string) (string, string, bool) {
 	var first, domain string
 
 	firstDot := strings.IndexByte(host, '.')
@@ -94,12 +94,12 @@ func (f *Frontend) extractPrefixHost(host string) (string, string, bool) {
 		domain = ""
 	}
 
-	lastDash := strings.LastIndexByte(first, '-')
-	if lastDash == -1 {
-		return "", "", false
+	suffixDash := strings.LastIndex(first, "--")
+	if suffixDash == -1 {
+		return host, "", false
 	}
 
-	return first[:lastDash+1] + domain, first[lastDash+1:], true
+	return first[:suffixDash] + domain, first[suffixDash+2:], true
 }
 
 func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -112,45 +112,33 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	start := time.Now()
 
+	rm := th.NewMetric("resolve").Start()
+
+	host, deployId, deploySpecific := f.extractHost(req.Host)
+
 	ll := &pb.LabelSet{
 		Labels: []*pb.Label{
 			{
 				Name:  ":hostname",
-				Value: req.Host,
+				Value: host,
 			},
 		},
 	}
 
-	var (
-		prefixHost, deployId string
-		usingPrefix          bool
-	)
-
-	rm := th.NewMetric("resolve").Start()
-
 	account, target, limits, err := f.client.ResolveLabelLink(ll)
 	if err != nil || target == nil {
-		prefixHost, deployId, usingPrefix = f.extractPrefixHost(req.Host)
-		if !usingPrefix {
+		if deploySpecific {
+			f.L.Error("unable to resolve label link", "error", err, "http-host", req.Host, "lookup-host", host, "deploy-id", deployId)
+			http.Error(w, fmt.Sprintf("no registered application for host: %s (deploy-id: %s)", host, deployId), http.StatusInternalServerError)
+		} else {
 			f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
-			http.Error(w, fmt.Sprintf("no registered application for hostname: %s", req.Host), http.StatusInternalServerError)
-			return
+			http.Error(w, fmt.Sprintf("no registered application for host: %s", req.Host), http.StatusInternalServerError)
 		}
 
-		ll.Labels = []*pb.Label{
-			{
-				Name:  ":hostname",
-				Value: prefixHost,
-			},
-		}
+		return
+	}
 
-		account, target, limits, err = f.client.ResolveLabelLink(ll)
-		if err != nil || target == nil {
-			f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
-			http.Error(w, fmt.Sprintf("no registered application for hostname: %s", req.Host), http.StatusInternalServerError)
-			return
-		}
-
+	if deploySpecific {
 		target.Labels = append(target.Labels, &pb.Label{
 			Name:  ":deployment",
 			Value: deployId,
