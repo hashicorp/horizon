@@ -23,12 +23,14 @@ require (
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/vault/api v1.0.5-0.20190909201928-35325e2c3262
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
+	github.com/imdario/mergo v0.3.10 // indirect
 	github.com/jinzhu/gorm v1.9.12
 	github.com/klauspost/compress v1.10.10
 	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.3.0
 	github.com/mattn/go-colorable v0.1.6 // indirect
 	github.com/mitchellh/cli v1.0.0
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-server-timing v1.0.0
 	github.com/mitchellh/go-testing-interface v1.0.0
 	github.com/mitchellh/mapstructure v1.1.2
@@ -50,6 +52,7 @@ require (
 	google.golang.org/genproto v0.0.0-20200416231807-8751e049a2a0 // indirect
 	google.golang.org/grpc v1.28.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
-	gopkg.in/yaml.v2 v2.2.8 // indirect
 	gortc.io/stun v1.22.2
+	k8s.io/apimachinery v0.17.7
+	k8s.io/client-go v0.17.7
 )

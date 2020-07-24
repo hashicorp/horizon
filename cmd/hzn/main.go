@@ -282,6 +282,7 @@ func (c *controlServer) Run(args []string) int {
 
 	hubAccess := os.Getenv("HUB_ACCESS_KEY")
 	hubSecret := os.Getenv("HUB_SECRET_KEY")
+	hubTag := os.Getenv("HUB_IMAGE_TAG")
 
 	port := os.Getenv("PORT")
 
@@ -313,6 +314,7 @@ func (c *controlServer) Run(args []string) int {
 
 		HubAccessKey: hubAccess,
 		HubSecretKey: hubSecret,
+		HubImageTag:  hubTag,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -464,13 +466,27 @@ func (h *hubRunner) Run(args []string) int {
 
 	defer os.RemoveAll(tmpdir)
 
+	deployment := os.Getenv("K8_DEPLOYMENT")
+
 	client, err := control.NewClient(ctx, control.ClientConfig{
-		Id:      id,
-		Token:   token,
-		Version: "test",
-		Addr:    addr,
-		WorkDir: tmpdir,
+		Id:           id,
+		Token:        token,
+		Version:      "test",
+		Addr:         addr,
+		WorkDir:      tmpdir,
+		K8Deployment: deployment,
 	})
+
+	if deployment != "" {
+		err = client.ConnectToKubernetes()
+		if err != nil {
+			L.Error("error connecting to kubernetes", "error", err)
+		}
+
+		// Best to keep running here rather than fail so that hubs
+		// don't go into crash loops but rather just don't the ability to update
+		// themselves.
+	}
 
 	defer func() {
 		// Get a new context to process the closure because the main one

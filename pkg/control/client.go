@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"golang.org/x/net/http2"
+	client "k8s.io/client-go/kubernetes"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
@@ -91,6 +92,8 @@ type Client struct {
 	hubActivity chan *pb.HubActivity
 
 	netloc []*pb.NetworkLocation
+
+	clientset *client.Clientset
 }
 
 type ClientConfig struct {
@@ -104,6 +107,9 @@ type ClientConfig struct {
 	Session  *session.Session
 	WorkDir  string
 	Insecure bool
+
+	// The kubernetes deployment name used for the service using this client
+	K8Deployment string
 
 	// Where hub integrates it's handler for the hzn protocol
 	NextProto map[string]func(hs *http.Server, tlsConn *tls.Conn, h http.Handler)
@@ -255,6 +261,10 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 
 		c.bucket = resp.S3Bucket
 		c.cfg.S3Bucket = resp.S3Bucket
+	}
+
+	if resp.ImageTag != "" {
+		c.checkImageTag(resp.ImageTag, true)
 	}
 
 	return nil
