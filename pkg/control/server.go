@@ -98,6 +98,10 @@ type ServerConfig struct {
 	HubAccessKey string
 	HubSecretKey string
 
+	// The docker image that hubs should be used, this is advertised to the hubs
+	// so they can act on it.
+	HubImageTag string
+
 	DataDogAddr       string
 	DisablePrometheus bool
 }
@@ -485,6 +489,7 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 		S3AccessKey: s.cfg.HubAccessKey,
 		S3SecretKey: s.cfg.HubSecretKey,
 		S3Bucket:    s.cfg.Bucket,
+		ImageTag:    s.cfg.HubImageTag,
 	}
 
 	return resp, nil

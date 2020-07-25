@@ -81,7 +81,7 @@ spec:
 
       containers:
       - name: control
-        image: quay.io/hashicorp/horizon:latest
+        image: quay.io/hashicorp/horizon:E-1
         args:
           - control
         env:
@@ -117,6 +117,12 @@ spec:
 
           - name: HUB_DOMAIN
             value: "*.alpha.hzn.network"
+
+          - name: HUB_IMAGE_TAG
+            valueFrom:
+              configMapKeyRef:
+                name: hub-deployment
+                key: tag
 
           - name: ZONE_ID
             valueFrom:
