@@ -651,13 +651,14 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 
 		// drain the xmit channel in the case that the sender saw
 		// us around but we're now exiting.
+	drain:
 		for {
 			select {
 			case <-ch.xmit:
 				// draining
 			default:
 				// not blocking
-				break
+				break drain
 			}
 		}
 	}()
