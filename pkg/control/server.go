@@ -657,6 +657,7 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 				// draining
 			default:
 				// not blocking
+				break
 			}
 		}
 	}()
