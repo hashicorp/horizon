@@ -139,12 +139,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	if deploySpecific {
-		target.Labels = append(target.Labels, &pb.Label{
-			Name:  ":deployment",
-			Value: deployId,
-		})
-
-		target.Finalize()
+		target = target.Add(":deployment", deployId)
 	}
 
 	// we should always have limits, but in the case that something is using an old API and
