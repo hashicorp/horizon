@@ -5,6 +5,8 @@ import (
 	fmt "fmt"
 	"sort"
 	strings "strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/lib/pq"
 )
@@ -13,7 +15,7 @@ func ParseLabelSet(s string) *LabelSet {
 	var ls LabelSet
 
 	for _, part := range strings.Split(s, ",") {
-		part = strings.TrimSpace(part)
+		part = strings.ToLower(strings.TrimSpace(part))
 		idx := strings.IndexByte(part, '=')
 		if idx == -1 {
 			ls.Labels = append(ls.Labels, &Label{
@@ -42,8 +44,8 @@ func MakeLabels(args ...string) *LabelSet {
 
 	for i := 0; i < len(args); i += 2 {
 		out.Labels = append(out.Labels, &Label{
-			Name:  args[i],
-			Value: args[i+1],
+			Name:  strings.ToLower(args[i]),
+			Value: strings.ToLower(args[i+1]),
 		})
 	}
 
@@ -75,7 +77,7 @@ func (ls *LabelSet) String() string {
 
 func (ls *LabelSet) Contains(name, value string) bool {
 	for _, lbl := range ls.Labels {
-		if lbl.Name == name && lbl.Value == value {
+		if strings.EqualFold(lbl.Name, name) && strings.EqualFold(lbl.Value, value) {
 			return true
 		}
 	}
@@ -126,15 +128,64 @@ func (ls *LabelSet) Len() int {
 	return len(ls.Labels)
 }
 
+func lowerRune(r rune) rune {
+	if r >= 'A' && r <= 'Z' {
+		r += ('a' - 'A')
+	}
+
+	return r
+}
+
+// lessFold reports whether s and t, interpreted as UTF-8 strings,
+// have s less than t under Unicode case-folding, which is a more general
+// form of case-insensitivity.
+func lessFold(s, t string) bool {
+	for s != "" && t != "" {
+		// Extract first rune from each string.
+		var sr, tr rune
+		if s[0] < utf8.RuneSelf {
+			sr, s = rune(s[0]), s[1:]
+		} else {
+			r, size := utf8.DecodeRuneInString(s)
+			sr, s = r, s[size:]
+		}
+		if t[0] < utf8.RuneSelf {
+			tr, t = rune(t[0]), t[1:]
+		} else {
+			r, size := utf8.DecodeRuneInString(t)
+			tr, t = r, t[size:]
+		}
+
+		// If they match, keep going; if not, fold and check relationship
+
+		// Easy case.
+		if sr == tr {
+			continue
+		}
+
+		sr = unicode.SimpleFold(sr)
+		tr = unicode.SimpleFold(tr)
+
+		if sr == tr {
+			continue
+		}
+
+		return sr < tr
+	}
+
+	// One string is empty. Are both?
+	return s < t
+}
+
 func (ls *LabelSet) Less(i, j int) bool {
 	a := ls.Labels[i]
 	b := ls.Labels[j]
 
-	if a.Name < b.Name {
+	if lessFold(a.Name, b.Name) {
 		return true
 	}
 
-	if a.Name == b.Name && a.Value < b.Value {
+	if strings.EqualFold(a.Name, b.Name) && lessFold(a.Value, b.Value) {
 		return true
 	}
 
@@ -163,7 +214,7 @@ func (ls *LabelSet) Matches(o *LabelSet) bool {
 
 			ssLabel := o.Labels[idx]
 			idx++
-			if ssLabel.Name == lbl.Name && ssLabel.Value == lbl.Value {
+			if strings.EqualFold(ssLabel.Name, lbl.Name) && strings.EqualFold(ssLabel.Value, lbl.Value) {
 				break
 			}
 
@@ -181,7 +232,7 @@ func (ls *LabelSet) Combine(o *LabelSet) *LabelSet {
 outer:
 	for _, outer := range o.Labels {
 		for _, inner := range ls.Labels {
-			if outer.Name == inner.Name && outer.Value == inner.Value {
+			if strings.EqualFold(outer.Name, inner.Name) && strings.EqualFold(outer.Value, inner.Value) {
 				continue outer
 			}
 		}
