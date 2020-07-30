@@ -45,6 +45,7 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Se
 		return err
 	}
 
+	hreq.Host = req.Host
 	hreq.URL.RawQuery = req.Query
 	hreq.URL.Fragment = req.Fragment
 	if req.Auth != nil {

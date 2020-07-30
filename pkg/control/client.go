@@ -264,7 +264,7 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 	}
 
 	if resp.ImageTag != "" {
-		c.checkImageTag(resp.ImageTag, true)
+		c.checkImageTag(ctx, resp.ImageTag, true)
 	}
 
 	return nil

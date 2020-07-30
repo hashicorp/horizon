@@ -53,6 +53,6 @@ require (
 	google.golang.org/grpc v1.28.1
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
 	gortc.io/stun v1.22.2
-	k8s.io/apimachinery v0.17.7
-	k8s.io/client-go v0.17.7
+	k8s.io/apimachinery v0.18.0
+	k8s.io/client-go v0.18.0
 )

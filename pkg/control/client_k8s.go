@@ -1,6 +1,7 @@
 package control
 
 import (
+	context "context"
 	"math/rand"
 	"strings"
 	"time"
@@ -25,14 +26,14 @@ func (c *Client) ConnectToKubernetes() error {
 	return nil
 }
 
-func (c *Client) checkImageTag(newTag string, delay bool) error {
+func (c *Client) checkImageTag(ctx context.Context, newTag string, delay bool) error {
 	if c.clientset == nil || c.cfg.K8Deployment == "" {
 		c.L.Debug("no kubernetes configuration set, ignoring tag", "tag", newTag)
 		return nil
 	}
 
 	depapi := c.clientset.AppsV1().Deployments("default")
-	dep, err := depapi.Get(c.cfg.K8Deployment, v1.GetOptions{})
+	dep, err := depapi.Get(ctx, c.cfg.K8Deployment, v1.GetOptions{})
 	if err != nil {
 		c.L.Error("error fetching deployment for image update", "error", err, "deployment", c.cfg.K8Deployment)
 		return err
@@ -66,6 +67,6 @@ func (c *Client) checkImageTag(newTag string, delay bool) error {
 
 	c.L.Info("updating deployment", "image", newImage, "prev", img)
 
-	_, err = depapi.Update(dep)
+	_, err = depapi.Update(ctx, dep, v1.UpdateOptions{})
 	return err
 }
