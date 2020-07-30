@@ -52,6 +52,21 @@ func MakeLabels(args ...string) *LabelSet {
 	return &out
 }
 
+func (ls *LabelSet) Add(name, value string) *LabelSet {
+	dup := &LabelSet{}
+
+	dup.Labels = append(dup.Labels, ls.Labels...)
+
+	dup.Labels = append(dup.Labels, &Label{
+		Name:  name,
+		Value: value,
+	})
+
+	dup.Finalize()
+
+	return dup
+}
+
 // Call if manually creating a LabelSet once it's filled
 func (ls *LabelSet) Finalize() {
 	sort.Sort(ls)
