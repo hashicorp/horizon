@@ -23,7 +23,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/vault/api v1.0.5-0.20190909201928-35325e2c3262
 	github.com/hashicorp/yamux v0.0.0-20190923154419-df201c70410d
-	github.com/imdario/mergo v0.3.10 // indirect
+	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jinzhu/gorm v1.9.12
 	github.com/klauspost/compress v1.10.10
 	github.com/kr/pretty v0.2.0 // indirect
