@@ -21,11 +21,20 @@ import (
 	"golang.org/x/time/rate"
 )
 
-// When attempt to reserve a request slot, if one isn't available but
-// the delay is less than SleepDelayThreshold, we do a time.Sleep()
-// to wait for the slot to open up. If the delay is greater than this
-// value, we return a 429 error and give the time slice back.
-var SleepDelayThreshold = 10 * time.Millisecond
+var (
+	// When attempt to reserve a request slot, if one isn't available but
+	// the delay is less than SleepDelayThreshold, we do a time.Sleep()
+	// to wait for the slot to open up. If the delay is greater than this
+	// value, we return a 429 error and give the time slice back.
+	SleepDelayThreshold = 10 * time.Millisecond
+
+	// How many token should be in the request token bucket at a time, to
+	// be returned at any time. We set this to 20, which means initially
+	// a client can do 20 requests without an issue, and then they refill
+	// the that rate per their account limits (which, at the time of writing
+	// is 5 per second for guests)
+	RequestBurst = 20
+)
 
 type HostnameChecker interface {
 	HandlingHostname(name string) bool
@@ -170,7 +179,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		rates = &ratesPerAccount{
 			bandwidth:  rate.NewLimiter(bwLimit, int(limits.Bandwidth/10)),
-			requests:   rate.NewLimiter(reqLimit, 1),
+			requests:   rate.NewLimiter(reqLimit, RequestBurst),
 			clampValue: int(limits.Bandwidth / 10),
 			warn:       new(int64),
 		}
