@@ -13,7 +13,7 @@ type LogCleaner struct {
 	DB *gorm.DB
 }
 
-func (l *LogCleaner) CleanupActivityLog(ctx context.Context, jobType string, noop int) error {
+func (l *LogCleaner) CleanupActivityLog(ctx context.Context, jobType string, _ *struct{}) error {
 	return dbx.Check(
 		l.DB.Exec("DELETE FROM activity_logs WHERE created_at < now() - ?::interval", LogPruneInterval),
 	)

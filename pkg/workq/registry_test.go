@@ -38,4 +38,26 @@ func TestRegistry(t *testing.T) {
 
 		require.NoError(t, err)
 	})
+
+	t.Run("can handle an empty struct", func(t *testing.T) {
+
+		f := func(ctx context.Context, jt string, f *struct{}) error {
+			assert.Equal(t, jt, "foo_happened")
+			return nil
+		}
+
+		var r Registry
+
+		r.Register("foo_happened", f)
+
+		data, err := json.Marshal(nil)
+		require.NoError(t, err)
+
+		err = r.Handle(context.TODO(), &Job{
+			JobType: "foo_happened",
+			Payload: data,
+		})
+
+		require.NoError(t, err)
+	})
 }

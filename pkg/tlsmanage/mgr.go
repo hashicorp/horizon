@@ -88,6 +88,8 @@ func NewManager(cfg ManagerConfig) (*Manager, error) {
 
 			p, _ := pem.Decode(data)
 			pkey = p.Bytes
+
+			cfg.L.Debug("read lego key from path", "path", cfg.KeyPath)
 		}
 	} else if cfg.VaultClient != nil {
 		sec, err := cfg.VaultClient.Logical().Read("/kv/data/lego-key")
@@ -114,6 +116,7 @@ func NewManager(cfg ManagerConfig) (*Manager, error) {
 			}
 
 			pkey = eckey
+			cfg.L.Debug("read lego key from vault")
 		} else {
 			ecpkey, err := ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 			if err != nil {
@@ -135,12 +138,15 @@ func NewManager(cfg ManagerConfig) (*Manager, error) {
 			}
 
 			pkey = ecpkey
+			cfg.L.Debug("generated and wrote lego key to vault")
 		}
 	} else {
 		pkey, err = ecdsa.GenerateKey(elliptic.P384(), rand.Reader)
 		if err != nil {
 			return nil, err
 		}
+
+		cfg.L.Debug("using transient lego key")
 	}
 
 	m.key = pkey
@@ -181,11 +187,14 @@ func (m *Manager) SetupHubCert(ctx context.Context) error {
 	}
 
 	client.Challenge.SetDNS01Provider(m.challengeProvider, m.dnsOptions...)
-	reg, err := client.Registration.Register(registration.RegisterOptions{
-		TermsOfServiceAgreed: true,
-	})
+	reg, err := client.Registration.ResolveAccountByKey()
 	if err != nil {
-		return errors.Wrapf(err, "attempting to register")
+		reg, err = client.Registration.Register(registration.RegisterOptions{
+			TermsOfServiceAgreed: true,
+		})
+		if err != nil {
+			return errors.Wrapf(err, "attempting to register")
+		}
 	}
 
 	m.registration = reg

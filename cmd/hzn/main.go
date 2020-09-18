@@ -323,7 +323,7 @@ func (c *controlServer) Run(args []string) int {
 	// Setup cleanup activities
 	lc := &control.LogCleaner{DB: config.DB()}
 	workq.RegisterHandler("cleanup-activity-log", lc.CleanupActivityLog)
-	workq.RegisterPeriodicJob("cleanup-activity-log", "default", "cleanup-activity-log", 0, time.Hour)
+	workq.RegisterPeriodicJob("cleanup-activity-log", "default", "cleanup-activity-log", nil, time.Hour)
 
 	hubDomain := domain
 	if strings.HasPrefix(hubDomain, "*.") {
@@ -379,10 +379,19 @@ func (c *controlServer) Run(args []string) int {
 
 	workq.GlobalRegistry.PrintHandlers(L)
 
-	worker := workq.NewWorker(L, db, []string{"default"})
-	go worker.Run(ctx, workq.RunConfig{
-		ConnInfo: url,
-	})
+	wl := L.Named("workq")
+
+	worker := workq.NewWorker(wl, db, []string{"default"})
+	go func() {
+		err := worker.Run(ctx, workq.RunConfig{
+			ConnInfo: url,
+		})
+		if err != nil {
+			if err != context.Canceled {
+				wl.Debug("workq errored out in run", "error", err)
+			}
+		}
+	}()
 
 	err = hs.ListenAndServeTLS("", "")
 	if err != nil {

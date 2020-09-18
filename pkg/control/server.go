@@ -266,7 +266,7 @@ func (s *Server) checkFromHub(ctx context.Context) (*token.ValidToken, error) {
 
 	token, err := token.CheckTokenED25519(auth[0], s.pubKey)
 	if err != nil {
-		s.L.Error("error checking token signature", "error", err, "token", auth[0], "pubkey", hex.EncodeToString(s.pubKey))
+		// s.L.Error("error checking token signature", "error", err, "token", auth[0], "pubkey", hex.EncodeToString(s.pubKey))
 		return nil, err
 	}
 
@@ -599,7 +599,6 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 	ctx := stream.Context()
 	_, err := s.checkFromHub(ctx)
 	if err != nil {
-		s.L.Debug("acvitity stream request authentication failed", "err", err)
 		return err
 	}
 

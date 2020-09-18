@@ -115,6 +115,8 @@ func (w *Worker) Pop() (*RunningJob, error) {
 	var job RunningJob
 	job.L = w.L
 
+	w.L.Debug("attempting to pop job from database", "queues", w.queues)
+
 	err := dbx.Check(
 		tx.
 			Set("gorm:query_option", "FOR UPDATE SKIP LOCKED").
@@ -128,6 +130,8 @@ func (w *Worker) Pop() (*RunningJob, error) {
 		tx.Rollback()
 		return nil, err
 	}
+
+	w.L.Debug("job found", "job-type", job.JobType)
 
 	if w.Validate != nil {
 		ok, err := w.Validate(&job.Job)
@@ -204,15 +208,11 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 		}
 	}
 
-	if cfg.Handler == nil {
-		return fmt.Errorf("specify a handler to invoke for each job")
-	}
-
 	if cfg.PopInterval == 0 {
 		cfg.PopInterval = DefaultPopInterval
 	}
 
-	if cfg.Concurrency == 1 {
+	if cfg.Concurrency == 0 {
 		cfg.Concurrency = DefaultConcurrency
 	}
 
@@ -254,11 +254,14 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 	cticker := time.NewTicker(cfg.CleanupCheck)
 	defer cticker.Stop()
 
+	L.Debug("beginning workq run loop")
+
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-pticker.C:
+			L.Debug("checking periodic jobs")
 			err := w.CheckPeriodic()
 			if err != nil {
 				L.Error("error checking periodic jobs", "error", err)
@@ -288,6 +291,8 @@ func (w *Worker) Run(ctx context.Context, cfg RunConfig) error {
 			return err
 		}
 
+		L.Debug("running job", "job-type", job.JobType)
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
@@ -306,9 +311,13 @@ func (w *Worker) processJobs(ctx context.Context, wc chan *RunningJob, f func(co
 			func() {
 				defer job.Abort()
 
+				w.L.Debug("executing job handler", "job-type", job.JobType)
 				err := f(ctx, &job.Job)
 				if err == nil {
+					w.L.Debug("job finished")
 					job.Close()
+				} else {
+					w.L.Error("error executing job function", "error", err, "job-type", job.JobType)
 				}
 			}()
 		}

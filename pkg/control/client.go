@@ -386,7 +386,7 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 	var out []*pb.ServiceRoute
 
 	for _, reg := range c.localServices {
-		if labels.Matches(reg.Labels) {
+		if reg.Account.Equal(account) && labels.Matches(reg.Labels) {
 			out = append(out, &pb.ServiceRoute{
 				Id:     reg.Id,
 				Hub:    reg.Hub,

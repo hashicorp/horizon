@@ -13,11 +13,11 @@ var (
 )
 
 func init() {
-	workq.RegisterPeriodicJob("renew-hub-cert", "default", "renew-hub-cert", 0, HubCertRenewPeriod)
+	workq.RegisterPeriodicJob("renew-hub-cert", "default", "renew-hub-cert", nil, HubCertRenewPeriod)
 }
 
 func (m *Manager) RegisterRenewHandler(L hclog.Logger, reg *workq.Registry) {
-	reg.Register("renew-hub-cert", func(ctx context.Context, jobType string, _ int) error {
+	reg.Register("renew-hub-cert", func(ctx context.Context, jobType string, _ *struct{}) error {
 		err := m.SetupHubCert(ctx)
 		if err != nil {
 			L.Error("error retrieving updated cert/key for hub", "error", err)
