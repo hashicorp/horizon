@@ -51,6 +51,11 @@ func (h *httpHandler) HandleRequest(ctx context.Context, L hclog.Logger, sctx Se
 	if req.Auth != nil {
 		hreq.URL.User = url.UserPassword(req.Auth.User, req.Auth.Password)
 	}
+	for _, h := range req.Headers {
+		for _, v := range h.Value {
+			hreq.Header.Add(h.Name, v)
+		}
+	}
 
 	hresp, err := http.DefaultClient.Do(hreq)
 	if err != nil {
