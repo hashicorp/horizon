@@ -38,7 +38,7 @@ spec:
 
     spec:
       imagePullSecrets:
-      - name: hashicorp-horizon-pull-secret
+      - name: quay
 
       initContainers:
       - name: geoip-setup
