@@ -801,10 +801,16 @@ func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet
 
 	label.Finalize()
 
+	mature := 0
+
+	if c.labelLinks != nil {
+		mature = len(c.labelLinks.LabelLinks)
+	}
+
 	c.L.Debug("label-links to consider",
 		"recent", len(c.recentLabelLinks),
 		"less-recent", len(c.lessRecentLabelLinks),
-		"mature", len(c.labelLinks.LabelLinks),
+		"mature", mature,
 	)
 
 	for _, ll := range c.recentLabelLinks {
