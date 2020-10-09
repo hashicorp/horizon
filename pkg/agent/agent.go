@@ -119,6 +119,10 @@ type Agent struct {
 	Token     string
 	Labels    []string
 
+	// RootCAs are the RootCAs to trust for connections to the hubs. If this
+	// is not set, the defaults are used.
+	RootCAs *x509.CertPool
+
 	mu         sync.RWMutex
 	services   map[string]*Service
 	sessions   []*yamux.Session
@@ -270,6 +274,9 @@ func (a *Agent) connectToHub(ctx context.Context, hub discovery.HubConfig, statu
 	var clientTlsConfig tls.Config
 	clientTlsConfig.NextProtos = []string{"hzn"}
 	clientTlsConfig.InsecureSkipVerify = hub.Insecure
+	if a.RootCAs != nil {
+		clientTlsConfig.RootCAs = a.RootCAs
+	}
 
 	if hub.PinnedCert != nil {
 		clientTlsConfig.RootCAs = x509.NewCertPool()
