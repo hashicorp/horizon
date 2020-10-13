@@ -45,13 +45,29 @@ in with pkgs; let
 
     subPackages = [ "protoc-gen-gogoslick" ];
   };
+
+  go-bindata = buildGoModule rec {
+    pname = "go-bindata";
+    version = "3.1.3";
+
+    src = fetchFromGitHub {
+      owner = "go-bindata";
+      repo = "go-bindata";
+      rev = "v3.1.3";
+      sha256 = "0ql9i1bjl6bkznypjqyj4jhs29rvz48kdc32qnh53l1aiyk77gx2";
+    };
+
+    modSha256 = "0wj5llknx2wcrm9cfpvw9cbnngdg4x2k3ha3d53q9clc5dzagy21";
+
+    subPackages = [ "go-bindata" ];
+  };
 in pkgs.mkShell rec {
   name = "horizon";
 
   # The packages in the `buildInputs` list will be added to the PATH in our shell
   buildInputs = [
     pkgs.go
-    pkgs.go-bindata
+    go-bindata
     pkgs.go-protobuf
     pkgs.protobuf3_11
     pkgs.postgresql_12
