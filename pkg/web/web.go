@@ -13,6 +13,7 @@ import (
 
 	"github.com/hashicorp/go-hclog"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/hashicorp/horizon/internal/httpassets"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/timing"
@@ -125,6 +126,18 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	host, deployId, deploySpecific := f.extractHost(req.Host)
 
+	// If we're requesting the root, show our root page.
+	if host == req.Host {
+		data, err := httpassets.Asset("index.html")
+		if err != nil {
+			http.Error(w, "failed to load index.html", http.StatusInternalServerError)
+			return
+		}
+
+		fmt.Fprintf(w, string(data))
+		return
+	}
+
 	ll := &pb.LabelSet{
 		Labels: []*pb.Label{
 			{
@@ -138,10 +151,24 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil || target == nil {
 		if deploySpecific {
 			f.L.Error("unable to resolve label link", "error", err, "http-host", req.Host, "lookup-host", host, "deploy-id", deployId)
-			http.Error(w, fmt.Sprintf("no registered application for host: %s (deploy-id: %s)", host, deployId), http.StatusInternalServerError)
+
+			data, err := httpassets.Asset("error.html")
+			if err != nil {
+				http.Error(w, fmt.Sprintf("no registered application for host: %s (deploy-id: %s)", host, deployId), http.StatusInternalServerError)
+				return
+			}
+
+			fmt.Fprintf(w, string(data))
 		} else {
 			f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
-			http.Error(w, fmt.Sprintf("no registered application for host: %s", req.Host), http.StatusInternalServerError)
+
+			data, err := httpassets.Asset("error.html")
+			if err != nil {
+				http.Error(w, fmt.Sprintf("no registered application for host: %s", req.Host), http.StatusInternalServerError)
+				return
+			}
+
+			fmt.Fprintf(w, string(data))
 		}
 
 		return
