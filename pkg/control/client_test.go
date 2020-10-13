@@ -272,8 +272,10 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId, ls.Id)
 
-		services, err := client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
+		calc, err := client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
 		require.NoError(t, err)
+
+		services := calc.Services()
 
 		assert.Equal(t, 1, len(services))
 
@@ -310,13 +312,187 @@ func TestClient(t *testing.T) {
 
 		require.NoError(t, err)
 
-		services, err = client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
+		calc, err = client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
 		require.NoError(t, err)
+
+		services = calc.All
 
 		require.Equal(t, 2, len(services))
 
 		assert.Equal(t, serviceId, services[0].Id)
 		assert.Equal(t, serviceId2, services[1].Id)
+
+		var notId int
+
+		for i := 0; i < 20; i++ {
+			if !calc.Services()[0].Id.Equal(serviceId) {
+				notId++
+			}
+		}
+
+		assert.True(t, notId > 2)
+		assert.True(t, notId < 18)
+	})
+
+	t.Run("honors deployment-order", func(t *testing.T) {
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
+
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
+		require.NoError(t, err)
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		gs := grpc.NewServer()
+		pb.RegisterControlServicesServer(gs, s)
+
+		li, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		gcc, err := grpc.Dial(li.Addr().String(),
+			grpc.WithInsecure(),
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)))
+
+		require.NoError(t, err)
+
+		defer gcc.Close()
+
+		gClient := pb.NewControlServicesClient(gcc)
+
+		id := pb.NewULID()
+
+		dir, err := ioutil.TempDir("", "hzn")
+		require.NoError(t, err)
+
+		defer os.RemoveAll(dir)
+
+		client, err := NewClient(ctx, ClientConfig{
+			Id:       id,
+			Token:    ctr.Token,
+			Version:  "test",
+			Client:   gClient,
+			WorkDir:  dir,
+			Session:  sess,
+			S3Bucket: bucket,
+		})
+
+		require.NoError(t, err)
+
+		serviceId := pb.NewULID()
+		labels := pb.ParseLabelSet("service=www,env=prod,instance=xyz,:deployment-order=a")
+
+		servReq := &pb.ServiceRequest{
+			Account: account,
+			Id:      serviceId,
+			Type:    "test",
+			Labels:  labels,
+			Metadata: []*pb.KVPair{
+				{
+					Key:   "version",
+					Value: "0.1x",
+				},
+			},
+		}
+
+		err = client.AddService(ctx, servReq)
+		require.NoError(t, err)
+
+		var so Service
+		err = dbx.Check(db.First(&so))
+		require.NoError(t, err)
+
+		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
+
+		ls, ok := client.localServices[serviceId.SpecString()]
+		require.True(t, ok)
+
+		assert.Equal(t, serviceId, ls.Id)
+
+		calc, err := client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
+		require.NoError(t, err)
+
+		services := calc.Services()
+
+		assert.Equal(t, 1, len(services))
+
+		assert.Equal(t, serviceId, services[0].Id)
+
+		hubId2 := pb.NewULID()
+		serviceId2 := pb.NewULID()
+
+		// Nuke to force an inline refresh
+		delete(client.accountServices, account.SpecString())
+
+		hubtoken, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		md3 := make(metadata.MD)
+		md3.Set("authorization", hubtoken.Token)
+
+		labels = pb.ParseLabelSet("service=www,env=prod,instance=xyz,:deployment-order=b")
+
+		_, err = s.AddService(
+			metadata.NewIncomingContext(top, md3),
+			&pb.ServiceRequest{
+				Account: account,
+				Hub:     hubId2,
+				Id:      serviceId2,
+				Type:    "test",
+				Labels:  labels,
+				Metadata: []*pb.KVPair{
+					{
+						Key:   "version",
+						Value: "0.1x",
+					},
+				},
+			},
+		)
+
+		require.NoError(t, err)
+
+		calc, err = client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
+		require.NoError(t, err)
+
+		services = calc.Best
+
+		require.Equal(t, 1, len(services))
+
+		assert.Equal(t, serviceId2, services[0].Id)
+
+		services = calc.Services()
+
+		require.Equal(t, 1, len(services))
+
+		assert.Equal(t, serviceId2, services[0].Id)
 	})
 
 	t.Run("refreshes an account on response to activity from the server", func(t *testing.T) {
@@ -434,8 +610,10 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
 
-		services, err := client.LookupService(ctx, account, labels)
+		calc, err := client.LookupService(ctx, account, labels)
 		require.NoError(t, err)
+
+		services := calc.Services()
 
 		require.Equal(t, 1, len(services))
 
@@ -1158,8 +1336,10 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
 
-		services, err := client.LookupService(ctx, account, labels)
+		calc, err := client.LookupService(ctx, account, labels)
 		require.NoError(t, err)
+
+		services := calc.Services()
 
 		require.Equal(t, 1, len(services))
 

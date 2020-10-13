@@ -61,13 +61,15 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, stream *yamu
 		}
 	}
 
-	routes, err := h.cc.LookupService(ctx, wctx.Account(), req.Target)
+	calc, err := h.cc.LookupService(ctx, wctx.Account(), req.Target)
 	if err != nil {
 		var resp pb.Response
 		resp.Error = err.Error()
 		wctx.WriteMarshal(255, &resp)
 		return
 	}
+
+	routes := calc.Services()
 
 	for len(routes) > 0 {
 		var target *pb.ServiceRoute

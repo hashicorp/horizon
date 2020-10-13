@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	io "io"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -379,20 +380,79 @@ func (c *Client) RemoveService(ctx context.Context, serv *pb.ServiceRequest) err
 	return err
 }
 
-func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels *pb.LabelSet) ([]*pb.ServiceRoute, error) {
+const deploymentOrder = ":deployment-order"
+
+type RouteCalculation struct {
+	All  []*pb.ServiceRoute
+	Best []*pb.ServiceRoute
+}
+
+func (c *RouteCalculation) Empty() bool {
+	return len(c.Best) > 0 || len(c.All) > 0
+}
+
+func (c *RouteCalculation) shuffle(in []*pb.ServiceRoute) []*pb.ServiceRoute {
+	if len(in) < 2 {
+		return in
+	}
+
+	rand.Shuffle(len(in), func(i, j int) {
+		in[i], in[j] = in[j], in[i]
+	})
+
+	return in
+}
+
+func (c *RouteCalculation) Services() []*pb.ServiceRoute {
+	if len(c.Best) > 0 {
+		return c.shuffle(c.Best)
+	}
+
+	return c.shuffle(c.All)
+}
+
+func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels *pb.LabelSet) (*RouteCalculation, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	var out []*pb.ServiceRoute
+	var (
+		out       []*pb.ServiceRoute
+		best      []*pb.ServiceRoute
+		bestOrder string
+		rest      []*pb.ServiceRoute
+	)
+
+	maintainBest := func(route *pb.ServiceRoute) {
+		order, ok := route.Labels.GetLabel(deploymentOrder)
+		if ok {
+			if best != nil {
+				if order > bestOrder {
+					best = []*pb.ServiceRoute{route}
+					bestOrder = order
+				} else if order == bestOrder {
+					best = append(best, route)
+				}
+			} else {
+				best = []*pb.ServiceRoute{route}
+				bestOrder = order
+			}
+		} else if best != nil {
+			rest = append(rest, route)
+		}
+	}
 
 	for _, reg := range c.localServices {
 		if reg.Account.Equal(account) && labels.Matches(reg.Labels) {
-			out = append(out, &pb.ServiceRoute{
+			route := &pb.ServiceRoute{
 				Id:     reg.Id,
 				Hub:    reg.Hub,
 				Type:   reg.Type,
 				Labels: reg.Labels,
-			})
+			}
+
+			out = append(out, route)
+
+			maintainBest(route)
 		}
 	}
 
@@ -421,6 +481,7 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 
 		if labels.Matches(service.Labels) {
 			out = append(out, service)
+			maintainBest(service)
 		}
 	}
 
@@ -433,11 +494,20 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 
 			if labels.Matches(service.Labels) {
 				out = append(out, service)
+				maintainBest(service)
 			}
 		}
 	}
 
-	return out, nil
+	ret := &RouteCalculation{
+		All: out,
+	}
+
+	if len(best) > 0 {
+		ret.Best = append(best, rest...)
+	}
+
+	return ret, nil
 }
 
 func (c *Client) refreshAcconut(L hclog.Logger, info *accountInfo) {
