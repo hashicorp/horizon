@@ -83,7 +83,7 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 
 	h.fe = fe
 	h.mux.HandleFunc("/__hzn/healthz", h.handleHeathz)
-	h.mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(httpassets.AssetFile())))
+	h.mux.Handle("/__hzn/static/", http.StripPrefix("/__hzn/static/", http.FileServer(httpassets.AssetFile())))
 	h.mux.Handle("/", h.fe)
 
 	h.location = client.Locations()

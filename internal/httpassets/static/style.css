@@ -31,7 +31,7 @@ body {
 	font-size: 14px;
 	line-height: 24px;
 	color: var(--text);
-	background: url(/static/images/pattern-br.svg) no-repeat bottom right var(--background);
+	background: url(/__hzn/static/images/pattern-br.svg) no-repeat bottom right var(--background);
 }
 
 body.has-error {
@@ -51,7 +51,7 @@ body.has-error::before {
 	left: 0;
 	width: 304px;
 	height: 525px;
-	background: url(/static/images/pattern-tl.svg) no-repeat;
+	background: url(/__hzn/static/images/pattern-tl.svg) no-repeat;
 }
 
 body.has-error::after {
@@ -61,7 +61,7 @@ body.has-error::after {
 	right: 0;
 	width: 285px;
 	height: 600px;
-	background: url(/static/images/pattern-br.svg) no-repeat;
+	background: url(/__hzn/static/images/pattern-br.svg) no-repeat;
 }
 
 body.has-error .logo img, body.has-error footer img {
