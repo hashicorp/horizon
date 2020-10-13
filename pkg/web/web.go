@@ -127,7 +127,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	host, deployId, deploySpecific := f.extractHost(req.Host)
 
 	// If we're requesting the root, show our root page.
-	if host == req.Host {
+	if host == "waypoint.run" {
 		data, err := httpassets.Asset("index.html")
 		if err != nil {
 			http.Error(w, "failed to load index.html", http.StatusInternalServerError)
