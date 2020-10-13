@@ -388,7 +388,7 @@ type RouteCalculation struct {
 }
 
 func (c *RouteCalculation) Empty() bool {
-	return len(c.Best) > 0 || len(c.All) > 0
+	return len(c.Best) == 0 && len(c.All) == 0
 }
 
 func (c *RouteCalculation) shuffle(in []*pb.ServiceRoute) []*pb.ServiceRoute {
