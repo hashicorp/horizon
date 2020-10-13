@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/horizon/internal/httpassets"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/token"
@@ -82,6 +83,7 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 
 	h.fe = fe
 	h.mux.HandleFunc("/__hzn/healthz", h.handleHeathz)
+	h.mux.Handle("/__hzn/static/", http.StripPrefix("/__hzn/static/", http.FileServer(httpassets.AssetFile())))
 	h.mux.Handle("/", h.fe)
 
 	h.location = client.Locations()

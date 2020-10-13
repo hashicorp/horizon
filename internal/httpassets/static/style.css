@@ -1,0 +1,220 @@
+:root {
+	--text: #e4e5e7;
+	--text-muted: #9198A1;
+	--background: #000;
+	--brand: #04c6c2;
+	--headline: #fff;
+
+	--button-primary: #1563ff;
+	--button-primary-hover: #387aff;
+	--button-primary-active: #1563ff;
+	--button-primary-text: #fff;
+	--button-primary-border: #387aff;
+	--button-secondary: #525761;
+	--button-secondary-hover: #626873;
+	--button-secondary-active: #525761;
+	--button-secondary-text: #ebeef2;
+	--button-secondary-border: #6f7682;
+}
+
+* {
+	margin: 0;
+	padding: 0;
+}
+
+html, body {
+	min-height: 100vh;
+}
+
+body {
+	font-family: BlinkMacSystemFont, -apple-system, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", "Helvetica", "Arial", sans-serif;
+	font-size: 14px;
+	line-height: 24px;
+	color: var(--text);
+	background: url(/__hzn/static/images/pattern-br.svg) no-repeat bottom right var(--background);
+}
+
+body.has-error {
+	text-align: center;
+  background: var(--background);
+}
+
+body.has-error::before, body.has-error::after {
+	filter: saturate(0);
+	opacity: .5;
+}
+
+body.has-error::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 304px;
+	height: 525px;
+	background: url(/__hzn/static/images/pattern-tl.svg) no-repeat;
+}
+
+body.has-error::after {
+	content: '';
+	position: absolute;
+	bottom: 0;
+	right: 0;
+	width: 285px;
+	height: 600px;
+	background: url(/__hzn/static/images/pattern-br.svg) no-repeat;
+}
+
+body.has-error .logo img, body.has-error footer img {
+	filter: saturate(0) brightness(100);
+	opacity: .25;
+}
+
+a {
+	color: inherit;
+}
+
+.container {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	max-width: 490px;
+	min-height: calc(100vh - 60px - 40px);
+	padding: 60px 60px 40px;
+}
+
+.has-error .container {
+	min-height: calc(100vh - 80px - 60px);
+  padding: 80px 60px 60px;
+	margin: 0 auto;
+}
+
+section {
+	display: flex;
+	flex-direction: column;
+	flex-grow: 1;
+	padding: 48px 0 20px;
+}
+
+.has-error section {
+	align-items: center;
+  justify-content: center;
+	padding: 60px 0;
+}
+
+section .error-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+  border-radius: 100%;
+  border: 1px solid rgba(198, 4, 4, .5);
+  background: rgba(198, 4, 4, .15);
+}
+
+section h1 {
+	color: var(--headline);
+	font-size: 18px;
+	font-weight: 400;
+}
+
+.has-error section h1 {
+	font-weight: 600;
+  padding: 40px 0 8px;
+}
+
+section h1 a,
+section h1 b {
+	font-weight: 600;
+}
+
+section p {
+	padding-top: 32px;
+}
+
+.has-error section p {
+	padding-top: 12px;
+}
+
+section aside {
+	color: var(--text-muted);
+	font-size: 14px;
+	margin-top: 32px;
+	padding: 8px 16px;
+	border-radius: 2px;
+	background: rgba(255, 255, 255, .1);
+}
+
+section aside p {
+	padding: 0;
+}
+
+section aside code {
+	font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+	font-size: 13px;
+	padding: 2px 4px;
+	margin: 0 2px;
+	border-radius: 3px;
+	background: rgba(255, 255, 255, .15);
+}
+
+section p.actions {
+	position: relative;
+	margin: -8px;
+}
+
+section a.button {
+	font-size: 14px;
+	font-weight: 500;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	margin: 0;
+	padding: 0 16px;
+	border-radius: 2px;
+	text-decoration: none;
+	white-space: nowrap;
+	min-height: 36px;
+	margin: 8px;
+}
+
+section a.button--primary {
+	color: var(--button-primary-text);
+	background: var(--button-primary);
+	border: 1px solid var(--button-primary-border);
+	text-shadow: 0 1px 0 rgba(0, 0, 0, .3);
+}
+
+section a.button--primary:hover {
+	background: var(--button-primary-hover);
+}
+
+section a.button--primary:active {
+	background: var(--button-primary-active);
+}
+
+section a.button--secondary {
+	color: var(--button-secondary-text);
+	background: var(--button-secondary);
+	border: 1px solid var(--button-secondary-border);
+}
+
+section a.button--secondary:hover {
+	background: var(--button-secondary-hover);
+}
+
+section a.button--secondary:active {
+	background: var(--button-secondary-active);
+}
+
+footer {
+	color: var(--text-muted);
+}
+
+footer p {
+	padding-top: 24px;
+}
+
+footer small {
+	font-size: 12px;
+}
