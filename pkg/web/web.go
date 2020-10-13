@@ -265,14 +265,14 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		f.L.Info("request finished", "id", reqId, "duration", time.Since(start))
 	}()
 
-	services, err := f.client.LookupService(ctx, account, target)
+	calc, err := f.client.LookupService(ctx, account, target)
 	if err != nil {
 		f.L.Error("error resolving labels to services", "error", err, "labels", target)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	if len(services) == 0 {
+	if calc.Empty() {
 		f.L.Error("no deployments for service",
 			"account", account,
 			"target", target,
@@ -284,6 +284,8 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	lu.Stop()
 
 	var wctx wire.Context
+
+	services := calc.Services()
 
 	for _, rs := range services {
 		if rs.Type != "http" {

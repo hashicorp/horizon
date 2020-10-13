@@ -239,6 +239,16 @@ func (ls *LabelSet) Matches(o *LabelSet) bool {
 	return true
 }
 
+func (ls *LabelSet) GetLabel(key string) (string, bool) {
+	for _, lbl := range ls.Labels {
+		if lbl.Name == key {
+			return lbl.Value, true
+		}
+	}
+
+	return "", false
+}
+
 func (ls *LabelSet) Combine(o *LabelSet) *LabelSet {
 	var out *LabelSet
 
