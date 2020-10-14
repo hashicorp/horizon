@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html>
-	<head>
-		<title>HashiCorp Waypoint URL Service</title>
-		<link rel="stylesheet" type="text/css" href="/__hzn/static/style.css" />
-	</head>
+  <head>
+    <title>HashiCorp Waypoint URL Service</title>
+    <link rel="stylesheet" type="text/css" href="/__hzn/static/style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
 
-	<body class="has-error">
-		<div class="container">
+  <body class="has-error">
+    <div class="container">
       <header>
         <a href="https://waypointproject.io" class="logo">
           <img src="/__hzn/static/images/logo.svg" alt="Logo" height="72" />
@@ -17,14 +18,12 @@
           <img src="/__hzn/static/images/error.svg" alt="Error Icon" />
         </div>
         <h1>Usage limits exceeded.</h1>
+        <p>The configured limits for this account have been exceeded.</p>
+        <p>Time until next request can be performed: %s</p>
         <p>
-		The configured limits for this account have been exceeded.
-        </p>
-		<p>
-		Time until next request can be performed: %s
-		</p>
-        <p>
-          You can also refer to the <a href="https://www.waypointproject.io/docs/url">documentation</a> for help with Waypoint.
+          You can also refer to the
+          <a href="https://www.waypointproject.io/docs/url">documentation</a>
+          for help with Waypoint.
         </p>
       </section>
       <footer>
@@ -33,5 +32,5 @@
         </a>
       </footer>
     </div>
-	</body>
+  </body>
 </html>
