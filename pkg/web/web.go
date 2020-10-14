@@ -151,24 +151,14 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil || target == nil {
 		if deploySpecific {
 			f.L.Error("unable to resolve label link", "error", err, "http-host", req.Host, "lookup-host", host, "deploy-id", deployId)
-
-			data, err := httpassets.Asset("error.html")
-			if err != nil {
-				http.Error(w, fmt.Sprintf("no registered application for host: %s (deploy-id: %s)", host, deployId), http.StatusInternalServerError)
-				return
-			}
-
-			fmt.Fprintf(w, string(data))
+			renderError(w, fmt.Sprintf(
+				"no registered application for host: %s (deploy-id: %s)", host, deployId),
+				http.StatusInternalServerError)
 		} else {
 			f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
-
-			data, err := httpassets.Asset("error.html")
-			if err != nil {
-				http.Error(w, fmt.Sprintf("no registered application for host: %s", req.Host), http.StatusInternalServerError)
-				return
-			}
-
-			fmt.Fprintf(w, string(data))
+			renderError(w, fmt.Sprintf(
+				"no registered application for host: %s", req.Host),
+				http.StatusInternalServerError)
 		}
 
 		return
@@ -231,12 +221,17 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		w.Header().Add("X-Horizon-Endpoint", f.endpointId)
 		w.Header().Add("X-Horizon-Warn", "per request limit exceeded")
 
-		http.Error(
-			w,
-			fmt.Sprintf("Request exceeded configured limits on this account. Time til next request can be performed: %s", delay),
-			429,
-		)
+		data, err := httpassets.Asset("error_limit.html")
+		if err != nil {
+			http.Error(w, fmt.Sprintf(
+				"Request exceeded configured limits on this account. Time til next request can be performed: %s", delay),
+				429,
+			)
+			return
+		}
 
+		w.WriteHeader(429)
+		fmt.Fprintf(w, fmt.Sprintf(string(data), delay))
 		return
 	}
 
@@ -268,7 +263,9 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	calc, err := f.client.LookupService(ctx, account, target)
 	if err != nil {
 		f.L.Error("error resolving labels to services", "error", err, "labels", target)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		renderError(w,
+			err.Error(),
+			http.StatusInternalServerError)
 		return
 	}
 
@@ -277,7 +274,9 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			"account", account,
 			"target", target,
 		)
-		http.Error(w, "no deployments for service", http.StatusNotFound)
+		renderError(w,
+			"no deployments for service",
+			http.StatusNotFound)
 		return
 	}
 
@@ -304,7 +303,9 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if wctx == nil {
 		f.L.Error("no viable service found", "labels", target, "candidates", len(services))
-		http.Error(w, "unable to find viable endpoint", http.StatusInternalServerError)
+		renderError(w,
+			"unable to find viable endpoint",
+			http.StatusInternalServerError)
 		return
 	}
 
@@ -335,7 +336,9 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	err = wctx.WriteMarshal(1, &wreq)
 	if err != nil {
 		f.L.Error("error connecting to service", "error", err, "labels", target)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		renderError(w,
+			err.Error(),
+			http.StatusInternalServerError)
 		return
 	}
 
@@ -351,7 +354,9 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	tag, err := wctx.ReadMarshal(&wresp)
 	if err != nil || tag != 1 {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		renderError(w,
+			err.Error(),
+			http.StatusInternalServerError)
 		return
 	}
 
@@ -384,6 +389,17 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	f.L.Trace("copying request body", "id", reqId)
 	io.Copy(w, &ratedReader{f: f, r: wctx.Reader(), acc: rates})
+}
+
+func renderError(w http.ResponseWriter, fallback string, code int) {
+	data, err := httpassets.Asset("error.html")
+	if err != nil {
+		http.Error(w, fallback, code)
+		return
+	}
+
+	w.WriteHeader(code)
+	fmt.Fprintf(w, string(data))
 }
 
 type ratedReader struct {
