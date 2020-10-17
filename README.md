@@ -4,7 +4,7 @@ This is the Horizon Network Service project. It provides the ability for individ
 and connect to other agents on a hosted set of network hubs.
 
 It is explicitly designed for operational robustness via simplicity. For instance, the hub components can
-run when completely cut of from the control plane (called the central teir) and will gracefully rejoin when
+run when completely cut off from the control plane (called the central teir) and will gracefully rejoin when
 the control plane is restored.
 
 It relies on S3 for long term, persistent service routing information.
