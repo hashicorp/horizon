@@ -4,7 +4,7 @@ This is the Horizon Network Service project. It provides the ability for individ
 and connect to other agents on a hosted set of network hubs.
 
 It is explicitly designed for operational robustness via simplicity. For instance, the hub components can
-run when completely cut off from the control plane (called the central teir) and will gracefully rejoin when
+run when completely cut off from the control plane (called the central tier) and will gracefully rejoin when
 the control plane is restored.
 
 It relies on S3 for long term, persistent service routing information.
@@ -17,7 +17,7 @@ It relies on S3 for long term, persistent service routing information.
 There are 2 separate systems that involving passing information about events that have occured and both are
 named activity.
 
-One passes data between central teir services using postgresql, by writing records to a table
+One passes data between central tier services using postgresql, by writing records to a table
 and issuing a postgresql `NOTIFY` command. This is used to flood routing updates on the control plane.
 Future work on the control plane may remove this system in favor of using a format messaging service, but
 for now it serves it's purpose fine and reduces the dependencies that the control plane has.
