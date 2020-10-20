@@ -28,7 +28,7 @@ func (p *pivotAccountContext) AccountId() *pb.ULID {
 func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, stream *yamux.Stream, wctx wire.Context) {
 	defer stream.Close()
 	defer func() {
-		atomic.AddInt64(ai.TotalStreams, -1)
+		atomic.AddInt64(ai.ActiveStreams, -1)
 		h.sendAgentInfoFlow(ai)
 	}()
 
