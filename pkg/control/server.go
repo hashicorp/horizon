@@ -7,17 +7,16 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	fmt "fmt"
+	io "io"
 	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"cirello.io/dynamolock"
 	"github.com/armon/go-metrics"
 	"github.com/armon/go-metrics/datadog"
 	"github.com/armon/go-metrics/prometheus"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/horizon/internal/sqljson"
@@ -39,9 +38,18 @@ type connectedHub struct {
 	bytes    *int64
 }
 
+// Returns a lock for the given id.
+type LockManager interface {
+	GetLock(id, val string) (io.Closer, error)
+	GetValue(id string) (string, error)
+}
+
 type Server struct {
 	cfg ServerConfig
 	L   hclog.Logger
+
+	bg     context.Context
+	cancel func()
 
 	db       *gorm.DB
 	bucket   string
@@ -53,8 +61,7 @@ type Server struct {
 	registerToken string
 	opsToken      string
 
-	lockMgr   *dynamolock.Client
-	lockTable string
+	lockMgr LockManager
 
 	vaultClient *api.Client
 	vaultPath   string
@@ -91,7 +98,6 @@ type ServerConfig struct {
 
 	AwsSession *session.Session
 	Bucket     string
-	LockTable  string
 
 	ASNDB string
 
@@ -104,6 +110,8 @@ type ServerConfig struct {
 
 	DataDogAddr       string
 	DisablePrometheus bool
+
+	LockManager LockManager
 }
 
 func NewServer(cfg ServerConfig) (*Server, error) {
@@ -163,7 +171,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		opsToken:      cfg.OpsToken,
 		awsSess:       cfg.AwsSession,
 		bucket:        cfg.Bucket,
-		lockTable:     cfg.LockTable,
 
 		connectedHubs: make(map[string]*connectedHub),
 		m:             me,
@@ -185,14 +192,11 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		}
 	}
 
-	L.Debug("configuring lock in dynamodb")
-	s.lockMgr, err = dynamolock.New(dynamodb.New(s.awsSess), s.lockTable)
-	if err != nil {
-		return nil, err
+	if cfg.LockManager != nil {
+		s.lockMgr = cfg.LockManager
+	} else {
+		s.lockMgr = &inmemLockMgr{}
 	}
-
-	// The table might exist, don't error out
-	s.lockMgr.CreateTable(s.lockTable)
 
 	L.Debug("setting up vault access")
 	pub, err := token.SetupVault(s.vaultClient, s.vaultPath)
@@ -252,7 +256,7 @@ type Service struct {
 	UpdatedAt time.Time
 }
 
-func (s *Server) checkFromHub(ctx context.Context) (*token.ValidToken, error) {
+func (s *Server) checkFromHub(ctx context.Context, action string) (*token.ValidToken, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		return nil, ErrBadAuthentication
@@ -274,7 +278,7 @@ func (s *Server) checkFromHub(ctx context.Context) (*token.ValidToken, error) {
 		return nil, errors.Wrapf(ErrBadAuthentication, "role was: %s", token.Body.Role)
 	}
 
-	s.L.Info("authentication from hub successful")
+	s.L.Info("authentication from hub successful", "action", action)
 
 	return token, nil
 }
@@ -284,7 +288,7 @@ func (s *Server) SyncHub(ctx context.Context, sync *pb.HubSync) (*pb.HubSyncResp
 }
 
 func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*pb.ServiceResponse, error) {
-	_, err := s.checkFromHub(ctx)
+	_, err := s.checkFromHub(ctx, "add-service")
 	if err != nil {
 		return nil, err
 	}
@@ -317,7 +321,7 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 		},
 	})
 
-	err = s.updateAccountRouting(ctx, s.db, service.Account)
+	err = s.updateAccountRouting(ctx, s.db, service.Account, "add-service")
 	if err != nil {
 		return nil, err
 	}
@@ -326,7 +330,7 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 }
 
 func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) (*pb.ServiceResponse, error) {
-	_, err := s.checkFromHub(ctx)
+	_, err := s.checkFromHub(ctx, "remove-service")
 	if err != nil {
 		return nil, err
 	}
@@ -336,7 +340,7 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 		return nil, err
 	}
 
-	err = s.updateAccountRouting(ctx, s.db, service.Account)
+	err = s.updateAccountRouting(ctx, s.db, service.Account, "remove-service")
 	if err != nil {
 		return nil, err
 	}
@@ -382,13 +386,21 @@ func (s *Server) removeHubServices(ctx context.Context, db *gorm.DB, hubId *pb.U
 		return err
 	}
 
+	accounts := map[string]struct{}{}
+
 	for _, service := range sos {
-		acc, err := pb.AccountFromKey(service.AccountId)
+		accounts[string(service.AccountId)] = struct{}{}
+	}
+
+	s.L.Info("updating account routing", "num-accounts", len(accounts))
+
+	for key := range accounts {
+		acc, err := pb.AccountFromKey([]byte(key))
 		if err != nil {
 			return err
 		}
 
-		err = s.updateAccountRouting(ctx, db, acc)
+		err = s.updateAccountRouting(ctx, db, acc, "delete-hub")
 		if err != nil {
 			return err
 		}
@@ -412,14 +424,19 @@ func (h *Hub) StableIdULID() *pb.ULID {
 }
 
 func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.ConfigResponse, error) {
-	_, err := s.checkFromHub(ctx)
+	_, err := s.checkFromHub(ctx, "fetch-config")
 	if err != nil {
 		return nil, err
 	}
 
 	L := s.L
 
+	ts := time.Now()
+
 	L.Info("fetching configuration", "hub", req.StableId.SpecString())
+	defer func() {
+		L.Info("fetching configuration finished", "hub", req.StableId.SpecString(), "elapse", time.Since(ts))
+	}()
 
 	data, err := json.Marshal(req.Locations)
 	if err != nil {
@@ -452,7 +469,7 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 		prev := pb.ULIDFromBytes(hr.InstanceID)
 
 		if !req.InstanceId.Equal(prev) {
-			L.Info("removing previous hub services", "stable", req.StableId, "prev", prev, "new", req.InstanceId)
+			L.Info("removing previous hub services", "stable", req.StableId, "prev", prev, "new", req.InstanceId, "elapse", time.Since(ts))
 
 			// We nuke the old records from a previous instance_id
 			err = s.removeHubServices(ctx, tx, prev)
@@ -496,7 +513,7 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 }
 
 func (s *Server) HubDisconnect(ctx context.Context, req *pb.HubDisconnectRequest) (*pb.Noop, error) {
-	_, err := s.checkFromHub(ctx)
+	_, err := s.checkFromHub(ctx, "hub-disconnect")
 	if err != nil {
 		return nil, err
 	}
@@ -597,7 +614,7 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 
 func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {
 	ctx := stream.Context()
-	_, err := s.checkFromHub(ctx)
+	_, err := s.checkFromHub(ctx, "stream-activity")
 	if err != nil {
 		return err
 	}
@@ -1198,7 +1215,7 @@ func (s *Server) AllHubs(ctx context.Context, _ *pb.Noop) (*pb.ListOfHubs, error
 }
 
 func (s *Server) RequestServiceToken(ctx context.Context, req *pb.ServiceTokenRequest) (*pb.ServiceTokenResponse, error) {
-	_, err := s.checkFromHub(ctx)
+	_, err := s.checkFromHub(ctx, "request-service-token")
 	if err != nil {
 		return nil, err
 	}

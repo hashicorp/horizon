@@ -7,9 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"cirello.io/dynamolock"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/internal/testsql"
@@ -80,7 +78,6 @@ func TestServer(t *testing.T) {
 		RegisterToken: "aabbcc",
 		AwsSession:    sess,
 		Bucket:        bucket,
-		LockTable:     "hzntest",
 	}
 
 	L := hclog.L()
@@ -660,11 +657,7 @@ func TestServer(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
-		s.lockTable = "hzntest"
-
-		var err error
-		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
-		require.NoError(t, err)
+		s.lockMgr = &inmemLockMgr{}
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -895,4 +888,214 @@ func TestServer(t *testing.T) {
 			assert.Equal(t, hubId, ac.Services[0].Hub)
 		}
 	})
+
+	t.Run("supports using consul for account locking", func(t *testing.T) {
+		db := testsql.TestPostgresDB(t, "hzn")
+		defer db.Close()
+
+		top, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		var s Server
+		s.L = L
+		s.db = db
+		s.vaultClient = vc
+		s.vaultPath = pb.NewULID().SpecString()
+		s.keyId = "k1"
+		s.registerToken = "aabbcc"
+		s.awsSess = sess
+		s.bucket = bucket
+
+		lm, err := NewConsulLockManager(top)
+		require.NoError(t, err)
+		s.lockMgr = lm
+
+		pub, err := token.SetupVault(vc, s.vaultPath)
+		require.NoError(t, err)
+
+		s.pubKey = pub
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		accountId := pb.NewULID()
+		account := &pb.Account{
+			Namespace: "/",
+			AccountId: accountId,
+		}
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		md3 := make(metadata.MD)
+		md3.Set("authorization", ctr.Token)
+
+		labels := pb.ParseLabelSet("service=www,env=prod")
+
+		hubId := pb.NewULID()
+		serviceId := pb.NewULID()
+
+		_, err = s.AddService(
+			metadata.NewIncomingContext(top, md3),
+			&pb.ServiceRequest{
+				Account: account,
+				Hub:     hubId,
+				Id:      serviceId,
+				Type:    "test",
+				Labels:  labels,
+				Metadata: []*pb.KVPair{
+					{
+						Key:   "version",
+						Value: "0.1x",
+					},
+				},
+			},
+		)
+		require.NoError(t, err)
+
+		// Check the account payload written to s3
+
+		s3api := s3.New(sess)
+
+		resp, err := s3api.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String(s.bucket),
+			Key:    aws.String("account_services/" + account.HashKey()),
+		})
+
+		require.NoError(t, err)
+
+		compressedData, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+
+		data, err := zstdDecompress(compressedData)
+		require.NoError(t, err)
+
+		var accs pb.AccountServices
+
+		err = accs.Unmarshal(data)
+		require.NoError(t, err)
+
+		require.Equal(t, 1, len(accs.Services))
+
+		sr := accs.Services[0]
+
+		assert.Equal(t, hubId, sr.Hub)
+		assert.Equal(t, serviceId, sr.Id)
+		assert.Equal(t, labels, sr.Labels)
+		assert.Equal(t, "test", sr.Type)
+
+		{
+			// Verify we have the service
+			resp, err := s.ListServices(
+				metadata.NewIncomingContext(top, md3),
+				&pb.ListServicesRequest{
+					Account: account,
+				},
+			)
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			require.Len(t, resp.Services, 1)
+			require.Equal(t, resp.Services[0].Id, serviceId)
+		}
+
+		// We're going to take the lock so that RemoveService blocks
+
+		accountKey := account.HashKey()
+
+		lockKey := "account-" + accountKey
+
+		accountLock, err := s.lockMgr.GetLock(lockKey, "old")
+		require.NoError(t, err)
+
+		ts := time.Now()
+
+		go func() {
+			time.Sleep(5 * time.Second)
+			accountLock.Close()
+		}()
+
+		_, err = s.RemoveService(
+			metadata.NewIncomingContext(top, md3),
+			&pb.ServiceRequest{
+				Account: account,
+				Hub:     hubId,
+				Id:      serviceId,
+			},
+		)
+		require.NoError(t, err)
+
+		assert.InDelta(t, 5*time.Second, time.Since(ts), float64(time.Second/10))
+
+		var so Service
+		err = dbx.Check(db.First(&so))
+
+		assert.Error(t, err)
+
+		resp, err = s3api.GetObject(&s3.GetObjectInput{
+			Bucket: aws.String(s.bucket),
+			Key:    aws.String("account_services/" + account.HashKey()),
+		})
+
+		require.NoError(t, err)
+
+		compressedData, err = ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+
+		data, err = zstdDecompress(compressedData)
+		require.NoError(t, err)
+
+		var accs2 pb.AccountServices
+
+		err = accs2.Unmarshal(data)
+		require.NoError(t, err)
+
+		require.Equal(t, 0, len(accs2.Services))
+
+		// Now lets simulate another node using a consul lock manager and seeing it lock
+
+		on, err := NewConsulLockManager(ctx)
+		require.NoError(t, err)
+		accountLock2, err := on.GetLock(lockKey, "old")
+		require.NoError(t, err)
+
+		ts = time.Now()
+
+		go func() {
+			time.Sleep(5 * time.Second)
+			accountLock2.Close()
+		}()
+
+		_, err = s.AddService(
+			metadata.NewIncomingContext(top, md3),
+			&pb.ServiceRequest{
+				Account: account,
+				Hub:     hubId,
+				Id:      serviceId,
+				Type:    "test",
+				Labels:  labels,
+				Metadata: []*pb.KVPair{
+					{
+						Key:   "version",
+						Value: "0.1x",
+					},
+				},
+			},
+		)
+		require.NoError(t, err)
+
+		// this is 6 rather than 5 because consulLockMgr uses a 1 second LockWaitTime as well
+		assert.InDelta(t, 6*time.Second, time.Since(ts), float64(time.Second))
+	})
+
 }

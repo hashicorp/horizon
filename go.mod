@@ -3,22 +3,20 @@ module github.com/hashicorp/horizon
 go 1.13
 
 require (
-	cirello.io/dynamolock v1.3.3
 	github.com/armon/go-metrics v0.3.3
 	github.com/aws/aws-sdk-go v1.25.41
 	github.com/caddyserver/certmagic v0.10.3
 	github.com/davecgh/go-spew v1.1.1
-	github.com/fatih/color v1.9.0 // indirect
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/go-acme/lego/v3 v3.5.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang-migrate/migrate/v4 v4.10.0
 	github.com/golang/protobuf v1.3.4
+	github.com/hashicorp/consul/api v1.7.0
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/hashicorp/go-hclog v0.13.0
 	github.com/hashicorp/go-immutable-radix v1.2.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.0
-	github.com/hashicorp/go-rootcerts v1.0.2 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v0.5.3
 	github.com/hashicorp/vault/api v1.0.5-0.20190909201928-35325e2c3262
@@ -26,10 +24,8 @@ require (
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jinzhu/gorm v1.9.12
 	github.com/klauspost/compress v1.10.10
-	github.com/kr/pretty v0.2.0 // indirect
 	github.com/lib/pq v1.3.0
-	github.com/mattn/go-colorable v0.1.6 // indirect
-	github.com/mitchellh/cli v1.0.0
+	github.com/mitchellh/cli v1.1.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-server-timing v1.0.0
 	github.com/mitchellh/go-testing-interface v1.0.0

@@ -20,10 +20,8 @@ import (
 	"testing"
 	"time"
 
-	"cirello.io/dynamolock"
 	"github.com/armon/go-metrics"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/internal/testsql"
@@ -57,7 +55,6 @@ func TestClient(t *testing.T) {
 		RegisterToken:     "aabbcc",
 		AwsSession:        sess,
 		Bucket:            bucket,
-		LockTable:         "hzntest",
 		DisablePrometheus: true,
 	}
 
@@ -767,9 +764,6 @@ func TestClient(t *testing.T) {
 
 		s.hubCert = certBuf.Bytes()
 		s.hubKey = keyBuf.Bytes()
-
-		s.lockMgr, err = dynamolock.New(dynamodb.New(sess), s.lockTable)
-		require.NoError(t, err)
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)

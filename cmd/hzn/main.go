@@ -273,11 +273,6 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal("missing OPS_TOKEN")
 	}
 
-	dynamoTable := os.Getenv("DYNAMO_TABLE")
-	if dynamoTable == "" {
-		log.Fatal("missing DYNAMO_TABLE")
-	}
-
 	asnDB := os.Getenv("ASN_DB_PATH")
 
 	hubAccess := os.Getenv("HUB_ACCESS_KEY")
@@ -295,6 +290,11 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	lm, err := control.NewConsulLockManager(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	s, err := control.NewServer(control.ServerConfig{
 		Logger: L,
 		DB:     db,
@@ -308,13 +308,13 @@ func (c *controlServer) Run(args []string) int {
 
 		AwsSession: sess,
 		Bucket:     bucket,
-		LockTable:  dynamoTable,
 
 		ASNDB: asnDB,
 
 		HubAccessKey: hubAccess,
 		HubSecretKey: hubSecret,
 		HubImageTag:  hubTag,
+		LockManager:  lm,
 	})
 	if err != nil {
 		log.Fatal(err)

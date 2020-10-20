@@ -9,9 +9,7 @@ import (
 	fmt "fmt"
 	"time"
 
-	"cirello.io/dynamolock"
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -19,12 +17,20 @@ import (
 	"github.com/pkg/errors"
 )
 
-func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account) ([]byte, error) {
+func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account, action string) ([]byte, error) {
+	s.L.Debug("calculate account routing", "action", action, "account", account.SpecString())
+
+	ts := time.Now()
+
+	defer func() {
+		s.L.Debug("calculate account routing ended", "action", action, "account", account.SpecString(), "elapse", time.Since(ts))
+	}()
+
 	key := account.Key()
 
 	var lastId int64
 
-	services := make([]*Service, 0, 100)
+	services := make([]*Service, 0, 1000)
 
 	var accountServices pb.AccountServices
 
@@ -40,7 +46,7 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 		default:
 		}
 
-		err := dbx.Check(db.Where("account_id = ?", key).Where("id > ?", lastId).Limit(100).Find(&services))
+		err := dbx.Check(db.Where("account_id = ?", key).Where("id > ?", lastId).Limit(1000).Find(&services))
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				break
@@ -80,8 +86,15 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 	return zstdCompress(data)
 }
 
-func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account) error {
-	outData, err := s.calculateAccountRouting(ctx, db, account)
+func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account, action string) error {
+	ts := time.Now()
+	s.L.Debug("updating account routing", "action", action, "account", account.SpecString())
+
+	defer func() {
+		s.L.Debug("updating account routing ended", "action", action, "account", account.SpecString(), "elapse", time.Since(ts))
+	}()
+
+	outData, err := s.calculateAccountRouting(ctx, db, account, "initial-update")
 	if err != nil {
 		return err
 	}
@@ -98,36 +111,31 @@ func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account 
 
 	strMD5 := base64.StdEncoding.EncodeToString(sum)
 
-	for {
-		lock, err := s.lockMgr.AcquireLock(lockKey,
-			dynamolock.WithAdditionalAttributes(
-				map[string]*dynamodb.AttributeValue{
-					"md5": {S: &strMD5},
-				}),
-			dynamolock.FailIfLocked(),
-		)
+	var retry int
 
+	for {
+		lock, err := s.lockMgr.GetLock(lockKey, strMD5)
 		if err == nil {
 			defer lock.Close()
 			break
 		}
 
-		info, err := s.lockMgr.Get(lockKey)
+		info, err := s.lockMgr.GetValue(lockKey)
 		if err != nil {
 			return err
 		}
 
-		attrs := info.AdditionalAttributes()
-		if val, ok := attrs["md5"]; ok {
-			if val.S != nil && *val.S == strMD5 {
-				// Ok, someone else got all the records, PEACE OUT.
-				return nil
-			}
+		if info == strMD5 {
+			// Ok, someone else got all the records, PEACE OUT.
+			return nil
 		}
+
+		s.L.Info("detected account locked, sleep and retry", "retries", retry)
+		retry++
 
 		time.Sleep(5 * time.Second)
 
-		outData, err := s.calculateAccountRouting(ctx, db, account)
+		outData, err := s.calculateAccountRouting(ctx, db, account, "retry")
 		if err != nil {
 			return err
 		}
