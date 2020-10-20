@@ -17,6 +17,8 @@ jobs:
           POSTGRES_DB: horizon_test
       - image: vault
         command: ["server", "-dev", "-dev-root-token-id=hznroot"]
+      - image: consul
+        command: ["agent", "-dev", "-client=0.0.0.0"]
 
     #### TEMPLATE_NOTE: go expects specific checkout path representing url
     #### expecting it in the form of
