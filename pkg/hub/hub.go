@@ -267,6 +267,8 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 		}
 	}
 
+	id := pb.NewULID()
+
 	for _, serv := range preamble.Services {
 		err = h.cc.AddService(ctx, &pb.ServiceRequest{
 			Account:  vt.Account(),
@@ -282,6 +284,7 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 		}
 
 		h.L.Debug("adding service",
+			"agent", id,
 			"hub", h.id,
 			"service", serv.ServiceId,
 			"labels", serv.Labels.SpecString(),
@@ -295,7 +298,16 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 	}
 
 	cleanup := func() {
+		h.L.Debug("removing services", "agent", id, "count", len(preamble.Services))
+
 		for _, serv := range preamble.Services {
+			h.L.Debug("adding service",
+				"agent", id,
+				"hub", h.id,
+				"service", serv.ServiceId,
+				"account", vt.Account(),
+			)
+
 			err = h.cc.RemoveService(ctx, &pb.ServiceRequest{
 				Account:  vt.Account(),
 				Hub:      h.id,
@@ -313,7 +325,7 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 	}
 
 	ai := &agentConn{
-		ID:            pb.NewULID(),
+		ID:            id,
 		Account:       vt.Account(),
 		Services:      int32(len(preamble.Services)),
 		ActiveStreams: new(int64),
@@ -342,10 +354,10 @@ func (h *Hub) registerAgent(ai *agentConn) error {
 	}
 	h.mu.Unlock()
 
-	h.L.Debug("register agent", "id", ai.ID)
+	h.L.Debug("register agent", "id", ai.ID, "account", ai.Account)
 
 	ai.cleanups = append(ai.cleanups, func() {
-		h.L.Debug("unregister agent", "id", ai.ID)
+		h.L.Debug("unregister agent", "id", ai.ID, "account", ai.Account)
 		atomic.AddInt64(h.activeAgents, -1)
 
 		h.mu.Lock()
@@ -385,6 +397,10 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	defer ai.cleanup()
 
+	remote := conn.RemoteAddr()
+
+	h.L.Info("completed handshake to agent", "agent", ai.ID, "account", ai.Account, "remote-addr", remote)
+
 	bc := &wire.ComposedConn{
 		Reader: fr.BufReader(),
 		Writer: conn,
@@ -421,24 +437,42 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 	// agent is still connected.
 
 	agentHB := time.NewTicker(time.Minute)
+	logHB := time.NewTicker(time.Minute * 10)
+
+	connectTS := time.Now()
+
 	go func() {
+		defer agentHB.Stop()
+		defer logHB.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
+			case <-logHB.C:
+				ts, _ := sess.Ping()
+
+				h.L.Info("agent session connection info",
+					"agent", ai.ID,
+					"account", ai.Account,
+					"elapse", time.Since(connectTS),
+					"yamux-streams", sess.NumStreams(),
+					"ping", ts,
+				)
+
 			case <-agentHB.C:
 				h.sendAgentInfoFlow(ai)
 			}
 		}
 	}()
 
-	h.L.Info("tracking new sessions for agent", "agent", ai.ID)
+	h.L.Info("tracking new sessions for agent", "agent", ai.ID, "account", ai.Account)
 
 	for {
 		stream, err := sess.AcceptStream()
 		if err != nil {
 			if err == io.EOF {
-				h.L.Info("agent disconnected", "session", ai.ID)
+				h.L.Info("agent disconnected", "agent", ai.ID)
 			} else {
 				h.L.Error("error accepting new yamux session", "error", err)
 			}
@@ -451,7 +485,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 		h.sendAgentInfoFlow(ai)
 
-		h.L.Trace("stream accepted", "id", stream.StreamID(), "lz4", ai.useLZ4)
+		h.L.Trace("stream accepted", "agent", ai.ID, "account", ai.Account, "id", stream.StreamID(), "lz4", ai.useLZ4)
 
 		var (
 			r io.Reader = stream

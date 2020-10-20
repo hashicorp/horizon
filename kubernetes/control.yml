@@ -116,7 +116,10 @@ spec:
                 key: bucket
 
           - name: HUB_DOMAIN
-            value: "*.alpha.hzn.network"
+            valueFrom:
+              configMapKeyRef:
+                name: hubs
+                key: domain
 
           - name: HUB_IMAGE_TAG
             valueFrom:

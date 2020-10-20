@@ -72,7 +72,6 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 		RegisterToken:     "aabbcc",
 		AwsSession:        sess,
 		Bucket:            bucket,
-		LockTable:         "hzntest",
 		DisablePrometheus: true,
 	})
 	require.NoError(t, err)
