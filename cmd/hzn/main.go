@@ -654,7 +654,6 @@ func (c *devServer) Run(args []string) int {
 
 		AwsSession: sess,
 		Bucket:     bucket,
-		LockTable:  "hzndev",
 	})
 	if err != nil {
 		log.Fatal(err)
