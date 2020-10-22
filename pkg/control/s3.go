@@ -91,6 +91,7 @@ func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account 
 	s.L.Debug("updating account routing", "action", action, "account", account.SpecString())
 
 	defer func() {
+		s.m.MeasureSince([]string{"routing", "update_time"}, ts)
 		s.L.Debug("updating account routing ended", "action", action, "account", account.SpecString(), "elapse", time.Since(ts))
 	}()
 
