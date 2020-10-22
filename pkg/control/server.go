@@ -293,6 +293,8 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 		return nil, err
 	}
 
+	s.m.IncrCounter([]string{"service", "add"}, 1)
+
 	var so Service
 	so.AccountId = service.Account.Key()
 	so.HubId = service.Hub.Bytes()
@@ -334,6 +336,8 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 	if err != nil {
 		return nil, err
 	}
+
+	s.m.IncrCounter([]string{"service", "remove"}, 1)
 
 	err = dbx.Check(s.db.Where("service_id = ?", service.Id.Bytes()).Delete(Service{}))
 	if err != nil {
@@ -433,8 +437,11 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 
 	ts := time.Now()
 
+	s.m.IncrCounter([]string{"hub", "connect"}, 1)
+
 	L.Info("fetching configuration", "hub", req.StableId.SpecString())
 	defer func() {
+		s.m.MeasureSince([]string{"hubs", "fetch_config_time"}, ts)
 		L.Info("fetching configuration finished", "hub", req.StableId.SpecString(), "elapse", time.Since(ts))
 	}()
 
@@ -517,6 +524,8 @@ func (s *Server) HubDisconnect(ctx context.Context, req *pb.HubDisconnectRequest
 	if err != nil {
 		return nil, err
 	}
+
+	s.m.IncrCounter([]string{"hub", "disconnect"}, 1)
 
 	s.L.Info("removing hub services", "id", req.StableId)
 
@@ -913,6 +922,8 @@ func (s *Server) AddAccount(ctx context.Context, req *pb.AddAccountRequest) (*pb
 		L.Error("error checking mgmt token", "err", err)
 		return nil, err
 	}
+
+	s.m.IncrCounter([]string{"account", "create"}, 1)
 
 	if req.Account.Namespace == "" {
 		req.Account.Namespace = caller.Account().Namespace

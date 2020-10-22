@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/armon/go-metrics"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
@@ -94,6 +95,8 @@ func TestServer(t *testing.T) {
 		s.keyId = "k1"
 		s.registerToken = "aabbcc"
 
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
+
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
 
@@ -120,6 +123,8 @@ func TestServer(t *testing.T) {
 		var s Server
 		s.L = L
 		s.registerToken = "aabbcc"
+
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
 
 		ctx := context.Background()
 
@@ -154,6 +159,8 @@ func TestServer(t *testing.T) {
 		s.vaultPath = pb.NewULID().SpecString()
 		s.keyId = "k1"
 		s.registerToken = "aabbcc"
+
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -216,6 +223,8 @@ func TestServer(t *testing.T) {
 		s.keyId = "k1"
 		s.registerToken = "aabbcc"
 
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
+
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
 
@@ -268,6 +277,8 @@ func TestServer(t *testing.T) {
 		s.vaultPath = pb.NewULID().SpecString()
 		s.keyId = "k1"
 		s.registerToken = "aabbcc"
+
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -330,6 +341,8 @@ func TestServer(t *testing.T) {
 		s.keyId = "k1"
 		s.registerToken = "aabbcc"
 
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
+
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
 
@@ -382,6 +395,8 @@ func TestServer(t *testing.T) {
 		s.vaultPath = pb.NewULID().SpecString()
 		s.keyId = "k1"
 		s.registerToken = "aabbcc"
+
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -513,6 +528,8 @@ func TestServer(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
+
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -658,6 +675,8 @@ func TestServer(t *testing.T) {
 		s.awsSess = sess
 		s.bucket = bucket
 		s.lockMgr = &inmemLockMgr{}
+
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
 
 		pub, err := token.SetupVault(vc, s.vaultPath)
 		require.NoError(t, err)
@@ -905,6 +924,8 @@ func TestServer(t *testing.T) {
 		s.registerToken = "aabbcc"
 		s.awsSess = sess
 		s.bucket = bucket
+
+		s.m, _ = metrics.New(metrics.DefaultConfig("test"), &metrics.BlackholeSink{})
 
 		lm, err := NewConsulLockManager(top)
 		require.NoError(t, err)
