@@ -1264,7 +1264,8 @@ func TestClient(t *testing.T) {
 		md := make(metadata.MD)
 		md.Set("authorization", "aabbcc")
 
-		ctx := metadata.NewIncomingContext(top, md)
+		ctx, cancel := context.WithCancel(metadata.NewIncomingContext(top, md))
+		defer cancel()
 
 		ct, err := s.Register(ctx, &pb.ControlRegister{
 			Namespace: "/",
@@ -1312,6 +1313,20 @@ func TestClient(t *testing.T) {
 
 		require.NoError(t, err)
 
+		// Setup another client so we can track the hub id change
+		// notification.
+		c2, err := NewClient(ctx, ClientConfig{
+			Id:      pb.NewULID(),
+			Token:   ctr.Token,
+			Version: "test",
+			Client:  gClient,
+			Session: sess,
+		})
+
+		require.NoError(t, err)
+
+		go c2.Run(ctx)
+
 		prev := pb.NewULID()
 
 		var hr Hub
@@ -1337,6 +1352,9 @@ func TestClient(t *testing.T) {
 		err = client.BootstrapConfig(ctx)
 		require.NoError(t, err)
 
+		// Database cleanup is in the background
+		time.Sleep(time.Second)
+
 		var so2 Service
 		err = dbx.Check(db.First(&so2))
 
@@ -1348,6 +1366,14 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, hr2.InstanceID, client.Id().Bytes())
+
+		lv, ok := c2.liveHubs[prev.SpecString()]
+		require.True(t, ok)
+		assert.False(t, lv.alive)
+
+		lv, ok = c2.liveHubs[client.Id().SpecString()]
+		require.True(t, ok)
+		assert.True(t, lv.alive)
 	})
 
 	t.Run("reconnects the activity stream if disconnected", func(t *testing.T) {

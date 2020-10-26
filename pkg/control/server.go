@@ -160,7 +160,11 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 
+	ctx, cancel := context.WithCancel(context.Background())
+
 	s := &Server{
+		bg:            ctx,
+		cancel:        cancel,
 		cfg:           cfg,
 		L:             L,
 		db:            cfg.DB,
@@ -475,15 +479,27 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 	} else {
 		prev := pb.ULIDFromBytes(hr.InstanceID)
 
+		s.broadcastActivity(ctx, &pb.CentralActivity{
+			HubChange: &pb.HubChange{
+				OldId: prev,
+				NewId: req.InstanceId,
+			},
+		})
+
 		if !req.InstanceId.Equal(prev) {
 			L.Info("removing previous hub services", "stable", req.StableId, "prev", prev, "new", req.InstanceId, "elapse", time.Since(ts))
 
 			// We nuke the old records from a previous instance_id
-			err = s.removeHubServices(ctx, tx, prev)
-			if err != nil {
-				tx.Rollback()
-				return nil, err
-			}
+			go func() {
+				inner := s.db.Begin()
+				defer inner.Commit()
+
+				err := s.removeHubServices(s.bg, inner, prev)
+				if err != nil {
+					inner.Rollback()
+					s.L.Error("error removing old hub services", "error", err, "hub", req.StableId)
+				}
+			}()
 		}
 
 		err = dbx.Check(
