@@ -95,6 +95,13 @@ type Client struct {
 	netloc []*pb.NetworkLocation
 
 	clientset *client.Clientset
+
+	liveHubs map[string]*hubLiveness
+}
+
+type hubLiveness struct {
+	alive     bool
+	retiredAt time.Time
 }
 
 type ClientConfig struct {
@@ -166,6 +173,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		bucket:          cfg.S3Bucket,
 		cancel:          cancel,
 		hubActivity:     make(chan *pb.HubActivity, 10),
+		liveHubs:        make(map[string]*hubLiveness),
 	}
 
 	if cfg.Session != nil {
@@ -479,6 +487,11 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 			continue
 		}
 
+		// If this is for a hub we know is not alive, skip it.
+		if lv, ok := c.liveHubs[service.Hub.SpecString()]; ok && !lv.alive {
+			continue
+		}
+
 		if labels.Matches(service.Labels) {
 			out = append(out, service)
 			maintainBest(service)
@@ -489,6 +502,11 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 		for _, service := range info.Services.Services {
 			// Skip yourself, you already got those.
 			if service.Hub.Equal(c.instanceId) {
+				continue
+			}
+
+			// If this is for a hub we know is not alive, skip it.
+			if lv, ok := c.liveHubs[service.Hub.SpecString()]; ok && !lv.alive {
 				continue
 			}
 
@@ -753,6 +771,44 @@ func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev 
 	if ev.NewLabelLinks != nil {
 		L.Debug("updating recent label links")
 		c.recentLabelLinks = append(c.recentLabelLinks, ev.NewLabelLinks.LabelLinks...)
+	}
+
+	if ev.HubChange != nil {
+		L.Debug("updating live hubs")
+		c.mu.Lock()
+
+		if ev.HubChange.OldId != nil {
+			key := ev.HubChange.OldId.SpecString()
+
+			oldLv := c.liveHubs[key]
+
+			if oldLv == nil {
+				c.liveHubs[key] = &hubLiveness{
+					alive:     false,
+					retiredAt: time.Now(),
+				}
+			} else {
+				oldLv.alive = false
+				oldLv.retiredAt = time.Now()
+			}
+		}
+
+		if ev.HubChange.NewId != nil {
+			key := ev.HubChange.NewId.SpecString()
+
+			oldLv := c.liveHubs[key]
+
+			if oldLv == nil {
+				c.liveHubs[key] = &hubLiveness{
+					alive: true,
+				}
+			} else {
+				oldLv.alive = true
+				oldLv.retiredAt = time.Time{}
+			}
+		}
+
+		c.mu.Unlock()
 	}
 }
 

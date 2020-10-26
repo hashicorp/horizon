@@ -69,10 +69,16 @@ message ConfigResponse {
   string image_tag = 7;
 }
 
+message HubChange {
+  ULID old_id = 1;
+  ULID new_id = 2;
+}
+
 message CentralActivity {
   repeated AccountServices account_services = 1;
   bool request_stats = 2;
   LabelLinks new_label_links = 3;
+  HubChange hub_change = 4;
 }
 
 message HubActivity {
