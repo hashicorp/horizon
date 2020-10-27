@@ -1367,13 +1367,13 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, hr2.InstanceID, client.Id().Bytes())
 
-		lv, ok := c2.liveHubs[prev.SpecString()]
+		lv, ok := c2.liveHubs.Get(prev.SpecString())
 		require.True(t, ok)
-		assert.False(t, lv.alive)
+		assert.False(t, lv.(*hubLiveness).alive)
 
-		lv, ok = c2.liveHubs[client.Id().SpecString()]
+		lv, ok = c2.liveHubs.Get(client.Id().SpecString())
 		require.True(t, ok)
-		assert.True(t, lv.alive)
+		assert.True(t, lv.(*hubLiveness).alive)
 	})
 
 	t.Run("reconnects the activity stream if disconnected", func(t *testing.T) {

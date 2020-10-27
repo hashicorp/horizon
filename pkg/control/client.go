@@ -24,6 +24,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/netloc"
@@ -96,7 +97,7 @@ type Client struct {
 
 	clientset *client.Clientset
 
-	liveHubs map[string]*hubLiveness
+	liveHubs *lru.ARCCache
 }
 
 type hubLiveness struct {
@@ -161,6 +162,11 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 
 	ctx, cancel := context.WithCancel(ctx)
 
+	liveHubs, err := lru.NewARC(1000)
+	if err != nil {
+		return nil, err
+	}
+
 	client := &Client{
 		L:               cfg.Logger,
 		cfg:             cfg,
@@ -173,7 +179,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		bucket:          cfg.S3Bucket,
 		cancel:          cancel,
 		hubActivity:     make(chan *pb.HubActivity, 10),
-		liveHubs:        make(map[string]*hubLiveness),
+		liveHubs:        liveHubs,
 	}
 
 	if cfg.Session != nil {
@@ -488,7 +494,7 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 		}
 
 		// If this is for a hub we know is not alive, skip it.
-		if lv, ok := c.liveHubs[service.Hub.SpecString()]; ok && !lv.alive {
+		if val, ok := c.liveHubs.Get(service.Hub.SpecString()); ok && !val.(*hubLiveness).alive {
 			continue
 		}
 
@@ -506,7 +512,7 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 			}
 
 			// If this is for a hub we know is not alive, skip it.
-			if lv, ok := c.liveHubs[service.Hub.SpecString()]; ok && !lv.alive {
+			if val, ok := c.liveHubs.Get(service.Hub.SpecString()); ok && !val.(*hubLiveness).alive {
 				continue
 			}
 
@@ -780,14 +786,15 @@ func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev 
 		if ev.HubChange.OldId != nil {
 			key := ev.HubChange.OldId.SpecString()
 
-			oldLv := c.liveHubs[key]
+			val, ok := c.liveHubs.Get(key)
 
-			if oldLv == nil {
-				c.liveHubs[key] = &hubLiveness{
+			if !ok {
+				c.liveHubs.Add(key, &hubLiveness{
 					alive:     false,
 					retiredAt: time.Now(),
-				}
+				})
 			} else {
+				oldLv := val.(*hubLiveness)
 				oldLv.alive = false
 				oldLv.retiredAt = time.Now()
 			}
@@ -796,13 +803,14 @@ func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev 
 		if ev.HubChange.NewId != nil {
 			key := ev.HubChange.NewId.SpecString()
 
-			oldLv := c.liveHubs[key]
+			val, ok := c.liveHubs.Get(key)
 
-			if oldLv == nil {
-				c.liveHubs[key] = &hubLiveness{
+			if !ok {
+				c.liveHubs.Add(key, &hubLiveness{
 					alive: true,
-				}
+				})
 			} else {
+				oldLv := val.(*hubLiveness)
 				oldLv.alive = true
 				oldLv.retiredAt = time.Time{}
 			}
