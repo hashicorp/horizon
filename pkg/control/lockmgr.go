@@ -11,7 +11,8 @@ import (
 )
 
 type inmemLockMgr struct {
-	mu sync.Mutex
+	mu   sync.Mutex
+	cond *sync.Cond
 
 	locks  map[string]bool
 	values map[string]string
@@ -23,6 +24,10 @@ func (i *inmemLockMgr) GetLock(id, val string) (io.Closer, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
+	if i.cond == nil {
+		i.cond = sync.NewCond(&i.mu)
+	}
+
 	if i.locks == nil {
 		i.locks = make(map[string]bool)
 	}
@@ -31,8 +36,12 @@ func (i *inmemLockMgr) GetLock(id, val string) (io.Closer, error) {
 		i.values = make(map[string]string)
 	}
 
-	if i.locks[id] {
-		return nil, ErrLocked
+	for {
+		if i.locks[id] {
+			i.cond.Wait()
+		} else {
+			break
+		}
 	}
 
 	i.locks[id] = true
@@ -58,6 +67,7 @@ func (i *inmemUnlock) Close() error {
 	defer i.i.mu.Unlock()
 
 	i.i.locks[i.id] = false
+	i.i.cond.Broadcast()
 
 	return nil
 }
@@ -83,12 +93,16 @@ func NewConsulLockManager(ctx context.Context) (*consulLockMgr, error) {
 
 	go session.RenewPeriodic("5s", id, nil, ctx.Done())
 
-	return &consulLockMgr{
+	lm := &consulLockMgr{
 		ctx:       ctx,
 		client:    client,
 		session:   id,
 		localLock: make(map[string]bool),
-	}, nil
+	}
+
+	lm.cond = sync.NewCond(&lm.mu)
+
+	return lm, nil
 }
 
 type consulLockMgr struct {
@@ -97,6 +111,7 @@ type consulLockMgr struct {
 	session string
 
 	mu        sync.Mutex
+	cond      *sync.Cond
 	localLock map[string]bool
 }
 
@@ -117,22 +132,28 @@ func (c *consulLockMgr) GetLock(id, val string) (io.Closer, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if c.localLock[id] {
-		return nil, ErrLocked
+	for {
+		if c.localLock[id] {
+			c.cond.Wait()
+		} else {
+			break
+		}
 	}
 
 	lock, err := c.client.LockOpts(&consul.LockOptions{
 		Key:          id,
 		Value:        []byte(val),
 		Session:      c.session,
-		LockTryOnce:  true,
 		LockWaitTime: time.Second,
 	})
 	if err != nil {
 		return nil, err
 	}
 
+	c.mu.Unlock()
 	ch, err := lock.Lock(c.ctx.Done())
+	c.mu.Lock()
+
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +177,8 @@ func (c *consulUnlocker) Close() error {
 	c.c.mu.Lock()
 	defer c.c.mu.Unlock()
 
-	c.c.localLock[c.id] = false
+	delete(c.c.localLock, c.id)
+	c.c.cond.Broadcast()
 
 	return c.lock.Unlock()
 }

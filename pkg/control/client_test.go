@@ -584,6 +584,148 @@ func TestClient(t *testing.T) {
 		serviceId := pb.NewULID()
 		labels := pb.ParseLabelSet("service=www,env=prod")
 
+		hubId := pb.NewULID()
+
+		servReq := &pb.ServiceRequest{
+			Account: account,
+			Id:      serviceId,
+			Hub:     hubId,
+			Type:    "test",
+			Labels:  labels,
+			Metadata: []*pb.KVPair{
+				{
+					Key:   "version",
+					Value: "0.1x",
+				},
+			},
+		}
+
+		_, err = gClient.AddService(ctx, servReq)
+		require.NoError(t, err)
+
+		var so Service
+		err = dbx.Check(db.First(&so))
+		require.NoError(t, err)
+
+		assert.Equal(t, serviceId.Bytes(), so.ServiceId)
+
+		calc, err := client.LookupService(ctx, account, labels)
+		require.NoError(t, err)
+
+		services := calc.Services()
+
+		require.Equal(t, 1, len(services))
+
+		assert.Equal(t, serviceId, services[0].Id)
+
+		// Inject an event that will make the hub as unavailable
+
+		client.processCentralActivity(ctx, client.L, &pb.CentralActivity{
+			HubChange: &pb.HubChange{
+				OldId: hubId,
+			},
+		})
+
+		calc, err = client.LookupService(ctx, account, labels)
+		require.NoError(t, err)
+
+		services = calc.Services()
+
+		require.Equal(t, 0, len(services))
+	})
+
+	t.Run("ignores records from hubs reported as not alive", func(t *testing.T) {
+		db := testsql.TestPostgresDB(t, "periodic")
+		defer db.Close()
+
+		cfg := scfg
+		cfg.DB = db
+
+		s, err := NewServer(cfg)
+		require.NoError(t, err)
+
+		top := context.Background()
+
+		md := make(metadata.MD)
+		md.Set("authorization", "aabbcc")
+
+		ctx := metadata.NewIncomingContext(top, md)
+
+		ct, err := s.Register(ctx, &pb.ControlRegister{
+			Namespace: "/",
+		})
+
+		require.NoError(t, err)
+
+		md2 := make(metadata.MD)
+		md2.Set("authorization", ct.Token)
+
+		account := &pb.Account{
+			AccountId: pb.NewULID(),
+			Namespace: "/",
+		}
+
+		ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
+		require.NoError(t, err)
+
+		gs := grpc.NewServer()
+		pb.RegisterControlServicesServer(gs, s)
+
+		li, err := net.Listen("tcp", ":0")
+		require.NoError(t, err)
+
+		defer li.Close()
+
+		go gs.Serve(li)
+
+		gcc, err := grpc.Dial(li.Addr().String(),
+			grpc.WithInsecure(),
+			grpc.WithPerRPCCredentials(grpctoken.Token(ctr.Token)))
+
+		require.NoError(t, err)
+
+		defer gcc.Close()
+
+		gClient := pb.NewControlServicesClient(gcc)
+
+		id := pb.NewULID()
+
+		dir, err := ioutil.TempDir("", "hzn")
+		require.NoError(t, err)
+
+		defer os.RemoveAll(dir)
+
+		client, err := NewClient(ctx, ClientConfig{
+			Id:       id,
+			Token:    ctr.Token,
+			Version:  "test",
+			Client:   gClient,
+			WorkDir:  dir,
+			Session:  sess,
+			S3Bucket: bucket,
+		})
+
+		require.NoError(t, err)
+
+		ctx, cancel := context.WithCancel(ctx)
+
+		defer cancel()
+
+		go client.Run(ctx)
+
+		time.Sleep(time.Second)
+
+		// Setup the info so that we're tracking the account when the event arrives
+		client.accountServices[account.StringKey()] = &accountInfo{
+			MapKey:   account.StringKey(),
+			S3Key:    "account_services/" + account.HashKey(),
+			FileName: account.StringKey(),
+			Process:  make(chan struct{}),
+		}
+
+		serviceId := pb.NewULID()
+		labels := pb.ParseLabelSet("service=www,env=prod")
+
 		servReq := &pb.ServiceRequest{
 			Account: account,
 			Id:      serviceId,
@@ -1122,7 +1264,8 @@ func TestClient(t *testing.T) {
 		md := make(metadata.MD)
 		md.Set("authorization", "aabbcc")
 
-		ctx := metadata.NewIncomingContext(top, md)
+		ctx, cancel := context.WithCancel(metadata.NewIncomingContext(top, md))
+		defer cancel()
 
 		ct, err := s.Register(ctx, &pb.ControlRegister{
 			Namespace: "/",
@@ -1170,6 +1313,20 @@ func TestClient(t *testing.T) {
 
 		require.NoError(t, err)
 
+		// Setup another client so we can track the hub id change
+		// notification.
+		c2, err := NewClient(ctx, ClientConfig{
+			Id:      pb.NewULID(),
+			Token:   ctr.Token,
+			Version: "test",
+			Client:  gClient,
+			Session: sess,
+		})
+
+		require.NoError(t, err)
+
+		go c2.Run(ctx)
+
 		prev := pb.NewULID()
 
 		var hr Hub
@@ -1195,6 +1352,9 @@ func TestClient(t *testing.T) {
 		err = client.BootstrapConfig(ctx)
 		require.NoError(t, err)
 
+		// Database cleanup is in the background
+		time.Sleep(time.Second)
+
 		var so2 Service
 		err = dbx.Check(db.First(&so2))
 
@@ -1206,6 +1366,14 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, hr2.InstanceID, client.Id().Bytes())
+
+		lv, ok := c2.liveHubs.Get(prev.SpecString())
+		require.True(t, ok)
+		assert.False(t, lv.(*hubLiveness).alive)
+
+		lv, ok = c2.liveHubs.Get(client.Id().SpecString())
+		require.True(t, ok)
+		assert.True(t, lv.(*hubLiveness).alive)
 	})
 
 	t.Run("reconnects the activity stream if disconnected", func(t *testing.T) {

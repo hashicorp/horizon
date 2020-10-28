@@ -134,7 +134,7 @@ func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account 
 		s.L.Info("detected account locked, sleep and retry", "retries", retry)
 		retry++
 
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Second)
 
 		outData, err := s.calculateAccountRouting(ctx, db, account, "retry")
 		if err != nil {
