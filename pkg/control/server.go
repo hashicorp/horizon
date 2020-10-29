@@ -327,7 +327,7 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 		},
 	})
 
-	err = s.updateAccountRouting(ctx, s.db, service.Account, "add-service")
+	err = s.updateAccountRouting(ctx, s.db.DB(), service.Account, "add-service")
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +348,7 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 		return nil, err
 	}
 
-	err = s.updateAccountRouting(ctx, s.db, service.Account, "remove-service")
+	err = s.updateAccountRouting(ctx, s.db.DB(), service.Account, "remove-service")
 	if err != nil {
 		return nil, err
 	}
@@ -408,7 +408,7 @@ func (s *Server) removeHubServices(ctx context.Context, db *gorm.DB, hubId *pb.U
 			return err
 		}
 
-		err = s.updateAccountRouting(ctx, db, acc, "delete-hub")
+		err = s.updateAccountRouting(ctx, db.DB(), acc, "delete-hub")
 		if err != nil {
 			return err
 		}
@@ -491,12 +491,8 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 
 			// We nuke the old records from a previous instance_id
 			go func() {
-				inner := s.db.Begin()
-				defer inner.Commit()
-
-				err := s.removeHubServices(s.bg, inner, prev)
+				err := s.removeHubServices(s.bg, s.db, prev)
 				if err != nil {
-					inner.Rollback()
 					s.L.Error("error removing old hub services", "error", err, "hub", req.StableId)
 				}
 			}()
