@@ -46,7 +46,7 @@ func (s *Server) calculateAccountRouting(ctx context.Context, gdb *sql.DB, accou
 		default:
 		}
 
-		rows, err := gdb.Query("SELECT id, hub_id, service_id, labels, type FROM services WHERE account_id = $1 AND id > $2 LIMIT 1000", key, lastId)
+		rows, err := gdb.QueryContext(ctx, "SELECT id, hub_id, service_id, labels, type FROM services WHERE account_id = $1 AND id > $2 LIMIT 1000", key, lastId)
 		if err != nil {
 			return nil, err
 		}
