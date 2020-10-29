@@ -4,6 +4,7 @@ import (
 	bytes "bytes"
 	context "context"
 	"crypto/md5"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	fmt "fmt"
@@ -14,10 +15,11 @@ import (
 	"github.com/hashicorp/horizon/pkg/dbx"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/jinzhu/gorm"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 )
 
-func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account, action string) ([]byte, error) {
+func (s *Server) calculateAccountRouting(ctx context.Context, gdb *sql.DB, account *pb.Account, action string) ([]byte, error) {
 	s.L.Debug("calculate account routing", "action", action, "account", account.SpecString())
 
 	ts := time.Now()
@@ -29,8 +31,6 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 	key := account.Key()
 
 	var lastId int64
-
-	services := make([]*Service, 0, 1000)
 
 	var accountServices pb.AccountServices
 
@@ -46,36 +46,44 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 		default:
 		}
 
-		err := dbx.Check(db.Where("account_id = ?", key).Where("id > ?", lastId).Limit(1000).Find(&services))
+		rows, err := gdb.Query("SELECT id, hub_id, service_id, labels, type FROM services WHERE account_id = $1 AND id > $2 LIMIT 1000", key, lastId)
 		if err != nil {
-			if err == gorm.ErrRecordNotFound {
-				break
+			return nil, err
+		}
+
+		var (
+			hubId     []byte
+			serviceId []byte
+			labels    pq.StringArray
+			typ       string
+			cnt       int
+		)
+
+		for rows.Next() {
+			cnt++
+			err = rows.Scan(&lastId, &hubId, &serviceId, &labels, &typ)
+			if err != nil {
+				return nil, err
 			}
-		}
 
-		if len(services) == 0 {
-			break
-		}
-
-		for _, serv := range services {
 			var ls pb.LabelSet
 
-			err = ls.Scan(serv.Labels)
+			err = ls.Scan(labels)
 			if err != nil {
 				return nil, err
 			}
 
 			accountServices.Services = append(accountServices.Services, &pb.ServiceRoute{
-				Hub:    pb.ULIDFromBytes(serv.HubId),
-				Id:     pb.ULIDFromBytes(serv.ServiceId),
-				Type:   serv.Type,
+				Hub:    pb.ULIDFromBytes(hubId),
+				Id:     pb.ULIDFromBytes(serviceId),
+				Type:   typ,
 				Labels: &ls,
 			})
 		}
 
-		lastId = services[len(services)-1].ID
-
-		services = services[:0]
+		if cnt == 0 {
+			break
+		}
 	}
 
 	data, err := accountServices.Marshal()
@@ -86,7 +94,7 @@ func (s *Server) calculateAccountRouting(ctx context.Context, db *gorm.DB, accou
 	return zstdCompress(data)
 }
 
-func (s *Server) updateAccountRouting(ctx context.Context, db *gorm.DB, account *pb.Account, action string) error {
+func (s *Server) updateAccountRouting(ctx context.Context, db *sql.DB, account *pb.Account, action string) error {
 	ts := time.Now()
 	s.L.Debug("updating account routing", "action", action, "account", account.SpecString())
 
