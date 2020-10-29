@@ -29,9 +29,17 @@ spec:
               "namespace": "control",
               "metrics": [
                 {"go_goroutines":"goroutines"},
-                {"go_memstats_heap_sys_bytes":"heap_size"},
+                {"go_memstats_heap_inuse_bytes":"heap_size"},
+                {"go_memstats_heap_idle_bytes":"idle_heap_size"},
                 {"control_total_messages":"total.messages"},
-                {"control_total_bytes":"total.bytes"}
+                {"control_total_bytes":"total.bytes"},
+                {"control_service_add":"service.add"},
+                {"control_service_remove":"service.remove"},
+                {"control_account_create":"account.create"},
+                {"control_hub_connect":"hub.connect"},
+                {"control_hub_disconnect":"hub.disconnect"},
+                {"control_hubs_fetch_config_time":"hub.fetch_config"},
+                {"control_routing_update_time":"routing.update"}
               ]
             }
           ]
@@ -81,10 +89,13 @@ spec:
 
       containers:
       - name: control
-        image: quay.io/hashicorp/horizon:E-1
+        image: quay.io/hashicorp/horizon:185-71049c5
         args:
           - control
         env:
+          - name: GODEBUG
+            value: madvdontneed=1
+
           - name: AWS_REGION
             value: us-west-2
 
@@ -169,6 +180,14 @@ spec:
           - name: ASNDB
             value: /geoip/asn.mmdb
 
+          - name: HOST_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.hostIP
+
+          - name: CONSUL_HTTP_ADDR
+            value: "$(HOST_IP):8500"
+
         ports:
           - name: tls
             containerPort: 443
@@ -180,7 +199,8 @@ spec:
             path: /healthz
             port: monitoring
           initialDelaySeconds: 30
-          periodSeconds: 3
+          periodSeconds: 20
+          timeoutSeconds: 5
 
         volumeMounts:
           - mountPath: /geoip
