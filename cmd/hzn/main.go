@@ -365,8 +365,9 @@ func (c *controlServer) Run(args []string) int {
 	lcfg.Certificates = []tls.Certificate{tlsCert}
 
 	hs := &http.Server{
-		TLSConfig: &lcfg,
-		Addr:      ":" + port,
+		TLSConfig:   &lcfg,
+		Addr:        ":" + port,
+		IdleTimeout: 2 * time.Minute,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 &&
 				strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
