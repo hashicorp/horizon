@@ -2,6 +2,7 @@ package hub
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net"
 	"strconv"
@@ -71,6 +72,20 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, stream *yamu
 
 	routes := calc.Services()
 
+	possible := len(routes)
+
+	if len(routes) == 0 {
+		var resp pb.Response
+		resp.Error = fmt.Sprintf(
+			"route calculation found no possible routes. account=%s target=%s",
+			wctx.Account().SpecString(),
+			req.Target.SpecString(),
+		)
+
+		wctx.WriteMarshal(255, &resp)
+		return
+	}
+
 	for len(routes) > 0 {
 		var target *pb.ServiceRoute
 
@@ -101,7 +116,12 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, stream *yamu
 	}
 
 	var resp pb.Response
-	resp.Error = "no routes available to target"
+	resp.Error = fmt.Sprintf(
+		"no routes available to target: possible=%d account=%s target=%s",
+		possible,
+		wctx.Account().SpecString(),
+		req.Target.SpecString(),
+	)
 	wctx.WriteMarshal(255, &resp)
 }
 
