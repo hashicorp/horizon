@@ -353,7 +353,7 @@ func (h *Hub) forwardToTarget(
 	// passing the service id we calculated here. The advantage is that things
 	// might have changed and the target has a better target (which would result
 	// in multiple relays).
-	conn, err := session.ConnecToService(req.Target)
+	conn, err := session.ConnectToService(req.Target)
 	if err != nil {
 		return err
 	}
