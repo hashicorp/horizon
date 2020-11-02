@@ -397,6 +397,8 @@ func (c *Client) RemoveService(ctx context.Context, serv *pb.ServiceRequest) err
 const deploymentOrder = ":deployment-order"
 
 type RouteCalculation struct {
+	instanceId *pb.ULID
+
 	All  []*pb.ServiceRoute
 	Best []*pb.ServiceRoute
 }
@@ -410,11 +412,28 @@ func (c *RouteCalculation) shuffle(in []*pb.ServiceRoute) []*pb.ServiceRoute {
 		return in
 	}
 
-	rand.Shuffle(len(in), func(i, j int) {
-		in[i], in[j] = in[j], in[i]
+	var (
+		local  []*pb.ServiceRoute
+		remote []*pb.ServiceRoute
+	)
+
+	for _, r := range in {
+		if r.Hub.Equal(c.instanceId) {
+			local = append(local, r)
+		} else {
+			remote = append(remote, r)
+		}
+	}
+
+	rand.Shuffle(len(local), func(i, j int) {
+		local[i], local[j] = local[j], local[i]
 	})
 
-	return in
+	rand.Shuffle(len(remote), func(i, j int) {
+		remote[i], remote[j] = remote[j], remote[i]
+	})
+
+	return append(local, remote...)
 }
 
 func (c *RouteCalculation) Services() []*pb.ServiceRoute {
@@ -524,7 +543,8 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 	}
 
 	ret := &RouteCalculation{
-		All: out,
+		instanceId: c.instanceId,
+		All:        out,
 	}
 
 	if len(best) > 0 {

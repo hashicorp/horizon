@@ -244,6 +244,7 @@ func TestClient(t *testing.T) {
 
 		servReq := &pb.ServiceRequest{
 			Account: account,
+			Hub:     pb.NewULID(),
 			Id:      serviceId,
 			Type:    "test",
 			Labels:  labels,
@@ -280,6 +281,7 @@ func TestClient(t *testing.T) {
 
 		hubId2 := pb.NewULID()
 		serviceId2 := pb.NewULID()
+		serviceId3 := pb.NewULID()
 
 		// Nuke to force an inline refresh
 		delete(client.accountServices, account.SpecString())
@@ -294,7 +296,7 @@ func TestClient(t *testing.T) {
 			metadata.NewIncomingContext(top, md3),
 			&pb.ServiceRequest{
 				Account: account,
-				Hub:     hubId2,
+				Hub:     pb.NewULID(),
 				Id:      serviceId2,
 				Type:    "test",
 				Labels:  labels,
@@ -306,7 +308,24 @@ func TestClient(t *testing.T) {
 				},
 			},
 		)
+		require.NoError(t, err)
 
+		_, err = s.AddService(
+			metadata.NewIncomingContext(top, md3),
+			&pb.ServiceRequest{
+				Account: account,
+				Hub:     hubId2,
+				Id:      serviceId3,
+				Type:    "test",
+				Labels:  labels,
+				Metadata: []*pb.KVPair{
+					{
+						Key:   "version",
+						Value: "0.1x",
+					},
+				},
+			},
+		)
 		require.NoError(t, err)
 
 		calc, err = client.LookupService(ctx, account, pb.ParseLabelSet("service=www,env=prod"))
@@ -314,15 +333,20 @@ func TestClient(t *testing.T) {
 
 		services = calc.All
 
-		require.Equal(t, 2, len(services))
+		require.Equal(t, 3, len(services))
 
 		assert.Equal(t, serviceId, services[0].Id)
 		assert.Equal(t, serviceId2, services[1].Id)
+		assert.Equal(t, serviceId3, services[2].Id)
 
 		var notId int
 
 		for i := 0; i < 20; i++ {
-			if !calc.Services()[0].Id.Equal(serviceId) {
+			serv := calc.Services()
+
+			assert.Equal(t, serviceId, serv[0].Id, "local service is always first")
+
+			if !calc.Services()[1].Id.Equal(serviceId2) {
 				notId++
 			}
 		}
