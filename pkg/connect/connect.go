@@ -143,7 +143,7 @@ func (s *Session) ConnecToAccountService(acc *pb.Account, labels *pb.LabelSet) (
 	return &Conn{serviceId: ack.ServiceId, fr: fr2, fw: fw2}, nil
 }
 
-func (s *Session) ConnecToService(labels *pb.LabelSet) (*Conn, error) {
+func (s *Session) ConnectToService(labels *pb.LabelSet) (*Conn, error) {
 	return s.ConnecToAccountService(nil, labels)
 }
 

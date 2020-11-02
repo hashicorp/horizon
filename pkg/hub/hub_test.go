@@ -297,7 +297,7 @@ func TestHub(t *testing.T) {
 
 				L.Info("connecting to service")
 
-				c, err := sess.ConnecToService(pb.ParseLabelSet("service=echo"))
+				c, err := sess.ConnectToService(pb.ParseLabelSet("service=echo"))
 				require.NoError(t, err)
 
 				assert.Equal(t, serviceId, c.ServiceId())
