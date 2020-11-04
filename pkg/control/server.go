@@ -36,6 +36,9 @@ type connectedHub struct {
 	xmit     chan *pb.CentralActivity
 	messages *int64
 	bytes    *int64
+
+	activeAgents *int64
+	services     *int64
 }
 
 // Returns a lock for the given id.
@@ -615,6 +618,9 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 		}
 
 		if rec.HubStats != nil {
+			atomic.StoreInt64(ch.activeAgents, rec.HubStats.ActiveAgents)
+			atomic.StoreInt64(ch.services, rec.HubStats.Services)
+
 			labels := []metrics.Label{
 				{
 					Name:  "hub",
@@ -631,6 +637,20 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 
 	s.m.IncrCounter([]string{"total", "messages"}, float32(mdiff))
 	s.m.IncrCounter([]string{"total", "bytes"}, float32(bdiff))
+
+	// Reread calculate the total active agents and services
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var agents, services float32
+
+	for _, h := range s.connectedHubs {
+		agents += float32(atomic.LoadInt64(h.activeAgents))
+		services += float32(atomic.LoadInt64(h.services))
+	}
+
+	s.m.SetGauge([]string{"hubs", "agents", "active"}, agents)
+	s.m.SetGauge([]string{"hubs", "services"}, services)
 }
 
 func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {
@@ -659,6 +679,9 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 		xmit:     make(chan *pb.CentralActivity),
 		messages: new(int64),
 		bytes:    new(int64),
+
+		activeAgents: new(int64),
+		services:     new(int64),
 	}
 
 	s.mu.Lock()

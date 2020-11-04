@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/horizon/internal/httpassets"
 	"github.com/hashicorp/horizon/pkg/control"
 	"github.com/hashicorp/horizon/pkg/pb"
@@ -23,9 +24,12 @@ import (
 )
 
 var (
-	ErrProtocolError = errors.New("protocol error")
-	ErrWrongService  = errors.New("wrong service")
+	ErrProtocolError   = errors.New("protocol error")
+	ErrWrongService    = errors.New("wrong service")
+	ErrTooManyServices = errors.New("too many services per account")
 )
+
+const ServicesPerAccount = 100
 
 type agentConnection struct {
 	useLZ4  bool
@@ -54,6 +58,8 @@ type Hub struct {
 
 	activeAgents *int64
 	totalAgents  *int64
+
+	servicesPerAccount *lru.ARCCache
 }
 
 func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error) {
@@ -65,6 +71,8 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 	})
 	cfg.LogOutput = nil
 
+	spa, _ := lru.NewARC(10000)
+
 	h := &Hub{
 		L:            L,
 		cfg:          cfg,
@@ -74,6 +82,8 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 		mux:          http.NewServeMux(),
 		activeAgents: new(int64),
 		totalAgents:  new(int64),
+
+		servicesPerAccount: spa,
 	}
 
 	fe, err := web.NewFrontend(L, h, client, feToken)
@@ -145,6 +155,7 @@ func (hub *Hub) sendStats(ctx context.Context) {
 					HubId:        hub.cc.StableId(),
 					ActiveAgents: active,
 					TotalAgents:  atomic.LoadInt64(hub.totalAgents),
+					Services:     int64(hub.cc.NumLocalServices()),
 				},
 			})
 
@@ -211,7 +222,28 @@ func (ai *agentConn) cleanup() {
 	}
 }
 
-func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.FramingWriter) (*agentConn, error) {
+func (h *Hub) checkTooManyServices(vt *token.ValidToken, services int) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	key := vt.Account().SpecString()
+
+	if val, ok := h.servicesPerAccount.Get(key); ok {
+		current := val.(int)
+
+		if current+services > ServicesPerAccount {
+			return false
+		}
+
+		services += current
+	}
+
+	h.servicesPerAccount.Add(key, services)
+
+	return true
+}
+
+func (h *Hub) handshake(ctx context.Context, conn net.Conn, fr *wire.FramingReader, fw *wire.FramingWriter) (*agentConn, error) {
 	var preamble pb.Preamble
 
 	tag, _, err := fr.ReadMarshal(&preamble)
@@ -268,6 +300,25 @@ func (h *Hub) handshake(ctx context.Context, fr *wire.FramingReader, fw *wire.Fr
 	}
 
 	id := pb.NewULID()
+
+	if !h.checkTooManyServices(vt, len(preamble.Services)) {
+		h.L.Warn("rejected agent due to too many services per account",
+			"account", vt.Account().SpecString(),
+			"requested-services", len(preamble.Services),
+			"session-id", preamble.SessionId,
+			"labels", preamble.Labels,
+			"remote-addr", conn.RemoteAddr(),
+		)
+
+		wc.Status = "too-many-services-per-account"
+
+		_, err = fw.WriteMarshal(1, &wc)
+		if err != nil {
+			return nil, errors.Wrapf(err, "error marshalling confirmation")
+		}
+
+		return nil, errors.Wrapf(ErrTooManyServices, "account: %s", vt.Account().SpecString())
+	}
 
 	for _, serv := range preamble.Services {
 		err = h.cc.AddService(ctx, &pb.ServiceRequest{
@@ -389,7 +440,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 
 	defer fw.Recycle()
 
-	ai, err := h.handshake(ctx, fr, fw)
+	ai, err := h.handshake(ctx, conn, fr, fw)
 	if err != nil {
 		h.L.Error("error in agent handshake", "error", err)
 		return
