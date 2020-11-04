@@ -45,6 +45,7 @@ message FlowRecord {
     ULID hub_id = 1;
     int64 active_agents = 2;
     int64 total_agents = 3;
+    int64 services = 4;
   }
 
   HubStats hub_stats = 3;

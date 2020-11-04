@@ -357,6 +357,13 @@ func (c *Client) RunIngress(ctx context.Context, li net.Listener, npn map[string
 	return hs.ServeTLS(li, "", "")
 }
 
+func (c *Client) NumLocalServices() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return len(c.localServices)
+}
+
 func (c *Client) AddService(ctx context.Context, serv *pb.ServiceRequest) error {
 	serv.Hub = c.instanceId
 	_, err := c.client.AddService(ctx, serv)

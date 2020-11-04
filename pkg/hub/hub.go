@@ -155,6 +155,7 @@ func (hub *Hub) sendStats(ctx context.Context) {
 					HubId:        hub.cc.StableId(),
 					ActiveAgents: active,
 					TotalAgents:  atomic.LoadInt64(hub.totalAgents),
+					Services:     int64(hub.cc.NumLocalServices()),
 				},
 			})
 
