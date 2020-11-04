@@ -29,7 +29,7 @@ var (
 	ErrTooManyServices = errors.New("too many services per account")
 )
 
-const ServicesPerAccount = 10
+const ServicesPerAccount = 100
 
 type agentConnection struct {
 	useLZ4  bool
