@@ -352,7 +352,7 @@ func (h *Hub) handshake(ctx context.Context, conn net.Conn, fr *wire.FramingRead
 		h.L.Debug("removing services", "agent", id, "count", len(preamble.Services))
 
 		for _, serv := range preamble.Services {
-			h.L.Debug("adding service",
+			h.L.Debug("removing service",
 				"agent", id,
 				"hub", h.id,
 				"service", serv.ServiceId,
