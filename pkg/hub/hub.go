@@ -222,11 +222,11 @@ func (ai *agentConn) cleanup() {
 	}
 }
 
-func (h *Hub) checkTooManyServices(vt *token.ValidToken, services int) bool {
+func (h *Hub) checkTooManyServices(account *pb.Account, services int) bool {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	key := vt.Account().SpecString()
+	key := account.SpecString()
 
 	if val, ok := h.servicesPerAccount.Get(key); ok {
 		current := val.(int)
@@ -241,6 +241,24 @@ func (h *Hub) checkTooManyServices(vt *token.ValidToken, services int) bool {
 	h.servicesPerAccount.Add(key, services)
 
 	return true
+}
+
+func (h *Hub) removeAccountServices(account *pb.Account, services int) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	key := account.SpecString()
+
+	val, ok := h.servicesPerAccount.Get(key)
+	if !ok {
+		return
+	}
+
+	current := val.(int)
+
+	current -= services
+
+	h.servicesPerAccount.Add(key, current)
 }
 
 func (h *Hub) handshake(ctx context.Context, conn net.Conn, fr *wire.FramingReader, fw *wire.FramingWriter) (*agentConn, error) {
@@ -301,7 +319,7 @@ func (h *Hub) handshake(ctx context.Context, conn net.Conn, fr *wire.FramingRead
 
 	id := pb.NewULID()
 
-	if !h.checkTooManyServices(vt, len(preamble.Services)) {
+	if !h.checkTooManyServices(vt.Account(), len(preamble.Services)) {
 		h.L.Warn("rejected agent due to too many services per account",
 			"account", vt.Account().SpecString(),
 			"requested-services", len(preamble.Services),
@@ -349,6 +367,8 @@ func (h *Hub) handshake(ctx context.Context, conn net.Conn, fr *wire.FramingRead
 	}
 
 	cleanup := func() {
+		defer h.removeAccountServices(vt.Account(), len(preamble.Services))
+
 		h.L.Debug("removing services", "agent", id, "count", len(preamble.Services))
 
 		for _, serv := range preamble.Services {
