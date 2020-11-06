@@ -1,6 +1,6 @@
 # syntax = hashicorp.jfrog.io/docker/docker/dockerfile:experimental
 
-FROM hashicorp.jfrog.io/docker/golang:1.14-alpine AS builder
+FROM hashicorp.jfrog.io/docker/golang:1.15-alpine AS builder
 
 RUN apk add --no-cache git gcc libc-dev
 

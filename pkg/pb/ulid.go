@@ -1,23 +1,13 @@
 package pb
 
 import (
-	"io"
-	"os"
+	"crypto/rand"
 	"time"
 
 	"github.com/oklog/ulid"
 )
 
-var mrand io.Reader
-
-func init() {
-	f, err := os.Open("/dev/urandom")
-	if err != nil {
-		panic(err)
-	}
-
-	mrand = ulid.Monotonic(f, 1)
-}
+var mrand = rand.Reader
 
 func NewULID() *ULID {
 	id := ulid.MustNew(ulid.Now(), mrand)
