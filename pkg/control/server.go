@@ -1,13 +1,15 @@
 package control
 
 import (
-	context "context"
+	"bytes"
+	"context"
 	"crypto/ed25519"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	fmt "fmt"
-	io "io"
+	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -85,6 +87,8 @@ type Server struct {
 
 	mux   *http.ServeMux
 	asnDB *geoip2.Reader
+
+	hubImageTag string
 }
 
 type ServerConfig struct {
@@ -163,6 +167,26 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 
+	var (
+		hubImageTag  string
+		hubImageFile string
+	)
+
+	if cfg.HubImageTag != "" && cfg.HubImageTag[0] == '@' {
+		L.Info("fetected hub image tag is a file, monitoring it for changes")
+
+		hubImageFile = cfg.HubImageTag[1:]
+
+		data, err := ioutil.ReadFile(hubImageFile)
+		if err != nil {
+			return nil, err
+		}
+
+		hubImageTag = string(bytes.TrimSpace(data))
+	} else {
+		hubImageTag = cfg.HubImageTag
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &Server{
@@ -184,6 +208,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		msink:         msink,
 		flowTop:       flowTop,
 		mux:           http.NewServeMux(),
+		hubImageTag:   hubImageTag,
 	}
 
 	L.Debug("setting up routes")
@@ -215,7 +240,35 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 
 	s.L.Info("vault configured for token signing", "pubkey", hex.EncodeToString(pub))
 
+	if hubImageFile != "" {
+		go s.monitorImageFile(hubImageFile)
+	}
+
 	return s, nil
+}
+
+func (s *Server) monitorImageFile(path string) {
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-s.bg.Done():
+			return
+		case <-t.C:
+			data, err := ioutil.ReadFile(path)
+			if err != nil {
+				s.L.Error("error reading hub image file: %s", err)
+				continue
+			}
+
+			tag := string(bytes.TrimSpace(data))
+
+			if s.hubImageTag != tag {
+				s.hubImageTag = tag
+			}
+		}
+	}
 }
 
 func (s *Server) TokenPub() ed25519.PublicKey {
@@ -528,7 +581,7 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 		S3AccessKey: s.cfg.HubAccessKey,
 		S3SecretKey: s.cfg.HubSecretKey,
 		S3Bucket:    s.cfg.Bucket,
-		ImageTag:    s.cfg.HubImageTag,
+		ImageTag:    s.hubImageTag,
 	}
 
 	return resp, nil
