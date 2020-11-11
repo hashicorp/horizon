@@ -173,7 +173,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	)
 
 	if cfg.HubImageTag != "" && cfg.HubImageTag[0] == '@' {
-		L.Info("fetected hub image tag is a file, monitoring it for changes")
+		L.Info("detected hub image tag is a file, monitoring it for changes")
 
 		hubImageFile = cfg.HubImageTag[1:]
 
