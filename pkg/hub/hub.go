@@ -112,6 +112,7 @@ func (h *Hub) Serve(ctx context.Context, l net.Listener) error {
 	}
 }
 
+// Run blocks, handling requests until the context is canceled.
 func (hub *Hub) Run(ctx context.Context, li net.Listener) error {
 	npn := map[string]control.NPNHandler{
 		"hzn": hub.handleHZN,
