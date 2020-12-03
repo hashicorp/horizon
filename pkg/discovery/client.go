@@ -115,7 +115,11 @@ func (c *Client) Refresh(ctx context.Context) error {
 
 	c.results = ch
 
-	go c.backgroundRefresh(ctx)
+	// TODO(evanphx) There is a bug caused by setting latest to nil and THEN
+	// populating the search results. Because the search is just reordered
+	// the servers based on latency, just skip it for now and use our initial
+	// results.
+	// go c.backgroundRefresh(ctx)
 
 	return nil
 }
