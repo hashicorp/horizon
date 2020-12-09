@@ -78,3 +78,22 @@ func TrustedTLSConfig(cert []byte) (*tls.Config, error) {
 
 	return &tlscfg, nil
 }
+
+func ParseCertificate(cert []byte) (*x509.Certificate, error) {
+	parsed, err := x509.ParseCertificate(cert)
+	if err == nil {
+		return parsed, nil
+	}
+
+	// try to parse as PEM
+	blk, _ := pem.Decode(cert)
+	if blk == nil {
+		return nil, err
+	}
+
+	if blk.Type != "CERTIFICATE" {
+		return nil, err
+	}
+
+	return x509.ParseCertificate(blk.Bytes)
+}

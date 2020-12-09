@@ -19,6 +19,7 @@ import (
 	"github.com/armon/go-metrics/datadog"
 	"github.com/armon/go-metrics/prometheus"
 	"github.com/aws/aws-sdk-go/aws/session"
+	consul "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
 	"github.com/hashicorp/horizon/internal/sqljson"
@@ -89,6 +90,8 @@ type Server struct {
 	asnDB *geoip2.Reader
 
 	hubImageTag string
+
+	hba *HubBroadcastActivity
 }
 
 type ServerConfig struct {
@@ -119,6 +122,12 @@ type ServerConfig struct {
 	DisablePrometheus bool
 
 	LockManager LockManager
+
+	ConsulConfig *consul.Config
+
+	HubCert   []byte
+	HubKey    []byte
+	HubDomain string
 }
 
 func NewServer(cfg ServerConfig) (*Server, error) {
@@ -187,6 +196,32 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		hubImageTag = cfg.HubImageTag
 	}
 
+	L.Debug("setting up vault access")
+	pub, err := token.SetupVault(cfg.VaultClient, cfg.VaultPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Setup a token that will be used to connect to hubs
+	var tc token.TokenCreator
+	tc.Role = pb.CONTROL
+
+	dialToken, err := tc.EncodeED25519WithVault(cfg.VaultClient, cfg.VaultPath, cfg.KeyId)
+	if err != nil {
+		return nil, err
+	}
+
+	ccfg := cfg.ConsulConfig
+
+	if ccfg == nil {
+		ccfg = consul.DefaultConfig()
+	}
+
+	hba, err := NewHubBroadcastActivity(L, dialToken, ccfg, cfg.HubCert)
+	if err != nil {
+		return nil, err
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	s := &Server{
@@ -209,6 +244,11 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		flowTop:       flowTop,
 		mux:           http.NewServeMux(),
 		hubImageTag:   hubImageTag,
+		hba:           hba,
+
+		hubCert:   cfg.HubCert,
+		hubKey:    cfg.HubKey,
+		hubDomain: cfg.HubDomain,
 	}
 
 	L.Debug("setting up routes")
@@ -230,12 +270,6 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		s.lockMgr = &inmemLockMgr{}
 	}
 
-	L.Debug("setting up vault access")
-	pub, err := token.SetupVault(s.vaultClient, s.vaultPath)
-	if err != nil {
-		return nil, err
-	}
-
 	s.pubKey = pub
 
 	s.L.Info("vault configured for token signing", "pubkey", hex.EncodeToString(pub))
@@ -243,6 +277,8 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 	if hubImageFile != "" {
 		go s.monitorImageFile(hubImageFile)
 	}
+
+	go hba.Watch(ctx)
 
 	return s, nil
 }
@@ -367,21 +403,27 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 		return nil, err
 	}
 
-	s.broadcastActivity(ctx, &pb.CentralActivity{
-		AccountServices: []*pb.AccountServices{
-			{
-				Account: service.Account,
-				Services: []*pb.ServiceRoute{
-					{
-						Hub:    service.Hub,
-						Id:     service.Id,
-						Type:   service.Type,
-						Labels: service.Labels,
-					},
+	if s.hba != nil {
+		s.L.Info("broadcasting service info to hubs", "service", service.Id.SpecString())
+
+		err = s.hba.AdvertiseServices(ctx, &pb.AccountServices{
+			Account: service.Account,
+			Services: []*pb.ServiceRoute{
+				{
+					Hub:    service.Hub,
+					Id:     service.Id,
+					Type:   service.Type,
+					Labels: service.Labels,
 				},
 			},
-		},
-	})
+		})
+		if err != nil {
+			s.L.Error("error broadcast changes to hubs", "error", err)
+		}
+
+	} else {
+		s.L.Info("no hub advertising available")
+	}
 
 	err = s.updateAccountRouting(ctx, s.db.DB(), service.Account, "add-service")
 	if err != nil {
@@ -944,6 +986,13 @@ func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.Con
 	}
 
 	return &pb.ControlToken{Token: token}, nil
+}
+
+func (s *Server) LocalIssueHubToken() (string, error) {
+	var tc token.TokenCreator
+	tc.Role = pb.HUB
+
+	return tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
 }
 
 func (s *Server) IssueHubToken(ctx context.Context, _ *pb.Noop) (*pb.CreateTokenResponse, error) {
