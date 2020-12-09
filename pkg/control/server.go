@@ -22,6 +22,7 @@ import (
 	consul "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-multierror"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/horizon/internal/sqljson"
 	"github.com/hashicorp/horizon/pkg/dbx"
 	_ "github.com/hashicorp/horizon/pkg/grpc/lz4"
@@ -79,7 +80,7 @@ type Server struct {
 	hubDomain string
 
 	mu            sync.RWMutex
-	connectedHubs map[string]*connectedHub
+	connectedHubs *lru.ARCCache
 
 	m *metrics.Metrics
 
@@ -225,6 +226,8 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	hubsCache, _ := lru.NewARC(100)
+
 	s := &Server{
 		bg:            ctx,
 		cancel:        cancel,
@@ -239,7 +242,7 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		awsSess:       cfg.AwsSession,
 		bucket:        cfg.Bucket,
 
-		connectedHubs: make(map[string]*connectedHub),
+		connectedHubs: hubsCache,
 		m:             me,
 		msink:         msink,
 		flowTop:       flowTop,
@@ -745,15 +748,21 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	var agents, services float32
+	/*
 
-	for _, h := range s.connectedHubs {
-		agents += float32(atomic.LoadInt64(h.activeAgents))
-		services += float32(atomic.LoadInt64(h.services))
-	}
+		TODO(evanphx) restore these metrics as ones derived from talking to live hubs
 
-	s.m.SetGauge([]string{"hubs", "agents", "active"}, agents)
-	s.m.SetGauge([]string{"hubs", "services"}, services)
+		var agents, services float32
+
+		for _, h := range s.connectedHubs {
+			agents += float32(atomic.LoadInt64(h.activeAgents))
+			services += float32(atomic.LoadInt64(h.services))
+		}
+
+		s.m.SetGauge([]string{"hubs", "agents", "active"}, agents)
+		s.m.SetGauge([]string{"hubs", "services"}, services)
+
+	*/
 }
 
 func (s *Server) trackHub(id *pb.ULID) (*connectedHub, error) {
@@ -762,12 +771,12 @@ func (s *Server) trackHub(id *pb.ULID) (*connectedHub, error) {
 
 	key := id.SpecString()
 
-	ch, ok := s.connectedHubs[key]
+	ch, ok := s.connectedHubs.Get(key)
 	if ok {
-		return ch, nil
+		return ch.(*connectedHub), nil
 	}
 
-	ch = &connectedHub{
+	rec := &connectedHub{
 		messages: new(int64),
 		bytes:    new(int64),
 
@@ -775,9 +784,9 @@ func (s *Server) trackHub(id *pb.ULID) (*connectedHub, error) {
 		services:     new(int64),
 	}
 
-	s.connectedHubs[key] = ch
+	s.connectedHubs.Add(key, rec)
 
-	return ch, nil
+	return rec, nil
 }
 
 type ManagementClient struct {
