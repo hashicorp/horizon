@@ -42,6 +42,9 @@ enum TokenRole {
   AGENT = 0;
   HUB = 1;
   MANAGE = 2;
+
+  // Used for tokens that can connect from control to a hub
+  CONTROL = 3;
 }
 
 message Token {

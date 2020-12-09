@@ -81,6 +81,11 @@ message CentralActivity {
   HubChange hub_change = 4;
 }
 
+service HubServices {
+  rpc AddServices(AccountServices) returns (Noop) {}
+  rpc AddLabeLink(LabelLinks) returns (Noop) {}
+}
+
 message HubActivity {
   message HubRegistration {
     ULID hub = 1;
