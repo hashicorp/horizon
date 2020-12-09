@@ -329,11 +329,6 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	// Setup cleanup activities
-	lc := &control.LogCleaner{DB: config.DB()}
-	workq.RegisterHandler("cleanup-activity-log", lc.CleanupActivityLog)
-	workq.RegisterPeriodicJob("cleanup-activity-log", "default", "cleanup-activity-log", nil, time.Hour)
-
 	hubDomain := domain
 	if strings.HasPrefix(hubDomain, "*.") {
 		hubDomain = hubDomain[2:]

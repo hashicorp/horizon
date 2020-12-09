@@ -46,11 +46,6 @@ message AccountServices {
   repeated ServiceRoute services = 2;
 }
 
-message ActivityEntry {
-  AccountServices route_added = 1;
-  ULID route_removed = 2;
-}
-
 message ConfigRequest {
   ULID stable_id = 1;
   ULID instance_id = 2;
