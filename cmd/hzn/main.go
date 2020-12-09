@@ -23,6 +23,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
+	consul "github.com/hashicorp/consul/api"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/horizon/pkg/config"
 	"github.com/hashicorp/horizon/pkg/control"
@@ -485,13 +486,54 @@ func (h *hubRunner) Run(args []string) int {
 
 	deployment := os.Getenv("K8_DEPLOYMENT")
 
+	// We want to have the control client filter use ConsulHealth,
+	// so we establish that here for use as a filter.
+
+	ccfg := consul.DefaultConfigWithLogger(L)
+
+	// Check that consul is available first.
+
+	cc, err := consul.NewClient(ccfg)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var ch *hub.ConsulHealth
+
+	instanceId := pb.NewULID()
+
+	var filter func(serv *pb.ServiceRoute) bool
+
+	status := cc.Status()
+	leader, err := status.Leader()
+	if err == nil {
+		L.Info("consul running, leader detected", "leader", leader)
+		L.Info("starting consul health monitoring")
+
+		ch, err = hub.NewConsulHealth(instanceId.SpecString(), ccfg)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		filter = func(serv *pb.ServiceRoute) bool {
+			return ch.Available(serv.Hub.SpecString())
+		}
+	} else {
+		L.Warn("consul not available, no consul health monitoring done")
+		filter = func(serv *pb.ServiceRoute) bool {
+			return true
+		}
+	}
+
 	client, err := control.NewClient(ctx, control.ClientConfig{
 		Id:           id,
+		InstanceId:   instanceId,
 		Token:        token,
 		Version:      "test",
 		Addr:         addr,
 		WorkDir:      tmpdir,
 		K8Deployment: deployment,
+		FilterRoute:  filter,
 	})
 
 	if deployment != "" {
@@ -566,6 +608,14 @@ func (h *hubRunner) Run(args []string) int {
 	}
 
 	go StartHealthz(L)
+
+	if ch != nil {
+		L.Info("starting ConsulHeath, monitoring other hubs and advertising self status")
+		err = ch.Start(ctx, L)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
 
 	err = hb.Run(ctx, ln)
 	if err != nil {

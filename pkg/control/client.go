@@ -106,22 +106,25 @@ type hubLiveness struct {
 }
 
 type ClientConfig struct {
-	Logger   hclog.Logger
-	Id       *pb.ULID
-	Client   pb.ControlServicesClient
-	Token    string
-	Addr     string
-	Version  string
-	S3Bucket string
-	Session  *session.Session
-	WorkDir  string
-	Insecure bool
+	Logger     hclog.Logger
+	InstanceId *pb.ULID
+	Id         *pb.ULID
+	Client     pb.ControlServicesClient
+	Token      string
+	Addr       string
+	Version    string
+	S3Bucket   string
+	Session    *session.Session
+	WorkDir    string
+	Insecure   bool
 
 	// The kubernetes deployment name used for the service using this client
 	K8Deployment string
 
 	// Where hub integrates it's handler for the hzn protocol
 	NextProto map[string]func(hs *http.Server, tlsConn *tls.Conn, h http.Handler)
+
+	FilterRoute func(*pb.ServiceRoute) bool
 }
 
 func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
@@ -160,17 +163,22 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		gClient = pb.NewControlServicesClient(gcc)
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-
 	liveHubs, err := lru.NewARC(1000)
 	if err != nil {
 		return nil, err
 	}
 
+	ctx, cancel := context.WithCancel(ctx)
+
+	instanceId := cfg.InstanceId
+	if instanceId == nil {
+		instanceId = pb.NewULID()
+	}
+
 	client := &Client{
 		L:               cfg.Logger,
 		cfg:             cfg,
-		instanceId:      pb.NewULID(),
+		instanceId:      instanceId,
 		client:          gClient,
 		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
@@ -524,6 +532,14 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 			continue
 		}
 
+		// If the user has requested the ability to filter the services also then give
+		// them the chance here.
+		if c.cfg.FilterRoute != nil {
+			if !c.cfg.FilterRoute(service) {
+				continue
+			}
+		}
+
 		if labels.Matches(service.Labels) {
 			out = append(out, service)
 			maintainBest(service)
@@ -540,6 +556,14 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 			// If this is for a hub we know is not alive, skip it.
 			if val, ok := c.liveHubs.Get(service.Hub.SpecString()); ok && !val.(*hubLiveness).alive {
 				continue
+			}
+
+			// If the user has requested the ability to filter the services also then give
+			// them the chance here.
+			if c.cfg.FilterRoute != nil {
+				if !c.cfg.FilterRoute(service) {
+					continue
+				}
 			}
 
 			if labels.Matches(service.Labels) {
