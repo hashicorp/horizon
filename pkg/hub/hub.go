@@ -161,7 +161,7 @@ func (hub *Hub) sendStats(ctx context.Context) {
 			return
 		case <-ticker.C:
 			active := atomic.LoadInt64(hub.activeAgents)
-			hub.cc.SendFlow(&pb.FlowRecord{
+			hub.cc.SendFlow(ctx, &pb.FlowRecord{
 				HubStats: &pb.FlowRecord_HubStats{
 					HubId:        hub.cc.StableId(),
 					ActiveAgents: active,
@@ -506,10 +506,10 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		}
 	}
 
-	h.sendAgentInfoFlow(ai)
+	h.sendAgentInfoFlow(ctx, ai)
 	defer func() {
 		ai.End = pb.NewTimestamp(time.Now())
-		h.sendAgentInfoFlow(ai)
+		h.sendAgentInfoFlow(context.Background(), ai)
 	}()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -543,7 +543,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 				)
 
 			case <-agentHB.C:
-				h.sendAgentInfoFlow(ai)
+				h.sendAgentInfoFlow(ctx, ai)
 			}
 		}
 	}()
@@ -565,7 +565,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		atomic.AddInt64(ai.ActiveStreams, 1)
 		atomic.AddInt64(ai.TotalStreams, 1)
 
-		h.sendAgentInfoFlow(ai)
+		h.sendAgentInfoFlow(ctx, ai)
 
 		h.L.Trace("stream accepted", "agent", ai.ID, "account", ai.Account, "id", stream.StreamID(), "lz4", ai.useLZ4)
 

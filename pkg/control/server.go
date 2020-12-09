@@ -36,7 +36,8 @@ import (
 )
 
 type connectedHub struct {
-	xmit     chan *pb.CentralActivity
+	mu sync.Mutex
+
 	messages *int64
 	bytes    *int64
 
@@ -577,13 +578,6 @@ func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.Co
 	} else {
 		prev := pb.ULIDFromBytes(hr.InstanceID)
 
-		s.broadcastActivity(ctx, &pb.CentralActivity{
-			HubChange: &pb.HubChange{
-				OldId: prev,
-				NewId: req.InstanceId,
-			},
-		})
-
 		if !req.InstanceId.Equal(prev) {
 			L.Info("removing previous hub services", "stable", req.StableId, "prev", prev, "new", req.InstanceId, "elapse", time.Since(ts))
 
@@ -654,6 +648,20 @@ func (s *Server) HubDisconnect(ctx context.Context, req *pb.HubDisconnectRequest
 	s.L.Info("hub cleaned up", "possible-error", err)
 
 	return &pb.Noop{}, err
+}
+
+func (s *Server) ProcessHubStats(ctx context.Context, hs *pb.HubStatsRequest) (*pb.Noop, error) {
+	ch, err := s.trackHub(hs.Hub)
+	if err != nil {
+		return nil, err
+	}
+
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+
+	s.processFlows(ch, hs.Flows)
+
+	return &pb.Noop{}, nil
 }
 
 func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
@@ -748,30 +756,18 @@ func (s *Server) processFlows(ch *connectedHub, flows []*pb.FlowRecord) {
 	s.m.SetGauge([]string{"hubs", "services"}, services)
 }
 
-func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) error {
-	ctx := stream.Context()
-	_, err := s.checkFromHub(ctx, "stream-activity")
-	if err != nil {
-		return err
+func (s *Server) trackHub(id *pb.ULID) (*connectedHub, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	key := id.SpecString()
+
+	ch, ok := s.connectedHubs[key]
+	if ok {
+		return ch, nil
 	}
 
-	msg, err := stream.Recv()
-	if err != nil {
-		s.L.Debug("acvitity stream request error on early read", "err", err)
-		return err
-	}
-
-	if msg.HubReg == nil {
-		s.L.Debug("acvitity stream request did not contain a hub reg record")
-		return nil
-	}
-
-	key := msg.HubReg.Hub.SpecString()
-
-	s.L.Info("streaming activity to and from hub", "hub", key)
-
-	ch := &connectedHub{
-		xmit:     make(chan *pb.CentralActivity),
+	ch = &connectedHub{
 		messages: new(int64),
 		bytes:    new(int64),
 
@@ -779,126 +775,9 @@ func (s *Server) StreamActivity(stream pb.ControlServices_StreamActivityServer) 
 		services:     new(int64),
 	}
 
-	s.mu.Lock()
 	s.connectedHubs[key] = ch
-	s.mu.Unlock()
 
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	go func() {
-		for {
-			msg, err := stream.Recv()
-			if err != nil {
-				return
-			}
-
-			s.processFlows(ch, msg.Flow)
-		}
-	}()
-
-	defer func() {
-		s.L.Debug("hub disconnecting", "hub", key)
-
-		s.mu.Lock()
-		delete(s.connectedHubs, key)
-		s.mu.Unlock()
-
-		// drain the xmit channel in the case that the sender saw
-		// us around but we're now exiting.
-	drain:
-		for {
-			select {
-			case <-ch.xmit:
-				// draining
-			default:
-				// not blocking
-				break drain
-			}
-		}
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case act, ok := <-ch.xmit:
-			if !ok {
-				return nil
-			}
-
-			s.L.Debug("sending data to hub", "hub", key, "activity", act.String())
-
-			err = stream.Send(act)
-			if err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (s *Server) StartActivityReader(ctx context.Context, dbtype, conn string) error {
-	ar, err := NewActivityReader(ctx, dbtype, conn)
-	if err != nil {
-		return err
-	}
-
-	go func() {
-		L := s.L
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case ev, ok := <-ar.C:
-				if !ok {
-					return
-				}
-
-				L.Info("detected activity")
-
-				var adds []*pb.AccountServices
-
-				for _, act := range ev {
-					var ae pb.ActivityEntry
-
-					err := json.Unmarshal(act.Event, &ae)
-					if err != nil {
-						L.Error("error unmarshaling activity log entry", "error", err)
-						continue
-					}
-
-					adds = append(adds, ae.RouteAdded)
-				}
-
-				s.broadcastActivity(ctx, &pb.CentralActivity{
-					AccountServices: adds,
-				})
-			}
-		}
-	}()
-
-	return nil
-}
-
-func (s *Server) broadcastActivity(ctx context.Context, act *pb.CentralActivity) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	s.L.Debug("broadcasting activity to hubs", "hubs", len(s.connectedHubs))
-
-	for key, hub := range s.connectedHubs {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case hub.xmit <- act:
-			// ok
-		case <-time.After(5 * time.Second):
-			s.L.Debug("time out sending activity to hub channel", "hub", key)
-		}
-	}
-
-	return nil
+	return ch, nil
 }
 
 type ManagementClient struct {
@@ -1174,9 +1053,7 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 	}}
 
 	L.Trace("broadcasting new label-link activity")
-	s.broadcastActivity(ctx, &pb.CentralActivity{
-		NewLabelLinks: &out,
-	})
+	// TODO(evanphx) send out via hba
 
 	err = s.updateLabelLinks(ctx)
 	if err != nil {

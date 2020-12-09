@@ -834,7 +834,7 @@ func TestClient(t *testing.T) {
 		serviceId := pb.NewULID()
 		flowId := pb.NewULID()
 
-		client.SendFlow(&pb.FlowRecord{
+		client.SendFlow(ctx, &pb.FlowRecord{
 			Stream: &pb.FlowStream{
 				FlowId:      flowId,
 				StartedAt:   pb.NewTimestamp(time.Now()),
@@ -871,7 +871,7 @@ func TestClient(t *testing.T) {
 
 		assert.Equal(t, int64(113332), int64(sample.Sum))
 
-		client.SendFlow(&pb.FlowRecord{
+		client.SendFlow(ctx, &pb.FlowRecord{
 			Stream: &pb.FlowStream{
 				FlowId:      flowId,
 				StartedAt:   pb.NewTimestamp(time.Now()),
@@ -1123,13 +1123,5 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, hr2.InstanceID, client.Id().Bytes())
-
-		lv, ok := c2.liveHubs.Get(prev.SpecString())
-		require.True(t, ok)
-		assert.False(t, lv.(*hubLiveness).alive)
-
-		lv, ok = c2.liveHubs.Get(client.Id().SpecString())
-		require.True(t, ok)
-		assert.True(t, lv.(*hubLiveness).alive)
 	})
 }

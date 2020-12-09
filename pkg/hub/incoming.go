@@ -30,7 +30,7 @@ func (h *Hub) handleAgentStream(ctx context.Context, ai *agentConn, stream *yamu
 	defer stream.Close()
 	defer func() {
 		atomic.AddInt64(ai.ActiveStreams, -1)
-		h.sendAgentInfoFlow(ai)
+		h.sendAgentInfoFlow(context.Background(), ai)
 	}()
 
 	L := h.L
@@ -440,7 +440,7 @@ func (h *Hub) copyBetweenContexts(ctx context.Context, wctx, dsctx wire.Context,
 
 			fs.Duration = int64(time.Since(start))
 
-			h.cc.SendFlow(&pb.FlowRecord{Stream: fs})
+			h.cc.SendFlow(ctx, &pb.FlowRecord{Stream: fs})
 
 			if exit {
 				return
