@@ -147,18 +147,21 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		},
 	}
 
+	hdr := w.Header()
+	hdr.Add("X-Horizon-Endpoint", f.endpointId)
+
 	account, target, limits, err := f.client.ResolveLabelLink(ll)
 	if err != nil || target == nil {
 		if deploySpecific {
 			f.L.Error("unable to resolve label link", "error", err, "http-host", req.Host, "lookup-host", host, "deploy-id", deployId)
 			renderError(w, fmt.Sprintf(
 				"no registered application for host: %s (deploy-id: %s)", host, deployId),
-				http.StatusInternalServerError)
+				http.StatusNotFound)
 		} else {
 			f.L.Error("unable to resolve label link", "error", err, "hostname", req.Host)
 			renderError(w, fmt.Sprintf(
 				"no registered application for host: %s", req.Host),
-				http.StatusInternalServerError)
+				http.StatusNotFound)
 		}
 
 		return
@@ -264,7 +267,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		f.L.Error("error resolving labels to services", "error", err, "labels", target)
 		renderError(w,
-			err.Error(),
+			"service lookup failed: "+err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
@@ -337,7 +340,7 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		f.L.Error("error connecting to service", "error", err, "labels", target)
 		renderError(w,
-			err.Error(),
+			"error connecting to service: "+err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
@@ -355,12 +358,10 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	tag, err := wctx.ReadMarshal(&wresp)
 	if err != nil || tag != 1 {
 		renderError(w,
-			err.Error(),
+			"error reading response: "+err.Error(),
 			http.StatusInternalServerError)
 		return
 	}
-
-	hdr := w.Header()
 
 	for _, h := range wresp.Headers {
 		for _, v := range h.Value {
@@ -377,7 +378,6 @@ func (f *Frontend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		})
 	}
 
-	hdr.Add("X-Horizon-Endpoint", f.endpointId)
 	hdr.Add("X-Horizon-Latency", time.Since(start).String())
 	hdr.Add(servertiming.HeaderKey, th.String())
 
