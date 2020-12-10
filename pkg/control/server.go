@@ -1061,8 +1061,13 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 		Limits:  &pblimit,
 	}}
 
-	L.Trace("broadcasting new label-link activity")
-	// TODO(evanphx) send out via hba
+	if s.hba != nil {
+		L.Trace("broadcasting new label-link activity")
+		err = s.hba.AdvertiseLabelLinks(ctx, &out)
+		if err != nil {
+			L.Error("error broadcasting new label links", "error", err)
+		}
+	}
 
 	err = s.updateLabelLinks(ctx)
 	if err != nil {

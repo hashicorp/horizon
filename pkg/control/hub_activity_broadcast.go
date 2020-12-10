@@ -51,3 +51,9 @@ func (h *HubBroadcastActivity) Watch(ctx context.Context) {
 func (h *HubBroadcastActivity) AdvertiseServices(ctx context.Context, acc *pb.AccountServices) error {
 	return h.br.AdvertiseServices(ctx, acc)
 }
+
+// AdvertiseLabelLinks sends the given LabelLinks to all registered
+// hubs in consul.
+func (h *HubBroadcastActivity) AdvertiseLabelLinks(ctx context.Context, ll *pb.LabelLinks) error {
+	return h.br.AdvertiseLabelLinks(ctx, ll)
+}

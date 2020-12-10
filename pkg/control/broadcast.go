@@ -75,6 +75,33 @@ func (b *Broadcaster) AdvertiseServices(ctx context.Context, as *pb.AccountServi
 	return topError
 }
 
+// AdvertiseLabelLink gets a list of targets from the catalog and calls AddLabelLink
+// on the clients generated from the connect function (which defaults to dialing a grpc
+// connection to the target)
+func (b *Broadcaster) AdvertiseLabelLinks(ctx context.Context, ll *pb.LabelLinks) error {
+	var topError error
+
+	targets := b.catalog.Targets()
+
+	b.L.Info("hub broadcasting beginning", "targets", len(targets))
+
+	for _, tgt := range targets {
+		b.L.Info("broadcasting hub update", "target", tgt)
+		cli, err := b.conn(tgt)
+		if err != nil {
+			topError = multierror.Append(topError, err)
+			continue
+		}
+
+		_, err = cli.AddLabeLink(ctx, ll)
+		if err != nil {
+			topError = multierror.Append(topError, err)
+		}
+	}
+
+	return topError
+}
+
 // GRPCDial provides connection pooling grpc connections to hubs. It is used to
 // avoid spinning up new TCP connections to hubs on every advertise operation.
 type GRPCDial struct {
