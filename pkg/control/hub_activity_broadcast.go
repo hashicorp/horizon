@@ -41,6 +41,13 @@ func NewHubBroadcastActivity(L hclog.Logger, token string, cfg *consul.Config, c
 	return hba, nil
 }
 
+// Given a hub's id as a ULID, detect if that hub is actually available. This is used to prune
+// references to hubs to include those that are available.
+func (h *HubBroadcastActivity) HubAvailable(id *pb.ULID) bool {
+	_, ok := h.cm.Lookup(id.SpecString())
+	return ok
+}
+
 // Watch runs ConsulMonitor.Watch to update the local cache
 func (h *HubBroadcastActivity) Watch(ctx context.Context) {
 	h.cm.Watch(ctx)

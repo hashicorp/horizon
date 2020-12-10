@@ -533,6 +533,10 @@ func (h *Hub) StableIdULID() *pb.ULID {
 	return pb.ULIDFromBytes(h.StableID)
 }
 
+func (h *Hub) InstanceULID() *pb.ULID {
+	return pb.ULIDFromBytes(h.InstanceID)
+}
+
 func (s *Server) FetchConfig(ctx context.Context, req *pb.ConfigRequest) (*pb.ConfigResponse, error) {
 	_, err := s.checkFromHub(ctx, "fetch-config")
 	if err != nil {
