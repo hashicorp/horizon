@@ -11,6 +11,8 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// InboundServer is exposed as a gRPC server to allow alterations to be made to the recent
+// data settings. It is called from the control server running in the central tier.
 type InboundServer struct {
 	Client *control.Client
 }
@@ -41,6 +43,8 @@ func (i *InboundServer) checkValidToken(ctx context.Context) error {
 	return nil
 }
 
+// AddServices adds the given services to the recent services list. It checks that the request comes
+// with a valid token with the role of CONTROL.
 func (i *InboundServer) AddServices(ctx context.Context, services *pb.AccountServices) (*pb.Noop, error) {
 	err := i.checkValidToken(ctx)
 	if err != nil {
@@ -52,6 +56,8 @@ func (i *InboundServer) AddServices(ctx context.Context, services *pb.AccountSer
 	return &pb.Noop{}, err
 }
 
+// AddLabelLink adds the given label links to a recent list. It checks that the request comes
+// with a valid token with the role of CONTROL.
 func (i *InboundServer) AddLabeLink(ctx context.Context, labels *pb.LabelLinks) (*pb.Noop, error) {
 	err := i.checkValidToken(ctx)
 	if err != nil {

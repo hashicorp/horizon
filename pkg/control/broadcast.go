@@ -16,16 +16,24 @@ import (
 	gcreds "google.golang.org/grpc/credentials"
 )
 
+// HubCatalog is a simple interface to decouple the gather and management of hub addresses from
+// the code that broadcasts to them. This is implemented by ConsulMonitor and used
+// primarily in production.
 type HubCatalog interface {
 	Targets() []string
 }
 
+// Broadcaster is a simple fan out value. The commands sent to it via funciton calls are
+// fanned out to all targets in the given HubCatalog.
 type Broadcaster struct {
 	L       hclog.Logger
 	catalog HubCatalog
 	conn    func(addr string) (pb.HubServicesClient, error)
 }
 
+// NewBroadcaster creates a new Broadcaster value. The targets to broadcast to come from
+// catalog. conn is how we actually open a connection to the target. This conn decoupling
+// makes this code much easier to test. In production, conn is usually GRPCDial.Dial.
 func NewBroadcaster(
 	L hclog.Logger,
 	catalog HubCatalog,
@@ -52,13 +60,13 @@ func (b *Broadcaster) AdvertiseServices(ctx context.Context, as *pb.AccountServi
 
 	for _, tgt := range targets {
 		b.L.Info("broadcasting hub update", "target", tgt)
-		cli, err := b.conn(tgt)
+		client, err := b.conn(tgt)
 		if err != nil {
 			topError = multierror.Append(topError, err)
 			continue
 		}
 
-		_, err = cli.AddServices(ctx, as)
+		_, err = client.AddServices(ctx, as)
 		if err != nil {
 			topError = multierror.Append(topError, err)
 		}
@@ -67,6 +75,8 @@ func (b *Broadcaster) AdvertiseServices(ctx context.Context, as *pb.AccountServi
 	return topError
 }
 
+// GRPCDial provides connection pooling grpc connections to hubs. It is used to
+// avoid spinning up new TCP connections to hubs on every advertise operation.
 type GRPCDial struct {
 	token string
 	cert  []byte
@@ -77,6 +87,11 @@ type GRPCDial struct {
 	tlscfg tls.Config
 }
 
+// NewGRPCDial creates a new GRPCDial value. The given token is the authentication
+// token that will be included with all calls to the hubs, to identify them as valid.
+// cert is a TLS certification that, if set, will be used as the only cert in the TLS
+// RootCAs. This further restricts the code to calling valid hubs by making sure that
+// the code is only talking to hubs that are using the certs managed by control.
 func NewGRPCDial(token string, cert []byte) (*GRPCDial, error) {
 	g := &GRPCDial{
 		token:     token,
@@ -97,6 +112,9 @@ func NewGRPCDial(token string, cert []byte) (*GRPCDial, error) {
 	return g, nil
 }
 
+// Dial gets a gRPC client for target. It either generates a new gRPC connection
+// to the given target, used as a host:port combo. Or it returns a existing
+// connection.
 func (g *GRPCDial) Dial(target string) (pb.HubServicesClient, error) {
 	g.mu.RLock()
 	cc, ok := g.grpcConns[target]

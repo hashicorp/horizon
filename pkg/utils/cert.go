@@ -79,6 +79,9 @@ func TrustedTLSConfig(cert []byte) (*tls.Config, error) {
 	return &tlscfg, nil
 }
 
+// ParseCertificate tries to parse cert into an x509.Certificate. It tries to
+// parse it as raw DER encoded bytes. Failing that, it attempts to parse it as
+// PEM armored DER bytes.
 func ParseCertificate(cert []byte) (*x509.Certificate, error) {
 	parsed, err := x509.ParseCertificate(cert)
 	if err == nil {
