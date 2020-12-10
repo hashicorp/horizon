@@ -304,6 +304,11 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	hubDomain := domain
+	if strings.HasPrefix(hubDomain, "*.") {
+		hubDomain = hubDomain[2:]
+	}
+
 	s, err := control.NewServer(control.ServerConfig{
 		Logger: L,
 		DB:     db,
@@ -324,17 +329,14 @@ func (c *controlServer) Run(args []string) int {
 		HubSecretKey: hubSecret,
 		HubImageTag:  hubTag,
 		LockManager:  lm,
+
+		HubCert:   cert,
+		HubKey:    key,
+		HubDomain: hubDomain,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	hubDomain := domain
-	if strings.HasPrefix(hubDomain, "*.") {
-		hubDomain = hubDomain[2:]
-	}
-
-	s.SetHubTLS(cert, key, hubDomain)
 
 	// So that when they are refreshed by the background job, we eventually pick
 	// them up. Hubs are also refreshing their config on an hourly basis so they'll
@@ -709,6 +711,16 @@ func (c *devServer) Run(args []string) int {
 
 	ctx := hclog.WithContext(context.Background(), L)
 
+	hubDomain := domain
+	if strings.HasPrefix(hubDomain, "*.") {
+		hubDomain = hubDomain[2:]
+	}
+
+	cert, key, err := utils.SelfSignedCert()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	s, err := control.NewServer(control.ServerConfig{
 		DB: db,
 
@@ -721,22 +733,14 @@ func (c *devServer) Run(args []string) int {
 
 		AwsSession: sess,
 		Bucket:     bucket,
+
+		HubCert:   cert,
+		HubKey:    key,
+		HubDomain: hubDomain,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	hubDomain := domain
-	if strings.HasPrefix(hubDomain, "*.") {
-		hubDomain = hubDomain[2:]
-	}
-
-	cert, key, err := utils.SelfSignedCert()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	s.SetHubTLS(cert, key, hubDomain)
 
 	gs := grpc.NewServer()
 	pb.RegisterControlServicesServer(gs, s)

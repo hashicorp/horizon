@@ -99,16 +99,6 @@ message ListOfHubs {
   repeated HubInfo hubs = 1;
 }
 
-message HubSync {
-  ULID id = 1;
-  ULID stable_id = 2;
-  repeated ServiceRequest services = 3;
-}
-
-message HubSyncResponse {
-  int64 service_count = 1;
-}
-
 message HubRegisterRequest {
   ULID stable_id = 1;
   ULID instance_id = 2;
@@ -153,7 +143,6 @@ service ControlServices {
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
   rpc ListServices(ListServicesRequest) returns (ListServicesResponse) {}
   rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
-  rpc SyncHub(HubSync) returns (HubSyncResponse) {}
   rpc HubDisconnect(HubDisconnectRequest) returns (Noop) {}
   rpc AllHubs(Noop) returns (ListOfHubs) {}
   rpc RequestServiceToken(ServiceTokenRequest) returns (ServiceTokenResponse) {}
