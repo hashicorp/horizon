@@ -206,17 +206,21 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 		err := dbx.Check(s.db.Where("id > ?", lastId).Limit(100).Find(&lls))
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
+				s.L.Info("end of label link loop cursor reached", "last-id", lastId)
 				break
 			}
+			s.L.Error("error returned from label_link cursor", "error", err)
 		}
 
 		if len(lls) == 0 {
+			s.L.Info("label link cursor returned no new values, done", "last-id", lastId)
 			break
 		}
 
 		for _, ll := range lls {
 			account, err := pb.AccountFromKey(ll.AccountID)
 			if err != nil {
+				s.L.Error("error parsing label-link account", "error", err)
 				return err
 			}
 
@@ -224,6 +228,7 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 
 			err = dbx.Check(s.db.First(&acc, ll.AccountID))
 			if err != nil {
+				s.L.Error("error reading label-link account", "error", err, "acconut", string(ll.AccountID))
 				return err
 			}
 
@@ -291,6 +296,8 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 	if !bytes.Equal(sum, outSum) {
 		return fmt.Errorf("corruption detected, wrong etag: %s / %s", hex.EncodeToString(sum), outet)
 	}
+
+	s.L.Info("updated label links", "etag", outet, "size", len(outData), "last-id", lastId)
 
 	return nil
 }
