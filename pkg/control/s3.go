@@ -195,7 +195,7 @@ func (s *Server) updateAccountRouting(ctx context.Context, db *sql.DB, account *
 	return nil
 }
 
-func (s *Server) updateLabelLinks(ctx context.Context, db *gorm.DB) error {
+func (s *Server) updateLabelLinks(ctx context.Context) error {
 	lastId := 0
 
 	lls := make([]*LabelLink, 0, 100)
@@ -203,7 +203,14 @@ func (s *Server) updateLabelLinks(ctx context.Context, db *gorm.DB) error {
 	var out pb.LabelLinks
 
 	for {
-		err := dbx.Check(db.Where("id > ?", lastId).Limit(100).Find(&lls))
+		// Gotta poll the context since database/sql and gorm don't expose a context
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		err := dbx.Check(s.db.Where("id > ?", lastId).Limit(100).Find(&lls))
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
 				break
@@ -222,7 +229,7 @@ func (s *Server) updateLabelLinks(ctx context.Context, db *gorm.DB) error {
 
 			var acc Account
 
-			err = dbx.Check(db.First(&acc, ll.AccountID))
+			err = dbx.Check(s.db.First(&acc, ll.AccountID))
 			if err != nil {
 				return err
 			}
@@ -291,8 +298,6 @@ func (s *Server) updateLabelLinks(ctx context.Context, db *gorm.DB) error {
 	if !bytes.Equal(sum, outSum) {
 		return fmt.Errorf("corruption detected, wrong etag: %s / %s", hex.EncodeToString(sum), outet)
 	}
-
-	s.L.Info("updated label links", "etag", outet, "size", len(outData), "last-id", lastId)
 
 	return nil
 }
