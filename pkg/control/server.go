@@ -1090,10 +1090,7 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 
 	var ao Account
 
-	tx := s.db.BeginTx(ctx, &sql.TxOptions{})
-	defer tx.RollbackUnlessCommitted()
-
-	de := tx.First(&ao, req.Account.Key())
+	de := s.db.First(&ao, req.Account.Key())
 
 	err = dbx.Check(de)
 	if err != nil {
@@ -1108,7 +1105,7 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 	llr.Labels = FlattenLabels(req.Labels)
 	llr.Target = FlattenLabels(req.Target)
 
-	err = dbx.Check(tx.Create(&llr))
+	err = dbx.Check(s.db.Create(&llr))
 	if err != nil {
 		L.Error("error creating label-link record", "error", err)
 		return nil, err
@@ -1132,12 +1129,7 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 		NewLabelLinks: &out,
 	})
 
-	err = s.updateLabelLinks(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = dbx.Check(tx.Commit())
+	err = s.updateLabelLinks(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -1159,10 +1151,7 @@ func (s *Server) RemoveLabelLink(ctx context.Context, req *pb.RemoveLabelLinkReq
 	llr.AccountID = req.Account.Key()
 	llr.Labels = FlattenLabels(req.Labels)
 
-	tx := s.db.BeginTx(ctx, &sql.TxOptions{})
-	defer tx.RollbackUnlessCommitted()
-
-	err = dbx.Check(tx.
+	err = dbx.Check(s.db.
 		Where("account_id = ?", llr.AccountID).
 		Where("labels = ?", FlattenLabels(req.Labels)).
 		Delete(&LabelLink{}),
@@ -1172,12 +1161,7 @@ func (s *Server) RemoveLabelLink(ctx context.Context, req *pb.RemoveLabelLinkReq
 		return nil, err
 	}
 
-	err = s.updateLabelLinks(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = dbx.Check(tx.Commit())
+	err = s.updateLabelLinks(ctx)
 	if err != nil {
 		return nil, err
 	}

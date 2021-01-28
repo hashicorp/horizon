@@ -195,7 +195,7 @@ func (s *Server) updateAccountRouting(ctx context.Context, db *sql.DB, account *
 	return nil
 }
 
-func (s *Server) updateLabelLinks(ctx context.Context, db *gorm.DB) error {
+func (s *Server) updateLabelLinks(ctx context.Context) error {
 	lastId := 0
 
 	lls := make([]*LabelLink, 0, 100)
@@ -203,27 +203,32 @@ func (s *Server) updateLabelLinks(ctx context.Context, db *gorm.DB) error {
 	var out pb.LabelLinks
 
 	for {
-		err := dbx.Check(db.Where("id > ?", lastId).Limit(100).Find(&lls))
+		err := dbx.Check(s.db.Where("id > ?", lastId).Limit(100).Find(&lls))
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
+				s.L.Info("end of label link loop cursor reached", "last-id", lastId)
 				break
 			}
+			s.L.Error("error returned from label_link cursor", "error", err)
 		}
 
 		if len(lls) == 0 {
+			s.L.Info("label link cursor returned no new values, done", "last-id", lastId)
 			break
 		}
 
 		for _, ll := range lls {
 			account, err := pb.AccountFromKey(ll.AccountID)
 			if err != nil {
+				s.L.Error("error parsing label-link account", "error", err)
 				return err
 			}
 
 			var acc Account
 
-			err = dbx.Check(db.First(&acc, ll.AccountID))
+			err = dbx.Check(s.db.First(&acc, ll.AccountID))
 			if err != nil {
+				s.L.Error("error reading label-link account", "error", err, "acconut", string(ll.AccountID))
 				return err
 			}
 
