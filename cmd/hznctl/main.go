@@ -1,9 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"time"
@@ -11,6 +15,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/pb"
+	"github.com/klauspost/compress/zstd"
 	"github.com/mitchellh/cli"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
@@ -45,6 +50,9 @@ func main() {
 		"create-agent-token": func() (cli.Command, error) {
 			return &agentTokenCreate{}, nil
 		},
+		"inspect-label-links": func() (cli.Command, error) {
+			return &inspectLabelLinks{}, nil
+		},
 	}
 
 	exitStatus, err := c.Run()
@@ -53,6 +61,53 @@ func main() {
 	}
 
 	os.Exit(exitStatus)
+}
+
+type inspectLabelLinks struct{}
+
+func (h *inspectLabelLinks) Help() string {
+	return "inspect label links blob"
+}
+
+func (h *inspectLabelLinks) Synopsis() string {
+	return "inspect label links blob"
+}
+
+func (h *inspectLabelLinks) Run(args []string) int {
+	data, err := ioutil.ReadFile(args[0])
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r, err := zstd.NewReader(bytes.NewReader(data))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer r.Close()
+
+	var buf bytes.Buffer
+
+	_, err = io.Copy(&buf, r)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r.Close()
+
+	var ll pb.LabelLinks
+
+	err = ll.Unmarshal(buf.Bytes())
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("  ", "  ")
+
+	enc.Encode(&ll)
+
+	return 0
 }
 
 type hubTokenCreate struct{}
