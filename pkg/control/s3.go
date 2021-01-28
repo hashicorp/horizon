@@ -203,13 +203,6 @@ func (s *Server) updateLabelLinks(ctx context.Context) error {
 	var out pb.LabelLinks
 
 	for {
-		// Gotta poll the context since database/sql and gorm don't expose a context
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-		}
-
 		err := dbx.Check(s.db.Where("id > ?", lastId).Limit(100).Find(&lls))
 		if err != nil {
 			if err == gorm.ErrRecordNotFound {
