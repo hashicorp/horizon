@@ -838,6 +838,7 @@ func TestClient(t *testing.T) {
 		require.NoError(t, err)
 
 		// Check the labe link payload written to s3
+		time.Sleep(2 * time.Second)
 
 		hubtoken, err := s.IssueHubToken(ctx, &pb.Noop{})
 		require.NoError(t, err)
