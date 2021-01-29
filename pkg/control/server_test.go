@@ -590,6 +590,10 @@ func TestServer(t *testing.T) {
 
 		// Check the labe link payload written to s3
 
+		// The update happens in the background, so we need to sleep here
+		// to get the goroutine to do it's job.
+		time.Sleep(2 * time.Second)
+
 		s3api := s3.New(sess)
 
 		resp, err := s3api.GetObject(&s3.GetObjectInput{
@@ -639,6 +643,10 @@ func TestServer(t *testing.T) {
 		err = dbx.Check(db.First(&llr))
 
 		assert.Error(t, err)
+
+		// The update happens in the background, so we need to sleep here
+		// to get the goroutine to do it's job.
+		time.Sleep(2 * time.Second)
 
 		resp, err = s3api.GetObject(&s3.GetObjectInput{
 			Bucket: aws.String(s.bucket),

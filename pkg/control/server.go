@@ -1129,10 +1129,13 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 		NewLabelLinks: &out,
 	})
 
-	err = s.updateLabelLinks(ctx)
-	if err != nil {
-		return nil, err
-	}
+	L.Trace("running s3 update of label links in background")
+	go func() {
+		err := s.updateLabelLinks(s.bg)
+		if err != nil {
+			L.Error("error updating label links in S3", "error", err)
+		}
+	}()
 
 	return &pb.Noop{}, nil
 }
@@ -1161,10 +1164,13 @@ func (s *Server) RemoveLabelLink(ctx context.Context, req *pb.RemoveLabelLinkReq
 		return nil, err
 	}
 
-	err = s.updateLabelLinks(ctx)
-	if err != nil {
-		return nil, err
-	}
+	s.L.Trace("running s3 update of label links in background")
+	go func() {
+		err := s.updateLabelLinks(s.bg)
+		if err != nil {
+			s.L.Error("error updating label links in S3", "error", err)
+		}
+	}()
 
 	return &pb.Noop{}, nil
 }
