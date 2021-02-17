@@ -1,6 +1,6 @@
-# syntax = hashicorp.jfrog.io/docker/docker/dockerfile:experimental
+# syntax = docker.mirror.hashicorp.services/docker/dockerfile:experimental
 
-FROM hashicorp.jfrog.io/docker/golang:1.15-alpine AS builder
+FROM docker.mirror.hashicorp.services/golang:1.15-alpine AS builder
 
 RUN apk add --no-cache git gcc libc-dev
 
@@ -18,7 +18,7 @@ WORKDIR /tmp/hzn-src
 
 RUN --mount=type=cache,target=/root/.cache/go-build go build -o /tmp/hzn -ldflags "-X main.sha1ver=`git rev-parse HEAD` -X main.buildTime=$(date +'+%FT%T.%N%:z')" ./cmd/hzn
 
-FROM hashicorp.jfrog.io/docker/alpine
+FROM docker.mirror.hashicorp.services/alpine
 
 COPY --from=builder /tmp/hzn /usr/bin/hzn
 
