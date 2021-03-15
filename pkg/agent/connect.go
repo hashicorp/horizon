@@ -18,6 +18,8 @@ type Conn struct {
 
 	Stream *yamux.Stream
 	Labels *pb.LabelSet
+
+	cleanup []func() error
 }
 
 type agentConnAddr struct {
@@ -26,7 +28,13 @@ type agentConnAddr struct {
 
 func (c *Conn) Close() error {
 	c.WriteCloser.Close()
-	return c.Stream.Close()
+	err := c.Stream.Close()
+
+	for _, f := range c.cleanup {
+		f()
+	}
+
+	return err
 }
 
 func (a *agentConnAddr) Network() string {
@@ -109,5 +117,10 @@ func (a *Agent) Connect(labels *pb.LabelSet) (net.Conn, error) {
 	r := ctx.Reader()
 	w := ctx.Writer()
 
-	return &Conn{Reader: r, WriteCloser: w, Stream: stream}, nil
+	return &Conn{
+		Reader:      r,
+		WriteCloser: w,
+		Stream:      stream,
+		cleanup:     []func() error{sw.Close},
+	}, nil
 }

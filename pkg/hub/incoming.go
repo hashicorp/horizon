@@ -177,11 +177,15 @@ func (h *Hub) bridgeToTarget(
 	var (
 		r io.Reader = stream
 		w io.Writer = stream
+
+		lzw *lz4.Writer
 	)
 
 	if ac.useLZ4 {
 		r = lz4.NewReader(stream)
-		w = lz4.NewWriter(stream)
+
+		lzw = lz4.NewWriter(stream)
+		w = lzw
 	}
 
 	var sid pb.SessionIdentification
@@ -208,6 +212,10 @@ func (h *Hub) bridgeToTarget(
 	defer fr.Recycle()
 
 	dsctx := wire.NewContext(wctx.Account(), fr, fw)
+
+	if lzw != nil {
+		dsctx = wire.WithCloser(dsctx, lzw.Close)
+	}
 
 	return h.copyBetweenContexts(ctx, wctx, dsctx, fs, ai)
 }
