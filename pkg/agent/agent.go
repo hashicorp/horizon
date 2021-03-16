@@ -146,6 +146,7 @@ func NewAgent(L hclog.Logger) (*Agent, error) {
 	cfg.Logger = L.StandardLogger(&hclog.StandardLoggerOptions{
 		InferLevels: true,
 	})
+	cfg.StreamCloseTimeout = 30 * time.Second
 	cfg.LogOutput = nil
 
 	agent := &Agent{
