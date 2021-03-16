@@ -28,13 +28,16 @@ func (h *Hub) ConnectToService(
 		err  error
 	)
 
-	// Oh look it's not for me!
 	if !target.Hub.Equal(h.id) {
+		// The target agent is not connected to this hub, so we
+		// connect to a remote hub in order to connect to the target agent.
 		wctx, err = h.connectToRemoteService(ctx, target, account, proto, token)
 		if err != nil {
 			return nil, err
 		}
 	} else {
+		// The agent is connected to this hub, so we can spawn a new yamux.Stream directly
+		// to it from here.
 		defer timing.Track(ctx, "connect-local").Stop()
 
 		h.mu.RLock()
@@ -53,11 +56,15 @@ func (h *Hub) ConnectToService(
 		var (
 			r io.Reader = stream
 			w io.Writer = stream
+
+			lzw *lz4.Writer
 		)
 
 		if ac.useLZ4 {
 			r = lz4.NewReader(stream)
-			w = lz4.NewWriter(stream)
+
+			lzw = lz4.NewWriter(stream)
+			w = lzw
 		}
 
 		var sid pb.SessionIdentification
@@ -79,7 +86,13 @@ func (h *Hub) ConnectToService(
 			return nil, err
 		}
 
-		wctx = wire.NewContext(account, fr, fw)
+		wctx = wire.WithCloser(wire.NewContext(account, fr, fw), func() error {
+			if lzw != nil {
+				lzw.Close()
+			}
+
+			return stream.Close()
+		})
 	}
 
 	sub, cancel := context.WithCancel(ctx)

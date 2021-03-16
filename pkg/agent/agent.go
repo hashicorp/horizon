@@ -451,7 +451,11 @@ func (a *Agent) handleStream(ctx context.Context, L hclog.Logger, session *yamux
 
 	if useLZ4 {
 		r = lz4.NewReader(stream)
-		w = lz4.NewWriter(stream)
+
+		lzw := lz4.NewWriter(stream)
+		defer lzw.Close()
+
+		w = lzw
 	}
 
 	fr, err := wire.NewFramingReader(r)

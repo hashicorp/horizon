@@ -563,11 +563,15 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		var (
 			r io.Reader = stream
 			w io.Writer = stream
+
+			lzw *lz4.Writer
 		)
 
 		if ai.useLZ4 {
 			r = lz4.NewReader(stream)
-			w = lz4.NewWriter(stream)
+
+			lzw = lz4.NewWriter(stream)
+			w = lzw
 		}
 
 		fr, err := wire.NewFramingReader(r)
@@ -587,6 +591,9 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		defer fw.Recycle()
 
 		wctx := wire.NewContext(ai.token.Account(), fr, fw)
+		if lzw != nil {
+			wctx = wire.WithCloser(wctx, lzw.Close)
+		}
 
 		h.L.Trace("accepted yamux session", "id", stream.StreamID())
 
