@@ -69,6 +69,7 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 	cfg.Logger = L.StandardLogger(&hclog.StandardLoggerOptions{
 		InferLevels: true,
 	})
+	cfg.StreamCloseTimeout = 60 * time.Second
 	cfg.LogOutput = nil
 
 	spa, _ := lru.NewARC(10000)
