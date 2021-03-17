@@ -1,6 +1,8 @@
 package testutils
 
 import (
+	"strings"
+
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
@@ -27,6 +29,11 @@ func DeleteBucket(api *s3.S3, bucket string) {
 		})
 
 		if err != nil {
+			// Deleting a non-existent bucket is not a bug
+			if strings.Contains(err.Error(), "NoSuchBucket") {
+				break
+			}
+
 			panic(err)
 		}
 

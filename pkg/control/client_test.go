@@ -41,10 +41,11 @@ func TestClient(t *testing.T) {
 	vc := testutils.SetupVault()
 	sess := testutils.AWSSession(t)
 
-	bucket := "hzntest-" + pb.NewULID().SpecString()
-	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
+	bucket := "hzntest-" + strings.ToLower(pb.NewULID().SpecString())
+	_, err := s3.New(sess).CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	})
+	require.NoError(t, err)
 
 	defer testutils.DeleteBucket(s3.New(sess), bucket)
 
