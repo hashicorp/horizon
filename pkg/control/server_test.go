@@ -1,9 +1,10 @@
 package control
 
 import (
-	context "context"
+	"context"
 	"errors"
 	"io/ioutil"
+	"strings"
 	"testing"
 	"time"
 
@@ -64,11 +65,11 @@ func TestServer(t *testing.T) {
 	vc := testutils.SetupVault()
 	sess := testutils.AWSSession(t)
 
-	bucket := "hzntest"
-
-	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
+	bucket := "hzntest-" + strings.ToLower(pb.NewULID().SpecString())
+	_, err := s3.New(sess).CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	})
+	require.NoError(t, err)
 
 	defer testutils.DeleteBucket(s3.New(sess), bucket)
 

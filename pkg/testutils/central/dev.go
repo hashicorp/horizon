@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -54,10 +55,11 @@ func Dev(t testing.T, f func(setup *DevSetup)) {
 		WithS3ForcePathStyle(true),
 	)
 
-	bucket := "hzntest-" + pb.NewULID().SpecString()
-	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
+	bucket := strings.ToLower("hzntest-" + pb.NewULID().SpecString())
+	_, err := s3.New(sess).CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	})
+	require.NoError(t, err)
 
 	defer testutils.DeleteBucket(s3.New(sess), bucket)
 
