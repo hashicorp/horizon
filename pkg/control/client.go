@@ -124,7 +124,8 @@ type ClientConfig struct {
 	// Where hub integrates it's handler for the hzn protocol
 	NextProto map[string]func(hs *http.Server, tlsConn *tls.Conn, h http.Handler)
 
-	FilterRoute func(*pb.ServiceRoute) bool
+	FilterRoute        func(*pb.ServiceRoute) bool
+	InsecureSkipVerify bool
 }
 
 func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
@@ -147,9 +148,8 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		if cfg.Insecure {
 			opts = append(opts, grpc.WithInsecure())
 		} else {
-
 			creds := gcreds.NewTLS(&tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: cfg.InsecureSkipVerify,
 			})
 
 			opts = append(opts, grpc.WithTransportCredentials(creds))
