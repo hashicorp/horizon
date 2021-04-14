@@ -432,6 +432,9 @@ func (h *hubRunner) Run(args []string) int {
 		log.Fatal("missing TOKEN")
 	}
 
+	insecure := os.Getenv("INSECURE") == "1"
+	insecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY") == "1"
+
 	addr := os.Getenv("CONTROL_ADDR")
 	if addr == "" {
 		log.Fatal("missing ADDR")
@@ -526,14 +529,16 @@ func (h *hubRunner) Run(args []string) int {
 	}
 
 	client, err := control.NewClient(ctx, control.ClientConfig{
-		Id:           id,
-		InstanceId:   instanceId,
-		Token:        token,
-		Version:      "test",
-		Addr:         addr,
-		WorkDir:      tmpdir,
-		K8Deployment: deployment,
-		FilterRoute:  filter,
+		Id:                 id,
+		InstanceId:         instanceId,
+		Token:              token,
+		Version:            "test",
+		Addr:               addr,
+		WorkDir:            tmpdir,
+		K8Deployment:       deployment,
+		FilterRoute:        filter,
+		Insecure:           insecure,
+		InsecureSkipVerify: insecureSkipVerify,
 	})
 
 	if deployment != "" {
@@ -893,14 +898,15 @@ func (h *devServer) RunHub(ctx context.Context, token, addr string, sess *sessio
 	gClient := pb.NewControlServicesClient(gcc)
 
 	client, err := control.NewClient(ctx, control.ClientConfig{
-		Id:       id,
-		Token:    token,
-		Version:  "test",
-		Client:   gClient,
-		WorkDir:  tmpdir,
-		Session:  sess,
-		S3Bucket: bucket,
-		Insecure: true,
+		Id:                 id,
+		Token:              token,
+		Version:            "test",
+		Client:             gClient,
+		WorkDir:            tmpdir,
+		Session:            sess,
+		S3Bucket:           bucket,
+		Insecure:           true,
+		InsecureSkipVerify: true,
 	})
 
 	defer client.Close(ctx)
