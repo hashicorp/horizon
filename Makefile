@@ -78,7 +78,7 @@ pkg-docker: require-docker-vars ## Creates a docker container and uploads it to 
 
 dev-setup:
 	docker-compose exec -- postgres psql --username postgres -c "CREATE DATABASE horizon_dev;" || true
-	DATABASE_URL=postgres://postgres:postgres@localhost/horizon_dev?sslmode=disable MIGRATIONS_PATH=./pkg/control/migrations  go run ./cmd/hzn/main.go migrate || true
+	DATABASE_URL=postgres://postgres:postgres@localhost/horizon_dev?sslmode=disable MIGRATIONS_PATH=./pkg/control/migrations  go run ./cmd/hzn/ migrate || true
 	docker-compose up -d
 
 dev-start:
