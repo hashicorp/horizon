@@ -77,8 +77,32 @@ pkg-docker: require-docker-vars ## Creates a docker container and uploads it to 
 
 
 dev-setup:
-	createdb horizon_dev || true
-	DATABASE_URL=postgres://localhost/horizon_dev?sslmode=disable MIGRATIONS_PATH=./pkg/control/migrations  go run ./cmd/hzn/main.go migrate || true
+	docker-compose exec -- postgres psql --username postgres -c "CREATE DATABASE horizon_dev;" || true
+	DATABASE_URL=postgres://postgres:postgres@localhost/horizon_dev?sslmode=disable MIGRATIONS_PATH=./pkg/control/migrations  go run ./cmd/hzn/main.go migrate || true
 	docker-compose up -d
+
+dev-start:
+	DATABASE_URL=postgres://postgres:postgres@localhost/horizon_dev?sslmode=disable go run ./cmd/hzn/ dev
+
+
+
+run-agent:
+	go run ./cmd/hznagent agent \
+	--control dev://localhost:24403 \
+	--token "$$(< dev-agent-token.txt)" \
+	--http 8085 \
+	--labels service=test,env=test \
+	--verbose
+
+
+run-label-link:
+	go run ./cmd/hznctl/main.go \
+	create-label-link \
+	--control-addr localhost:24401 \
+	--token "$$(< dev-mgmt-token.txt)" \
+	--label :hostname=app-1.waypoint.local:24404 \
+	--account "$$(< dev-agent-id.txt)" \
+	--target "service=test,env=test" \
+	--insecure
 
 .PHONY: dev-setup
