@@ -661,12 +661,16 @@ func (c *devServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	sess := session.New(aws.NewConfig().
+	sess, err := session.NewSession(aws.NewConfig().
 		WithEndpoint("http://localhost:4566").
 		WithRegion("us-east-1").
 		WithCredentials(credentials.NewStaticCredentials("hzn", "hzn", "hzn")).
 		WithS3ForcePathStyle(true),
 	)
+
+	if err != nil {
+		log.Fatalf("unable to connect to S3: %v", err)
+	}
 
 	bucket := os.Getenv("S3_BUCKET")
 	if bucket == "" {
@@ -674,9 +678,12 @@ func (c *devServer) Run(args []string) int {
 		L.Info("using hzn-dev as the S3 bucket")
 	}
 
-	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
+	_, err = s3.New(sess).CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	})
+	if err != nil {
+		return 0
+	}
 
 	domain := os.Getenv("HUB_DOMAIN")
 	if domain == "" {
