@@ -432,6 +432,9 @@ func (h *hubRunner) Run(args []string) int {
 		log.Fatal("missing TOKEN")
 	}
 
+	insecure := os.Getenv("INSECURE") == "1"
+	insecureSkipVerify := os.Getenv("INSECURE_SKIP_VERIFY") == "1"
+
 	addr := os.Getenv("CONTROL_ADDR")
 	if addr == "" {
 		log.Fatal("missing ADDR")
@@ -526,14 +529,16 @@ func (h *hubRunner) Run(args []string) int {
 	}
 
 	client, err := control.NewClient(ctx, control.ClientConfig{
-		Id:           id,
-		InstanceId:   instanceId,
-		Token:        token,
-		Version:      "test",
-		Addr:         addr,
-		WorkDir:      tmpdir,
-		K8Deployment: deployment,
-		FilterRoute:  filter,
+		Id:                 id,
+		InstanceId:         instanceId,
+		Token:              token,
+		Version:            "test",
+		Addr:               addr,
+		WorkDir:            tmpdir,
+		K8Deployment:       deployment,
+		FilterRoute:        filter,
+		Insecure:           insecure,
+		InsecureSkipVerify: insecureSkipVerify,
 	})
 
 	if deployment != "" {
@@ -661,12 +666,16 @@ func (c *devServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	sess := session.New(aws.NewConfig().
+	sess, err := session.NewSession(aws.NewConfig().
 		WithEndpoint("http://localhost:4566").
 		WithRegion("us-east-1").
 		WithCredentials(credentials.NewStaticCredentials("hzn", "hzn", "hzn")).
 		WithS3ForcePathStyle(true),
 	)
+
+	if err != nil {
+		log.Fatalf("unable to connect to S3: %v", err)
+	}
 
 	bucket := os.Getenv("S3_BUCKET")
 	if bucket == "" {
@@ -674,9 +683,12 @@ func (c *devServer) Run(args []string) int {
 		L.Info("using hzn-dev as the S3 bucket")
 	}
 
-	s3.New(sess).CreateBucket(&s3.CreateBucketInput{
+	_, err = s3.New(sess).CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(bucket),
 	})
+	if err != nil {
+		return 0
+	}
 
 	domain := os.Getenv("HUB_DOMAIN")
 	if domain == "" {
@@ -886,14 +898,15 @@ func (h *devServer) RunHub(ctx context.Context, token, addr string, sess *sessio
 	gClient := pb.NewControlServicesClient(gcc)
 
 	client, err := control.NewClient(ctx, control.ClientConfig{
-		Id:       id,
-		Token:    token,
-		Version:  "test",
-		Client:   gClient,
-		WorkDir:  tmpdir,
-		Session:  sess,
-		S3Bucket: bucket,
-		Insecure: true,
+		Id:                 id,
+		Token:              token,
+		Version:            "test",
+		Client:             gClient,
+		WorkDir:            tmpdir,
+		Session:            sess,
+		S3Bucket:           bucket,
+		Insecure:           true,
+		InsecureSkipVerify: true,
 	})
 
 	defer client.Close(ctx)

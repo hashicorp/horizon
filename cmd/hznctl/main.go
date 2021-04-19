@@ -70,6 +70,7 @@ func (h *hubTokenCreate) Run(args []string) int {
 
 	addr := fs.String("control-addr", "127.0.0.1:24001", "Address of control server")
 	insecure := fs.Bool("insecure", false, "Whether or not to secure the grpc connection")
+	insecureSkipVerify := fs.Bool("insecureSkipVerify", false, "Whether or not to disable SSL verification")
 	token := fs.String("token", "", "Token to authenticate with control server")
 
 	err := fs.Parse(args)
@@ -82,15 +83,7 @@ func (h *hubTokenCreate) Run(args []string) int {
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
-	if *insecure {
-		opts = append(opts, grpc.WithInsecure())
-	} else {
-		creds := credentials.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-		})
-
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
+	opts = setTransport(opts, insecure, insecureSkipVerify)
 
 	gcc, err := grpc.Dial(*addr, opts...)
 	if err != nil {
@@ -126,6 +119,7 @@ func (h *mgmtTokenCreate) Run(args []string) int {
 
 	addr := fs.String("control-addr", "127.0.0.1:24001", "Address of control server")
 	insecure := fs.Bool("insecure", false, "Whether or not to secure the grpc connection")
+	insecureSkipVerify := fs.Bool("insecureSkipVerify", false, "Whether or not to disable SSL verification")
 	token := fs.String("token", "", "Token to authenticate with control server")
 	namespace := fs.String("namespace", "", "namespace to assign to this managament client")
 
@@ -147,15 +141,7 @@ func (h *mgmtTokenCreate) Run(args []string) int {
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
-	if *insecure {
-		opts = append(opts, grpc.WithInsecure())
-	} else {
-		creds := credentials.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-		})
-
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
+	opts = setTransport(opts, insecure, insecureSkipVerify)
 
 	gcc, err := grpc.Dial(*addr, opts...)
 	if err != nil {
@@ -179,6 +165,19 @@ func (h *mgmtTokenCreate) Run(args []string) int {
 	return 0
 }
 
+func setTransport(opts []grpc.DialOption, insecure *bool, insecureSkipVerify *bool) []grpc.DialOption {
+	if *insecure {
+		opts = append(opts, grpc.WithInsecure())
+	} else {
+		creds := credentials.NewTLS(&tls.Config{
+			InsecureSkipVerify: *insecureSkipVerify,
+		})
+
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	}
+	return opts
+}
+
 type llCreate struct{}
 
 func (h *llCreate) Help() string {
@@ -194,6 +193,7 @@ func (h *llCreate) Run(args []string) int {
 
 	addr := fs.String("control-addr", "127.0.0.1:24001", "Address of control server")
 	insecure := fs.Bool("insecure", false, "Whether or not to secure the grpc connection")
+	insecureSkipVerify := fs.Bool("insecureSkipVerify", false, "Whether or not to disable SSL verification")
 	token := fs.String("token", "", "Token to authenticate with control server")
 	gLabel := fs.String("label", "", "global label")
 	acc := fs.String("account", "", "account for the label")
@@ -214,15 +214,7 @@ func (h *llCreate) Run(args []string) int {
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
-	if *insecure {
-		opts = append(opts, grpc.WithInsecure())
-	} else {
-		creds := credentials.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-		})
-
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
+	opts = setTransport(opts, insecure, insecureSkipVerify)
 
 	gcc, err := grpc.Dial(*addr, opts...)
 	if err != nil {
@@ -275,6 +267,7 @@ func (h *agentTokenCreate) Run(args []string) int {
 
 	addr := fs.String("control-addr", "127.0.0.1:24001", "Address of control server")
 	insecure := fs.Bool("insecure", false, "Whether or not to secure the grpc connection")
+	insecureSkipVerify := fs.Bool("insecureSkipVerify", false, "Whether or not to disable SSL verification")
 	token := fs.String("token", "", "Token to authenticate with control server")
 	acc := fs.String("account", "", "account for the label")
 
@@ -288,15 +281,7 @@ func (h *agentTokenCreate) Run(args []string) int {
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
-	if *insecure {
-		opts = append(opts, grpc.WithInsecure())
-	} else {
-		creds := credentials.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-		})
-
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
+	setTransport(opts, insecure, insecureSkipVerify)
 
 	gcc, err := grpc.Dial(*addr, opts...)
 	if err != nil {
