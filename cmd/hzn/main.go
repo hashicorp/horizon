@@ -909,6 +909,10 @@ func (h *devServer) RunHub(ctx context.Context, token, addr string, sess *sessio
 		InsecureSkipVerify: true,
 	})
 
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	defer client.Close(ctx)
 
 	var labels *pb.LabelSet
@@ -957,10 +961,13 @@ func (h *devServer) RunHub(ctx context.Context, token, addr string, sess *sessio
 		L.Info("learned network location", "labels", loc.Labels, "addresses", loc.Addresses)
 	}
 
-	if httpPort != "" {
-		L.Info("listen on http", "port", httpPort)
-		go hb.ListenHTTP(":" + httpPort)
-	}
+	L.Info("listen on http", "port", httpPort)
+	go func() {
+		err := hb.ListenHTTP(":" + httpPort)
+		if err != nil {
+			log.Fatal("unable to listen on :" + httpPort)
+		}
+	}()
 
 	go StartHealthz(L)
 
