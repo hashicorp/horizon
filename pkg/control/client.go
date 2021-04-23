@@ -24,16 +24,13 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/hashicorp/go-hclog"
-	lru "github.com/hashicorp/golang-lru"
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/periodic"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	gcreds "google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/status"
 )
 
 type Peer struct {
@@ -91,13 +88,9 @@ type Client struct {
 	tlsCert    *tls.Certificate
 	tokenPub   ed25519.PublicKey
 
-	hubActivity chan *pb.HubActivity
-
 	netloc []*pb.NetworkLocation
 
 	clientset *client.Clientset
-
-	liveHubs *lru.ARCCache
 }
 
 type hubLiveness struct {
@@ -163,11 +156,6 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		gClient = pb.NewControlServicesClient(gcc)
 	}
 
-	liveHubs, err := lru.NewARC(1000)
-	if err != nil {
-		return nil, err
-	}
-
 	ctx, cancel := context.WithCancel(ctx)
 
 	instanceId := cfg.InstanceId
@@ -186,8 +174,6 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		workDir:         cfg.WorkDir,
 		bucket:          cfg.S3Bucket,
 		cancel:          cancel,
-		hubActivity:     make(chan *pb.HubActivity, 10),
-		liveHubs:        liveHubs,
 	}
 
 	if cfg.Session != nil {
@@ -527,11 +513,6 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 			continue
 		}
 
-		// If this is for a hub we know is not alive, skip it.
-		if val, ok := c.liveHubs.Get(service.Hub.SpecString()); ok && !val.(*hubLiveness).alive {
-			continue
-		}
-
 		// If the user has requested the ability to filter the services also then give
 		// them the chance here.
 		if c.cfg.FilterRoute != nil {
@@ -550,11 +531,6 @@ func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels 
 		for _, service := range info.Services.Services {
 			// Skip yourself, you already got those.
 			if service.Hub.Equal(c.instanceId) {
-				continue
-			}
-
-			// If this is for a hub we know is not alive, skip it.
-			if val, ok := c.liveHubs.Get(service.Hub.SpecString()); ok && !val.(*hubLiveness).alive {
 				continue
 			}
 
@@ -682,81 +658,12 @@ func (c *Client) checkAccounts(L hclog.Logger) {
 	}
 }
 
-func (c *Client) streamActivity(
-	ctx context.Context, L hclog.Logger, ch chan *pb.CentralActivity,
-) (
-	pb.ControlServices_StreamActivityClient, error,
-) {
-	activity, err := c.client.StreamActivity(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	err = activity.Send(&pb.HubActivity{
-		HubReg: &pb.HubActivity_HubRegistration{
-			Hub:       c.instanceId,
-			StableHub: c.cfg.Id,
-			Locations: c.netloc,
-		},
-		SentAt: pb.NewTimestamp(time.Now()),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	L.Info("waiting on server activity")
-
-	go func() {
-		defer close(ch)
-
-		for {
-			ca, err := activity.Recv()
-			if err != nil {
-				if status, ok := status.FromError(err); ok && status.Code() == codes.Canceled {
-					return
-				}
-
-				L.Error("error reading activity", "error", err)
-				return
-			}
-
-			L.Debug("received acvitity from control", "activity", ca)
-
-			select {
-			case <-ctx.Done():
-				return
-			case ch <- ca:
-				// ok
-			}
-		}
-	}()
-
-	return activity, nil
-}
-
 func (c *Client) Run(ctx context.Context) error {
 	L := c.L
 
 	err := c.updateLabelLinks(ctx, L)
 	if err != nil {
 		return err
-	}
-
-	var activity pb.ControlServices_StreamActivityClient
-
-	activityChan := make(chan *pb.CentralActivity)
-
-	if c.client != nil {
-		L.Debug("configuring activity stream")
-		activity, err = c.streamActivity(ctx, L, activityChan)
-		if err != nil {
-			return err
-		}
-
-		defer activity.CloseSend()
-	} else {
-		L.Debug("no client present, activity stream disabled")
 	}
 
 	ticker := time.NewTicker(time.Minute)
@@ -772,109 +679,89 @@ func (c *Client) Run(ctx context.Context) error {
 			if err != nil {
 				L.Error("error updating label links", "error", err)
 			}
-		case ev, ok := <-activityChan:
-			if !ok {
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-				}
-
-				L.Error("detected activity stream closed, reconnecting...")
-				activityChan = make(chan *pb.CentralActivity)
-				for {
-					activity, err = c.streamActivity(ctx, L, activityChan)
-					if err == nil {
-						break
-					}
-				}
-				L.Info("rebootstraping after activity stream reconnection")
-				err = c.BootstrapConfig(ctx)
-				if err != nil {
-					L.Error("error bootstraping new configuration", "error", err)
-				}
-			} else {
-				c.processCentralActivity(ctx, L, ev)
-			}
-		case act := <-c.hubActivity:
-			if activity != nil {
-				activity.Send(act)
-			}
 		}
 	}
 }
 
-func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev *pb.CentralActivity) {
-	L.Debug("processing activity from central")
+// TrackAccount registers that we want want to track information about
+// the given account.
+func (c *Client) TrackAccount(account *pb.Account) (*accountInfo, error) {
+	u := account.StringKey()
 
-	for _, acc := range ev.AccountServices {
-		u := acc.Account.StringKey()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
-		c.mu.RLock()
-		info, ok := c.accountServices[u]
-		if ok {
-			info.LastUse = time.Now()
-		}
-		c.mu.RUnlock()
-
-		// We weren't tracking this account, bail
-		if !ok {
-			continue
-		}
-
-		info.Recent = append(info.Recent, acc.Services...)
+	info, ok := c.accountServices[u]
+	if ok {
+		return info, nil
 	}
 
-	if ev.NewLabelLinks != nil {
-		L.Debug("updating recent label links")
-		c.recentLabelLinks = append(c.recentLabelLinks, ev.NewLabelLinks.LabelLinks...)
+	info = &accountInfo{
+		MapKey:   u,
+		S3Key:    "account_services/" + account.HashKey(),
+		LastUse:  time.Now(),
+		FileName: account.HashKey(),
+		Process:  make(chan struct{}),
 	}
 
-	if ev.HubChange != nil {
-		L.Debug("updating live hubs")
-		c.mu.Lock()
+	c.accountServices[u] = info
 
-		if ev.HubChange.OldId != nil {
-			key := ev.HubChange.OldId.SpecString()
-
-			val, ok := c.liveHubs.Get(key)
-
-			if !ok {
-				c.liveHubs.Add(key, &hubLiveness{
-					alive:     false,
-					retiredAt: time.Now(),
-				})
-			} else {
-				oldLv := val.(*hubLiveness)
-				oldLv.alive = false
-				oldLv.retiredAt = time.Now()
-			}
-		}
-
-		if ev.HubChange.NewId != nil {
-			key := ev.HubChange.NewId.SpecString()
-
-			val, ok := c.liveHubs.Get(key)
-
-			if !ok {
-				c.liveHubs.Add(key, &hubLiveness{
-					alive: true,
-				})
-			} else {
-				oldLv := val.(*hubLiveness)
-				oldLv.alive = true
-				oldLv.retiredAt = time.Time{}
-			}
-		}
-
-		c.mu.Unlock()
-	}
+	return info, nil
 }
 
-func (c *Client) SendFlow(rec *pb.FlowRecord) {
-	c.hubActivity <- &pb.HubActivity{
-		Flow: []*pb.FlowRecord{rec},
+// AddRecentAccountServices appends the information about this accounts
+// services to special recent services list. This allows lookup to use this
+// information before it makes it into the S3 stored account routing blob.
+func (c *Client) AddRecentAccountServices(acc *pb.AccountServices) error {
+	u := acc.Account.StringKey()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	info, ok := c.accountServices[u]
+	if ok {
+		info.LastUse = time.Now()
+	} else {
+		return nil
 	}
+
+	info.Recent = append(info.Recent, acc.Services...)
+
+	return nil
+}
+
+// FindRecentServices returns the list of recent services for the given account.
+// Recent services are a special cache of services populate between updates
+// to the account's routing database from S3.
+func (c *Client) FindRecentServices(acc *pb.Account) ([]*pb.ServiceRoute, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	info, ok := c.accountServices[acc.StringKey()]
+	if !ok {
+		return nil, nil
+	}
+
+	return info.Recent, nil
+}
+
+// AddRecentLabelLinks appends the information about these label links
+// to a special recent list. This allows lookup to use the information
+// before it makes it into the S3 stored label links blob.
+func (c *Client) AddRecentLabelLinks(links *pb.LabelLinks) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.recentLabelLinks = append(c.recentLabelLinks, links.LabelLinks...)
+
+	return nil
+}
+
+func (c *Client) SendFlow(ctx context.Context, rec *pb.FlowRecord) {
+	c.client.ProcessHubStats(ctx, &pb.HubStatsRequest{
+		Hub:   c.Id(),
+		Flows: []*pb.FlowRecord{rec},
+	})
 }
 
 func (c *Client) ForceLabelLinkUpdate(ctx context.Context, L hclog.Logger) error {

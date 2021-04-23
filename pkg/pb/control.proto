@@ -46,11 +46,6 @@ message AccountServices {
   repeated ServiceRoute services = 2;
 }
 
-message ActivityEntry {
-  AccountServices route_added = 1;
-  ULID route_removed = 2;
-}
-
 message ConfigRequest {
   ULID stable_id = 1;
   ULID instance_id = 2;
@@ -69,40 +64,30 @@ message ConfigResponse {
   string image_tag = 7;
 }
 
-message HubChange {
-  ULID old_id = 1;
-  ULID new_id = 2;
+
+// Implemented by the hubs themselves, these functions are called by control
+// to advertise information about recent changes to the hubs. The data in this
+// functions is also present in the S3 data blobs that the hubs refresh from.
+// This data bridges the time gap between the informaiton being created and the
+// hub refreshing S3.
+service HubServices {
+  rpc AddServices(AccountServices) returns (Noop) {}
+  rpc AddLabeLink(LabelLinks) returns (Noop) {}
+}
+  
+message HubStats {
+  int64 agent_connections = 1;
+  int64 accounts_seen = 2;
+  int64 accounts_cached = 3;
+  int64 cached_bytes = 4;
+  Timestamp last_successful_update = 5;
+  Timestamp last_attempted_update = 6;
 }
 
-message CentralActivity {
-  repeated AccountServices account_services = 1;
-  bool request_stats = 2;
-  LabelLinks new_label_links = 3;
-  HubChange hub_change = 4;
-}
-
-message HubActivity {
-  message HubRegistration {
-    ULID hub = 1;
-    ULID stable_hub = 2;
-    repeated NetworkLocation locations = 3;
-  }
-
-  HubRegistration hub_reg = 1;
-
-  Timestamp sent_at = 2;
-  message HubStats {
-    int64 agent_connections = 1;
-    int64 accounts_seen = 2;
-    int64 accounts_cached = 3;
-    int64 cached_bytes = 4;
-    Timestamp last_successful_update = 5;
-    Timestamp last_attempted_update = 6;
-  }
-
-  HubStats stats = 3;
-
-  repeated FlowRecord flow = 4;
+message HubStatsRequest {
+  ULID hub = 1;
+  HubStats stats = 2;
+  repeated FlowRecord flows = 3;
 }
 
 message HubInfo {
@@ -112,16 +97,6 @@ message HubInfo {
 
 message ListOfHubs {
   repeated HubInfo hubs = 1;
-}
-
-message HubSync {
-  ULID id = 1;
-  ULID stable_id = 2;
-  repeated ServiceRequest services = 3;
-}
-
-message HubSyncResponse {
-  int64 service_count = 1;
 }
 
 message HubRegisterRequest {
@@ -168,11 +143,10 @@ service ControlServices {
   rpc RemoveService(ServiceRequest) returns (ServiceResponse) {}
   rpc ListServices(ListServicesRequest) returns (ListServicesResponse) {}
   rpc FetchConfig(ConfigRequest) returns (ConfigResponse) {}
-  rpc StreamActivity(stream HubActivity) returns (stream CentralActivity) {}
-  rpc SyncHub(HubSync) returns (HubSyncResponse) {}
   rpc HubDisconnect(HubDisconnectRequest) returns (Noop) {}
   rpc AllHubs(Noop) returns (ListOfHubs) {}
   rpc RequestServiceToken(ServiceTokenRequest) returns (ServiceTokenResponse) {}
+  rpc ProcessHubStats(HubStatsRequest) returns (Noop) {}
 }
 
 message AddAccountRequest {

@@ -21,6 +21,7 @@ import (
 	"github.com/hashicorp/yamux"
 	"github.com/pierrec/lz4"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc"
 )
 
 var (
@@ -60,6 +61,8 @@ type Hub struct {
 	totalAgents  *int64
 
 	servicesPerAccount *lru.ARCCache
+
+	grpcServer http.Handler
 }
 
 func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error) {
@@ -96,6 +99,13 @@ func NewHub(L hclog.Logger, client *control.Client, feToken string) (*Hub, error
 	h.mux.HandleFunc("/__hzn/healthz", h.handleHeathz)
 	h.mux.Handle("/__hzn/static/", http.StripPrefix("/__hzn/static/", http.FileServer(httpassets.AssetFile())))
 	h.mux.Handle("/", h.fe)
+
+	gs := grpc.NewServer()
+	pb.RegisterHubServicesServer(gs, &InboundServer{
+		Client: client,
+	})
+
+	h.grpcServer = gs
 
 	h.location = client.Locations()
 
@@ -152,7 +162,7 @@ func (hub *Hub) sendStats(ctx context.Context) {
 			return
 		case <-ticker.C:
 			active := atomic.LoadInt64(hub.activeAgents)
-			hub.cc.SendFlow(&pb.FlowRecord{
+			hub.cc.SendFlow(ctx, &pb.FlowRecord{
 				HubStats: &pb.FlowRecord_HubStats{
 					HubId:        hub.cc.StableId(),
 					ActiveAgents: active,
@@ -497,10 +507,10 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		}
 	}
 
-	h.sendAgentInfoFlow(ai)
+	h.sendAgentInfoFlow(ctx, ai)
 	defer func() {
 		ai.End = pb.NewTimestamp(time.Now())
-		h.sendAgentInfoFlow(ai)
+		h.sendAgentInfoFlow(context.Background(), ai)
 	}()
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -534,7 +544,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 				)
 
 			case <-agentHB.C:
-				h.sendAgentInfoFlow(ai)
+				h.sendAgentInfoFlow(ctx, ai)
 			}
 		}
 	}()
@@ -556,7 +566,7 @@ func (h *Hub) handleConn(ctx context.Context, conn net.Conn) {
 		atomic.AddInt64(ai.ActiveStreams, 1)
 		atomic.AddInt64(ai.TotalStreams, 1)
 
-		h.sendAgentInfoFlow(ai)
+		h.sendAgentInfoFlow(ctx, ai)
 
 		h.L.Trace("stream accepted", "agent", ai.ID, "account", ai.Account, "id", stream.StreamID(), "lz4", ai.useLZ4)
 

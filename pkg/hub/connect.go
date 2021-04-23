@@ -146,7 +146,7 @@ func (h *Hub) ConnectToService(
 			fs.Duration = int64(time.Since(start))
 
 			h.L.Trace("transmissing flow stream", "id", flowId)
-			h.cc.SendFlow(&pb.FlowRecord{Stream: &fs})
+			h.cc.SendFlow(ctx, &pb.FlowRecord{Stream: &fs})
 
 			if exit {
 				h.L.Trace("final flow stream data", "id", flowId, "messages", ma, "bytes", ba)

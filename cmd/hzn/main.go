@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/hub"
+	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/periodic"
 	"github.com/hashicorp/horizon/pkg/tlsmanage"
@@ -303,6 +304,11 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	hubDomain := domain
+	if strings.HasPrefix(hubDomain, "*.") {
+		hubDomain = hubDomain[2:]
+	}
+
 	s, err := control.NewServer(control.ServerConfig{
 		Logger: L,
 		DB:     db,
@@ -323,22 +329,14 @@ func (c *controlServer) Run(args []string) int {
 		HubSecretKey: hubSecret,
 		HubImageTag:  hubTag,
 		LockManager:  lm,
+
+		HubCert:   cert,
+		HubKey:    key,
+		HubDomain: hubDomain,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	// Setup cleanup activities
-	lc := &control.LogCleaner{DB: config.DB()}
-	workq.RegisterHandler("cleanup-activity-log", lc.CleanupActivityLog)
-	workq.RegisterPeriodicJob("cleanup-activity-log", "default", "cleanup-activity-log", nil, time.Hour)
-
-	hubDomain := domain
-	if strings.HasPrefix(hubDomain, "*.") {
-		hubDomain = hubDomain[2:]
-	}
-
-	s.SetHubTLS(cert, key, hubDomain)
 
 	// So that when they are refreshed by the background job, we eventually pick
 	// them up. Hubs are also refreshing their config on an hourly basis so they'll
@@ -489,6 +487,20 @@ func (h *hubRunner) Run(args []string) int {
 
 	deployment := os.Getenv("K8_DEPLOYMENT")
 
+	var labels *pb.LabelSet
+
+	strLabels := os.Getenv("LOCATION_LABELS")
+	if strLabels != "" {
+		labels = pb.ParseLabelSet(os.Getenv(strLabels))
+	}
+
+	// Learn our network location so we can populate consul. This is used for
+	// control to connect to this hub for grpc messages.
+	locs, err := netloc.Locate(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// We want to have the control client filter use ConsulHealth,
 	// so we establish that here for use as a filter.
 
@@ -513,7 +525,16 @@ func (h *hubRunner) Run(args []string) int {
 		L.Info("consul running, leader detected", "leader", leader)
 		L.Info("starting consul health monitoring")
 
-		ch, err = hub.NewConsulHealth(instanceId.SpecString(), ccfg)
+		var addr string
+
+		for _, loc := range locs {
+			if loc.IsPublic() {
+				addr = loc.Addresses[0]
+				break
+			}
+		}
+
+		ch, err = hub.NewConsulHealth(instanceId.SpecString(), ccfg, addr)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -561,17 +582,7 @@ func (h *hubRunner) Run(args []string) int {
 		client.Close(ctx)
 	}()
 
-	var labels *pb.LabelSet
-
-	strLabels := os.Getenv("LOCATION_LABELS")
-	if strLabels != "" {
-		labels = pb.ParseLabelSet(os.Getenv(strLabels))
-	}
-
-	locs, err := client.LearnLocations(labels)
-	if err != nil {
-		log.Fatal(err)
-	}
+	client.SetLocations(locs)
 
 	err = client.BootstrapConfig(ctx)
 	if err != nil {
@@ -712,6 +723,16 @@ func (c *devServer) Run(args []string) int {
 
 	ctx := hclog.WithContext(context.Background(), L)
 
+	hubDomain := domain
+	if strings.HasPrefix(hubDomain, "*.") {
+		hubDomain = hubDomain[2:]
+	}
+
+	cert, key, err := utils.SelfSignedCert()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	s, err := control.NewServer(control.ServerConfig{
 		DB: db,
 
@@ -724,22 +745,14 @@ func (c *devServer) Run(args []string) int {
 
 		AwsSession: sess,
 		Bucket:     bucket,
+
+		HubCert:   cert,
+		HubKey:    key,
+		HubDomain: hubDomain,
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	hubDomain := domain
-	if strings.HasPrefix(hubDomain, "*.") {
-		hubDomain = hubDomain[2:]
-	}
-
-	cert, key, err := utils.SelfSignedCert()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	s.SetHubTLS(cert, key, hubDomain)
 
 	gs := grpc.NewServer()
 	pb.RegisterControlServicesServer(gs, s)

@@ -376,57 +376,6 @@ func (m *AccountServices) GetServices() []*ServiceRoute {
 	return nil
 }
 
-type ActivityEntry struct {
-	RouteAdded   *AccountServices `protobuf:"bytes,1,opt,name=route_added,json=routeAdded,proto3" json:"route_added,omitempty"`
-	RouteRemoved *ULID            `protobuf:"bytes,2,opt,name=route_removed,json=routeRemoved,proto3" json:"route_removed,omitempty"`
-}
-
-func (m *ActivityEntry) Reset()      { *m = ActivityEntry{} }
-func (*ActivityEntry) ProtoMessage() {}
-func (*ActivityEntry) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{6}
-}
-func (m *ActivityEntry) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *ActivityEntry) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_ActivityEntry.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *ActivityEntry) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ActivityEntry.Merge(m, src)
-}
-func (m *ActivityEntry) XXX_Size() int {
-	return m.Size()
-}
-func (m *ActivityEntry) XXX_DiscardUnknown() {
-	xxx_messageInfo_ActivityEntry.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_ActivityEntry proto.InternalMessageInfo
-
-func (m *ActivityEntry) GetRouteAdded() *AccountServices {
-	if m != nil {
-		return m.RouteAdded
-	}
-	return nil
-}
-
-func (m *ActivityEntry) GetRouteRemoved() *ULID {
-	if m != nil {
-		return m.RouteRemoved
-	}
-	return nil
-}
-
 type ConfigRequest struct {
 	StableId   *ULID              `protobuf:"bytes,1,opt,name=stable_id,json=stableId,proto3" json:"stable_id,omitempty"`
 	InstanceId *ULID              `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
@@ -436,7 +385,7 @@ type ConfigRequest struct {
 func (m *ConfigRequest) Reset()      { *m = ConfigRequest{} }
 func (*ConfigRequest) ProtoMessage() {}
 func (*ConfigRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{7}
+	return fileDescriptor_0c5120591600887d, []int{6}
 }
 func (m *ConfigRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -499,7 +448,7 @@ type ConfigResponse struct {
 func (m *ConfigResponse) Reset()      { *m = ConfigResponse{} }
 func (*ConfigResponse) ProtoMessage() {}
 func (*ConfigResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{8}
+	return fileDescriptor_0c5120591600887d, []int{7}
 }
 func (m *ConfigResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -577,251 +526,7 @@ func (m *ConfigResponse) GetImageTag() string {
 	return ""
 }
 
-type HubChange struct {
-	OldId *ULID `protobuf:"bytes,1,opt,name=old_id,json=oldId,proto3" json:"old_id,omitempty"`
-	NewId *ULID `protobuf:"bytes,2,opt,name=new_id,json=newId,proto3" json:"new_id,omitempty"`
-}
-
-func (m *HubChange) Reset()      { *m = HubChange{} }
-func (*HubChange) ProtoMessage() {}
-func (*HubChange) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{9}
-}
-func (m *HubChange) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *HubChange) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HubChange.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *HubChange) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HubChange.Merge(m, src)
-}
-func (m *HubChange) XXX_Size() int {
-	return m.Size()
-}
-func (m *HubChange) XXX_DiscardUnknown() {
-	xxx_messageInfo_HubChange.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HubChange proto.InternalMessageInfo
-
-func (m *HubChange) GetOldId() *ULID {
-	if m != nil {
-		return m.OldId
-	}
-	return nil
-}
-
-func (m *HubChange) GetNewId() *ULID {
-	if m != nil {
-		return m.NewId
-	}
-	return nil
-}
-
-type CentralActivity struct {
-	AccountServices []*AccountServices `protobuf:"bytes,1,rep,name=account_services,json=accountServices,proto3" json:"account_services,omitempty"`
-	RequestStats    bool               `protobuf:"varint,2,opt,name=request_stats,json=requestStats,proto3" json:"request_stats,omitempty"`
-	NewLabelLinks   *LabelLinks        `protobuf:"bytes,3,opt,name=new_label_links,json=newLabelLinks,proto3" json:"new_label_links,omitempty"`
-	HubChange       *HubChange         `protobuf:"bytes,4,opt,name=hub_change,json=hubChange,proto3" json:"hub_change,omitempty"`
-}
-
-func (m *CentralActivity) Reset()      { *m = CentralActivity{} }
-func (*CentralActivity) ProtoMessage() {}
-func (*CentralActivity) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{10}
-}
-func (m *CentralActivity) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *CentralActivity) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_CentralActivity.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *CentralActivity) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_CentralActivity.Merge(m, src)
-}
-func (m *CentralActivity) XXX_Size() int {
-	return m.Size()
-}
-func (m *CentralActivity) XXX_DiscardUnknown() {
-	xxx_messageInfo_CentralActivity.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_CentralActivity proto.InternalMessageInfo
-
-func (m *CentralActivity) GetAccountServices() []*AccountServices {
-	if m != nil {
-		return m.AccountServices
-	}
-	return nil
-}
-
-func (m *CentralActivity) GetRequestStats() bool {
-	if m != nil {
-		return m.RequestStats
-	}
-	return false
-}
-
-func (m *CentralActivity) GetNewLabelLinks() *LabelLinks {
-	if m != nil {
-		return m.NewLabelLinks
-	}
-	return nil
-}
-
-func (m *CentralActivity) GetHubChange() *HubChange {
-	if m != nil {
-		return m.HubChange
-	}
-	return nil
-}
-
-type HubActivity struct {
-	HubReg *HubActivity_HubRegistration `protobuf:"bytes,1,opt,name=hub_reg,json=hubReg,proto3" json:"hub_reg,omitempty"`
-	SentAt *Timestamp                   `protobuf:"bytes,2,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
-	Stats  *HubActivity_HubStats        `protobuf:"bytes,3,opt,name=stats,proto3" json:"stats,omitempty"`
-	Flow   []*FlowRecord                `protobuf:"bytes,4,rep,name=flow,proto3" json:"flow,omitempty"`
-}
-
-func (m *HubActivity) Reset()      { *m = HubActivity{} }
-func (*HubActivity) ProtoMessage() {}
-func (*HubActivity) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{11}
-}
-func (m *HubActivity) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *HubActivity) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HubActivity.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *HubActivity) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HubActivity.Merge(m, src)
-}
-func (m *HubActivity) XXX_Size() int {
-	return m.Size()
-}
-func (m *HubActivity) XXX_DiscardUnknown() {
-	xxx_messageInfo_HubActivity.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HubActivity proto.InternalMessageInfo
-
-func (m *HubActivity) GetHubReg() *HubActivity_HubRegistration {
-	if m != nil {
-		return m.HubReg
-	}
-	return nil
-}
-
-func (m *HubActivity) GetSentAt() *Timestamp {
-	if m != nil {
-		return m.SentAt
-	}
-	return nil
-}
-
-func (m *HubActivity) GetStats() *HubActivity_HubStats {
-	if m != nil {
-		return m.Stats
-	}
-	return nil
-}
-
-func (m *HubActivity) GetFlow() []*FlowRecord {
-	if m != nil {
-		return m.Flow
-	}
-	return nil
-}
-
-type HubActivity_HubRegistration struct {
-	Hub       *ULID              `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
-	StableHub *ULID              `protobuf:"bytes,2,opt,name=stable_hub,json=stableHub,proto3" json:"stable_hub,omitempty"`
-	Locations []*NetworkLocation `protobuf:"bytes,3,rep,name=locations,proto3" json:"locations,omitempty"`
-}
-
-func (m *HubActivity_HubRegistration) Reset()      { *m = HubActivity_HubRegistration{} }
-func (*HubActivity_HubRegistration) ProtoMessage() {}
-func (*HubActivity_HubRegistration) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{11, 0}
-}
-func (m *HubActivity_HubRegistration) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *HubActivity_HubRegistration) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HubActivity_HubRegistration.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *HubActivity_HubRegistration) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HubActivity_HubRegistration.Merge(m, src)
-}
-func (m *HubActivity_HubRegistration) XXX_Size() int {
-	return m.Size()
-}
-func (m *HubActivity_HubRegistration) XXX_DiscardUnknown() {
-	xxx_messageInfo_HubActivity_HubRegistration.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HubActivity_HubRegistration proto.InternalMessageInfo
-
-func (m *HubActivity_HubRegistration) GetHub() *ULID {
-	if m != nil {
-		return m.Hub
-	}
-	return nil
-}
-
-func (m *HubActivity_HubRegistration) GetStableHub() *ULID {
-	if m != nil {
-		return m.StableHub
-	}
-	return nil
-}
-
-func (m *HubActivity_HubRegistration) GetLocations() []*NetworkLocation {
-	if m != nil {
-		return m.Locations
-	}
-	return nil
-}
-
-type HubActivity_HubStats struct {
+type HubStats struct {
 	AgentConnections     int64      `protobuf:"varint,1,opt,name=agent_connections,json=agentConnections,proto3" json:"agent_connections,omitempty"`
 	AccountsSeen         int64      `protobuf:"varint,2,opt,name=accounts_seen,json=accountsSeen,proto3" json:"accounts_seen,omitempty"`
 	AccountsCached       int64      `protobuf:"varint,3,opt,name=accounts_cached,json=accountsCached,proto3" json:"accounts_cached,omitempty"`
@@ -830,17 +535,17 @@ type HubActivity_HubStats struct {
 	LastAttemptedUpdate  *Timestamp `protobuf:"bytes,6,opt,name=last_attempted_update,json=lastAttemptedUpdate,proto3" json:"last_attempted_update,omitempty"`
 }
 
-func (m *HubActivity_HubStats) Reset()      { *m = HubActivity_HubStats{} }
-func (*HubActivity_HubStats) ProtoMessage() {}
-func (*HubActivity_HubStats) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{11, 1}
+func (m *HubStats) Reset()      { *m = HubStats{} }
+func (*HubStats) ProtoMessage() {}
+func (*HubStats) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{8}
 }
-func (m *HubActivity_HubStats) XXX_Unmarshal(b []byte) error {
+func (m *HubStats) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *HubActivity_HubStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *HubStats) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_HubActivity_HubStats.Marshal(b, m, deterministic)
+		return xxx_messageInfo_HubStats.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -850,56 +555,115 @@ func (m *HubActivity_HubStats) XXX_Marshal(b []byte, deterministic bool) ([]byte
 		return b[:n], nil
 	}
 }
-func (m *HubActivity_HubStats) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HubActivity_HubStats.Merge(m, src)
+func (m *HubStats) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubStats.Merge(m, src)
 }
-func (m *HubActivity_HubStats) XXX_Size() int {
+func (m *HubStats) XXX_Size() int {
 	return m.Size()
 }
-func (m *HubActivity_HubStats) XXX_DiscardUnknown() {
-	xxx_messageInfo_HubActivity_HubStats.DiscardUnknown(m)
+func (m *HubStats) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubStats.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_HubActivity_HubStats proto.InternalMessageInfo
+var xxx_messageInfo_HubStats proto.InternalMessageInfo
 
-func (m *HubActivity_HubStats) GetAgentConnections() int64 {
+func (m *HubStats) GetAgentConnections() int64 {
 	if m != nil {
 		return m.AgentConnections
 	}
 	return 0
 }
 
-func (m *HubActivity_HubStats) GetAccountsSeen() int64 {
+func (m *HubStats) GetAccountsSeen() int64 {
 	if m != nil {
 		return m.AccountsSeen
 	}
 	return 0
 }
 
-func (m *HubActivity_HubStats) GetAccountsCached() int64 {
+func (m *HubStats) GetAccountsCached() int64 {
 	if m != nil {
 		return m.AccountsCached
 	}
 	return 0
 }
 
-func (m *HubActivity_HubStats) GetCachedBytes() int64 {
+func (m *HubStats) GetCachedBytes() int64 {
 	if m != nil {
 		return m.CachedBytes
 	}
 	return 0
 }
 
-func (m *HubActivity_HubStats) GetLastSuccessfulUpdate() *Timestamp {
+func (m *HubStats) GetLastSuccessfulUpdate() *Timestamp {
 	if m != nil {
 		return m.LastSuccessfulUpdate
 	}
 	return nil
 }
 
-func (m *HubActivity_HubStats) GetLastAttemptedUpdate() *Timestamp {
+func (m *HubStats) GetLastAttemptedUpdate() *Timestamp {
 	if m != nil {
 		return m.LastAttemptedUpdate
+	}
+	return nil
+}
+
+type HubStatsRequest struct {
+	Hub   *ULID         `protobuf:"bytes,1,opt,name=hub,proto3" json:"hub,omitempty"`
+	Stats *HubStats     `protobuf:"bytes,2,opt,name=stats,proto3" json:"stats,omitempty"`
+	Flows []*FlowRecord `protobuf:"bytes,3,rep,name=flows,proto3" json:"flows,omitempty"`
+}
+
+func (m *HubStatsRequest) Reset()      { *m = HubStatsRequest{} }
+func (*HubStatsRequest) ProtoMessage() {}
+func (*HubStatsRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_0c5120591600887d, []int{9}
+}
+func (m *HubStatsRequest) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *HubStatsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_HubStatsRequest.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *HubStatsRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_HubStatsRequest.Merge(m, src)
+}
+func (m *HubStatsRequest) XXX_Size() int {
+	return m.Size()
+}
+func (m *HubStatsRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_HubStatsRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_HubStatsRequest proto.InternalMessageInfo
+
+func (m *HubStatsRequest) GetHub() *ULID {
+	if m != nil {
+		return m.Hub
+	}
+	return nil
+}
+
+func (m *HubStatsRequest) GetStats() *HubStats {
+	if m != nil {
+		return m.Stats
+	}
+	return nil
+}
+
+func (m *HubStatsRequest) GetFlows() []*FlowRecord {
+	if m != nil {
+		return m.Flows
 	}
 	return nil
 }
@@ -912,7 +676,7 @@ type HubInfo struct {
 func (m *HubInfo) Reset()      { *m = HubInfo{} }
 func (*HubInfo) ProtoMessage() {}
 func (*HubInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{12}
+	return fileDescriptor_0c5120591600887d, []int{10}
 }
 func (m *HubInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -962,7 +726,7 @@ type ListOfHubs struct {
 func (m *ListOfHubs) Reset()      { *m = ListOfHubs{} }
 func (*ListOfHubs) ProtoMessage() {}
 func (*ListOfHubs) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{13}
+	return fileDescriptor_0c5120591600887d, []int{11}
 }
 func (m *ListOfHubs) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -998,108 +762,6 @@ func (m *ListOfHubs) GetHubs() []*HubInfo {
 	return nil
 }
 
-type HubSync struct {
-	Id       *ULID             `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	StableId *ULID             `protobuf:"bytes,2,opt,name=stable_id,json=stableId,proto3" json:"stable_id,omitempty"`
-	Services []*ServiceRequest `protobuf:"bytes,3,rep,name=services,proto3" json:"services,omitempty"`
-}
-
-func (m *HubSync) Reset()      { *m = HubSync{} }
-func (*HubSync) ProtoMessage() {}
-func (*HubSync) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{14}
-}
-func (m *HubSync) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *HubSync) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HubSync.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *HubSync) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HubSync.Merge(m, src)
-}
-func (m *HubSync) XXX_Size() int {
-	return m.Size()
-}
-func (m *HubSync) XXX_DiscardUnknown() {
-	xxx_messageInfo_HubSync.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HubSync proto.InternalMessageInfo
-
-func (m *HubSync) GetId() *ULID {
-	if m != nil {
-		return m.Id
-	}
-	return nil
-}
-
-func (m *HubSync) GetStableId() *ULID {
-	if m != nil {
-		return m.StableId
-	}
-	return nil
-}
-
-func (m *HubSync) GetServices() []*ServiceRequest {
-	if m != nil {
-		return m.Services
-	}
-	return nil
-}
-
-type HubSyncResponse struct {
-	ServiceCount int64 `protobuf:"varint,1,opt,name=service_count,json=serviceCount,proto3" json:"service_count,omitempty"`
-}
-
-func (m *HubSyncResponse) Reset()      { *m = HubSyncResponse{} }
-func (*HubSyncResponse) ProtoMessage() {}
-func (*HubSyncResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{15}
-}
-func (m *HubSyncResponse) XXX_Unmarshal(b []byte) error {
-	return m.Unmarshal(b)
-}
-func (m *HubSyncResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	if deterministic {
-		return xxx_messageInfo_HubSyncResponse.Marshal(b, m, deterministic)
-	} else {
-		b = b[:cap(b)]
-		n, err := m.MarshalToSizedBuffer(b)
-		if err != nil {
-			return nil, err
-		}
-		return b[:n], nil
-	}
-}
-func (m *HubSyncResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_HubSyncResponse.Merge(m, src)
-}
-func (m *HubSyncResponse) XXX_Size() int {
-	return m.Size()
-}
-func (m *HubSyncResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_HubSyncResponse.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_HubSyncResponse proto.InternalMessageInfo
-
-func (m *HubSyncResponse) GetServiceCount() int64 {
-	if m != nil {
-		return m.ServiceCount
-	}
-	return 0
-}
-
 type HubRegisterRequest struct {
 	StableId   *ULID              `protobuf:"bytes,1,opt,name=stable_id,json=stableId,proto3" json:"stable_id,omitempty"`
 	InstanceId *ULID              `protobuf:"bytes,2,opt,name=instance_id,json=instanceId,proto3" json:"instance_id,omitempty"`
@@ -1109,7 +771,7 @@ type HubRegisterRequest struct {
 func (m *HubRegisterRequest) Reset()      { *m = HubRegisterRequest{} }
 func (*HubRegisterRequest) ProtoMessage() {}
 func (*HubRegisterRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{16}
+	return fileDescriptor_0c5120591600887d, []int{12}
 }
 func (m *HubRegisterRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1166,7 +828,7 @@ type HubRegisterResponse struct {
 func (m *HubRegisterResponse) Reset()      { *m = HubRegisterResponse{} }
 func (*HubRegisterResponse) ProtoMessage() {}
 func (*HubRegisterResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{17}
+	return fileDescriptor_0c5120591600887d, []int{13}
 }
 func (m *HubRegisterResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1210,7 +872,7 @@ type HubDisconnectRequest struct {
 func (m *HubDisconnectRequest) Reset()      { *m = HubDisconnectRequest{} }
 func (*HubDisconnectRequest) ProtoMessage() {}
 func (*HubDisconnectRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{18}
+	return fileDescriptor_0c5120591600887d, []int{14}
 }
 func (m *HubDisconnectRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1260,7 +922,7 @@ type ServiceTokenRequest struct {
 func (m *ServiceTokenRequest) Reset()      { *m = ServiceTokenRequest{} }
 func (*ServiceTokenRequest) ProtoMessage() {}
 func (*ServiceTokenRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{19}
+	return fileDescriptor_0c5120591600887d, []int{15}
 }
 func (m *ServiceTokenRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1303,7 +965,7 @@ type ServiceTokenResponse struct {
 func (m *ServiceTokenResponse) Reset()      { *m = ServiceTokenResponse{} }
 func (*ServiceTokenResponse) ProtoMessage() {}
 func (*ServiceTokenResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{20}
+	return fileDescriptor_0c5120591600887d, []int{16}
 }
 func (m *ServiceTokenResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1346,7 +1008,7 @@ type ListServicesRequest struct {
 func (m *ListServicesRequest) Reset()      { *m = ListServicesRequest{} }
 func (*ListServicesRequest) ProtoMessage() {}
 func (*ListServicesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{21}
+	return fileDescriptor_0c5120591600887d, []int{17}
 }
 func (m *ListServicesRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1389,7 +1051,7 @@ type ListServicesResponse struct {
 func (m *ListServicesResponse) Reset()      { *m = ListServicesResponse{} }
 func (*ListServicesResponse) ProtoMessage() {}
 func (*ListServicesResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{22}
+	return fileDescriptor_0c5120591600887d, []int{18}
 }
 func (m *ListServicesResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1436,7 +1098,7 @@ type Service struct {
 func (m *Service) Reset()      { *m = Service{} }
 func (*Service) ProtoMessage() {}
 func (*Service) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{23}
+	return fileDescriptor_0c5120591600887d, []int{19}
 }
 func (m *Service) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1508,7 +1170,7 @@ type AddAccountRequest struct {
 func (m *AddAccountRequest) Reset()      { *m = AddAccountRequest{} }
 func (*AddAccountRequest) ProtoMessage() {}
 func (*AddAccountRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{24}
+	return fileDescriptor_0c5120591600887d, []int{20}
 }
 func (m *AddAccountRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1560,7 +1222,7 @@ type AddLabelLinkRequest struct {
 func (m *AddLabelLinkRequest) Reset()      { *m = AddLabelLinkRequest{} }
 func (*AddLabelLinkRequest) ProtoMessage() {}
 func (*AddLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{25}
+	return fileDescriptor_0c5120591600887d, []int{21}
 }
 func (m *AddLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1616,7 +1278,7 @@ type Noop struct {
 func (m *Noop) Reset()      { *m = Noop{} }
 func (*Noop) ProtoMessage() {}
 func (*Noop) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{26}
+	return fileDescriptor_0c5120591600887d, []int{22}
 }
 func (m *Noop) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1653,7 +1315,7 @@ type RemoveLabelLinkRequest struct {
 func (m *RemoveLabelLinkRequest) Reset()      { *m = RemoveLabelLinkRequest{} }
 func (*RemoveLabelLinkRequest) ProtoMessage() {}
 func (*RemoveLabelLinkRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{27}
+	return fileDescriptor_0c5120591600887d, []int{23}
 }
 func (m *RemoveLabelLinkRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1705,7 +1367,7 @@ type CreateTokenRequest struct {
 func (m *CreateTokenRequest) Reset()      { *m = CreateTokenRequest{} }
 func (*CreateTokenRequest) ProtoMessage() {}
 func (*CreateTokenRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{28}
+	return fileDescriptor_0c5120591600887d, []int{24}
 }
 func (m *CreateTokenRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1762,7 +1424,7 @@ type CreateTokenResponse struct {
 func (m *CreateTokenResponse) Reset()      { *m = CreateTokenResponse{} }
 func (*CreateTokenResponse) ProtoMessage() {}
 func (*CreateTokenResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{29}
+	return fileDescriptor_0c5120591600887d, []int{25}
 }
 func (m *CreateTokenResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1805,7 +1467,7 @@ type ControlRegister struct {
 func (m *ControlRegister) Reset()      { *m = ControlRegister{} }
 func (*ControlRegister) ProtoMessage() {}
 func (*ControlRegister) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{30}
+	return fileDescriptor_0c5120591600887d, []int{26}
 }
 func (m *ControlRegister) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1848,7 +1510,7 @@ type ControlToken struct {
 func (m *ControlToken) Reset()      { *m = ControlToken{} }
 func (*ControlToken) ProtoMessage() {}
 func (*ControlToken) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{31}
+	return fileDescriptor_0c5120591600887d, []int{27}
 }
 func (m *ControlToken) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1891,7 +1553,7 @@ type TokenInfo struct {
 func (m *TokenInfo) Reset()      { *m = TokenInfo{} }
 func (*TokenInfo) ProtoMessage() {}
 func (*TokenInfo) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{32}
+	return fileDescriptor_0c5120591600887d, []int{28}
 }
 func (m *TokenInfo) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1935,7 +1597,7 @@ type ListAccountsRequest struct {
 func (m *ListAccountsRequest) Reset()      { *m = ListAccountsRequest{} }
 func (*ListAccountsRequest) ProtoMessage() {}
 func (*ListAccountsRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{33}
+	return fileDescriptor_0c5120591600887d, []int{29}
 }
 func (m *ListAccountsRequest) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -1986,7 +1648,7 @@ type ListAccountsResponse struct {
 func (m *ListAccountsResponse) Reset()      { *m = ListAccountsResponse{} }
 func (*ListAccountsResponse) ProtoMessage() {}
 func (*ListAccountsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_0c5120591600887d, []int{34}
+	return fileDescriptor_0c5120591600887d, []int{30}
 }
 func (m *ListAccountsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -2036,18 +1698,12 @@ func init() {
 	proto.RegisterType((*LabelLinks)(nil), "pb.LabelLinks")
 	proto.RegisterType((*ServiceRoute)(nil), "pb.ServiceRoute")
 	proto.RegisterType((*AccountServices)(nil), "pb.AccountServices")
-	proto.RegisterType((*ActivityEntry)(nil), "pb.ActivityEntry")
 	proto.RegisterType((*ConfigRequest)(nil), "pb.ConfigRequest")
 	proto.RegisterType((*ConfigResponse)(nil), "pb.ConfigResponse")
-	proto.RegisterType((*HubChange)(nil), "pb.HubChange")
-	proto.RegisterType((*CentralActivity)(nil), "pb.CentralActivity")
-	proto.RegisterType((*HubActivity)(nil), "pb.HubActivity")
-	proto.RegisterType((*HubActivity_HubRegistration)(nil), "pb.HubActivity.HubRegistration")
-	proto.RegisterType((*HubActivity_HubStats)(nil), "pb.HubActivity.HubStats")
+	proto.RegisterType((*HubStats)(nil), "pb.HubStats")
+	proto.RegisterType((*HubStatsRequest)(nil), "pb.HubStatsRequest")
 	proto.RegisterType((*HubInfo)(nil), "pb.HubInfo")
 	proto.RegisterType((*ListOfHubs)(nil), "pb.ListOfHubs")
-	proto.RegisterType((*HubSync)(nil), "pb.HubSync")
-	proto.RegisterType((*HubSyncResponse)(nil), "pb.HubSyncResponse")
 	proto.RegisterType((*HubRegisterRequest)(nil), "pb.HubRegisterRequest")
 	proto.RegisterType((*HubRegisterResponse)(nil), "pb.HubRegisterResponse")
 	proto.RegisterType((*HubDisconnectRequest)(nil), "pb.HubDisconnectRequest")
@@ -2072,125 +1728,108 @@ func init() {
 func init() { proto.RegisterFile("control.proto", fileDescriptor_0c5120591600887d) }
 
 var fileDescriptor_0c5120591600887d = []byte{
-	// 1880 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x58, 0xcd, 0x93, 0x1b, 0x47,
-	0x15, 0xd7, 0x48, 0x2b, 0xad, 0xf4, 0x24, 0xad, 0xbc, 0xad, 0x8d, 0x2d, 0x14, 0xd0, 0x9a, 0x8e,
-	0x89, 0x4d, 0x62, 0xaf, 0xc3, 0xae, 0x31, 0x1f, 0x65, 0x3e, 0x64, 0x99, 0x64, 0x17, 0xaf, 0x43,
-	0x6a, 0xd6, 0xc9, 0x75, 0xe8, 0x99, 0xe9, 0x95, 0xa6, 0x76, 0x34, 0x23, 0xa6, 0x7b, 0x76, 0x11,
-	0x07, 0x8a, 0xe2, 0x04, 0x37, 0x0e, 0x5c, 0xe0, 0xc6, 0x8d, 0xe2, 0x94, 0x3f, 0x23, 0x37, 0x7c,
-	0xa2, 0x72, 0xa0, 0x28, 0xbc, 0xbe, 0x70, 0xcc, 0x9f, 0x40, 0xf5, 0xc7, 0x7c, 0x69, 0x65, 0xd9,
-	0x71, 0x95, 0xab, 0x72, 0x53, 0xbf, 0xf7, 0x7b, 0xaf, 0xdf, 0x7b, 0xfd, 0xbe, 0x46, 0xd0, 0x76,
-	0xc2, 0x80, 0x47, 0xa1, 0xbf, 0x33, 0x8b, 0x42, 0x1e, 0xa2, 0xf2, 0xcc, 0xee, 0x77, 0x5c, 0x7a,
-	0xcc, 0x6e, 0x8f, 0xc3, 0x71, 0xa8, 0x88, 0xfd, 0xfa, 0xc9, 0xa9, 0xfe, 0xd5, 0xf4, 0x89, 0x4d,
-	0x35, 0xb6, 0xdf, 0x26, 0x8e, 0x13, 0xc6, 0x01, 0xd7, 0x47, 0x88, 0x7d, 0xcf, 0x4d, 0x70, 0x3c,
-	0x3c, 0xa1, 0x81, 0x3e, 0x74, 0xb8, 0x37, 0xa5, 0x8c, 0x93, 0xe9, 0x2c, 0x41, 0x1e, 0xfb, 0xe1,
-	0x59, 0xa2, 0x24, 0xa0, 0xfc, 0x2c, 0x8c, 0x4e, 0xd4, 0x11, 0xff, 0xd3, 0x80, 0x8d, 0x23, 0x1a,
-	0x9d, 0x7a, 0x0e, 0x35, 0xe9, 0xaf, 0x62, 0xca, 0x38, 0xfa, 0x16, 0xac, 0xeb, 0x8b, 0x7a, 0xc6,
-	0x55, 0xe3, 0x46, 0x73, 0xb7, 0xb9, 0x33, 0xb3, 0x77, 0x86, 0x8a, 0x64, 0x26, 0x3c, 0xd4, 0x87,
-	0xca, 0x24, 0xb6, 0x7b, 0x65, 0x09, 0xa9, 0x0b, 0xc8, 0xc7, 0x87, 0x07, 0x0f, 0x4c, 0x41, 0x44,
-	0x3d, 0x28, 0x7b, 0x6e, 0xaf, 0xb2, 0xc0, 0x2a, 0x7b, 0x2e, 0x42, 0xb0, 0xc6, 0xe7, 0x33, 0xda,
-	0x5b, 0xbb, 0x6a, 0xdc, 0x68, 0x98, 0xf2, 0x37, 0xba, 0x06, 0x35, 0xe9, 0x26, 0xeb, 0x55, 0xa5,
-	0x44, 0x4b, 0x48, 0x1c, 0x0a, 0xca, 0x11, 0xe5, 0xa6, 0xe6, 0xa1, 0xb7, 0xa1, 0x3e, 0xa5, 0x9c,
-	0xb8, 0x84, 0x93, 0x5e, 0xed, 0x6a, 0xe5, 0x46, 0x73, 0x17, 0x04, 0xee, 0xe1, 0x27, 0x1f, 0x11,
-	0x2f, 0x32, 0x53, 0x1e, 0xde, 0x84, 0x4e, 0xea, 0x10, 0x9b, 0x85, 0x01, 0xa3, 0xf8, 0x1f, 0x06,
-	0x34, 0xa4, 0xbe, 0x43, 0x2f, 0x38, 0x79, 0x59, 0xff, 0x32, 0xab, 0xca, 0x2b, 0xac, 0xba, 0x06,
-	0x35, 0x4e, 0xa2, 0x31, 0xe5, 0xda, 0xdb, 0x05, 0x94, 0xe2, 0xa1, 0x77, 0xa0, 0xe6, 0x7b, 0x53,
-	0x8f, 0x33, 0xe9, 0x77, 0x73, 0x17, 0xe5, 0x6e, 0xdc, 0x39, 0x94, 0x1c, 0x53, 0x23, 0xf0, 0x3d,
-	0x80, 0xd4, 0x56, 0x86, 0x76, 0x40, 0xa5, 0x80, 0xe5, 0x8b, 0x63, 0xcf, 0x90, 0x8e, 0xb7, 0xd3,
-	0x4b, 0x04, 0xc8, 0x04, 0x3f, 0xc5, 0xe3, 0xdf, 0x42, 0x2b, 0xf1, 0x3e, 0x8c, 0x39, 0x4d, 0x5e,
-	0xc9, 0x78, 0xfe, 0x2b, 0x95, 0x57, 0xbc, 0x52, 0x65, 0xe9, 0x2b, 0xad, 0x3d, 0x3f, 0x1e, 0xf8,
-	0x18, 0x3a, 0xda, 0x2f, 0x6d, 0x06, 0x7b, 0xd9, 0x78, 0xdf, 0x84, 0x3a, 0xd3, 0x22, 0xbd, 0xb2,
-	0x74, 0xf3, 0x92, 0xc0, 0xe5, 0xbd, 0x31, 0x53, 0x04, 0xe6, 0xd0, 0x1e, 0x3a, 0xdc, 0x3b, 0xf5,
-	0xf8, 0xfc, 0x67, 0x01, 0x8f, 0xe6, 0xe8, 0x0e, 0x34, 0x23, 0x81, 0xb1, 0x88, 0xeb, 0x52, 0x57,
-	0xdf, 0xd4, 0xcd, 0xdd, 0x94, 0xd8, 0x63, 0x82, 0xc4, 0x0d, 0x05, 0x0c, 0xdd, 0x82, 0xb6, 0x92,
-	0x8a, 0xe8, 0x34, 0x3c, 0xa5, 0x17, 0xa3, 0xd1, 0x92, 0x6c, 0x53, 0x71, 0xf1, 0x9f, 0x0d, 0x68,
-	0x8f, 0xc2, 0xe0, 0xd8, 0x1b, 0x67, 0xc5, 0xd2, 0x60, 0x9c, 0xd8, 0x3e, 0xb5, 0x3c, 0xf7, 0x42,
-	0x94, 0xeb, 0x8a, 0x75, 0xe0, 0xa2, 0x6f, 0x43, 0xd3, 0x0b, 0x18, 0x27, 0x81, 0x23, 0x81, 0x8b,
-	0xb7, 0x40, 0xc2, 0x3c, 0x70, 0xd1, 0x77, 0xa0, 0xe1, 0x87, 0x0e, 0xe1, 0x5e, 0x18, 0xb0, 0x5e,
-	0x45, 0x06, 0x42, 0xba, 0xf1, 0xa1, 0xaa, 0xdb, 0x43, 0xcd, 0x33, 0x33, 0x14, 0x7e, 0x66, 0xc0,
-	0x46, 0x62, 0x96, 0x4a, 0x79, 0x74, 0x05, 0xd6, 0xb9, 0xcf, 0xac, 0x13, 0x3a, 0x97, 0x56, 0xb5,
-	0xcc, 0x1a, 0xf7, 0xd9, 0x43, 0x3a, 0x47, 0x5f, 0x83, 0xba, 0x60, 0x38, 0x34, 0xe2, 0xd2, 0x8c,
-	0x96, 0x29, 0x80, 0x23, 0x1a, 0x71, 0xf4, 0x26, 0x34, 0x64, 0x1b, 0xb1, 0x66, 0xb1, 0x2d, 0x9f,
-	0xbe, 0x65, 0xd6, 0x25, 0xe1, 0xa3, 0xd8, 0x46, 0x18, 0xda, 0x6c, 0xcf, 0x22, 0x8e, 0x43, 0x99,
-	0x52, 0xab, 0x2a, 0xb8, 0xc9, 0xf6, 0x86, 0x92, 0x26, 0x74, 0x2b, 0x0c, 0xa3, 0x4e, 0x44, 0xb9,
-	0xc4, 0x54, 0x13, 0xcc, 0x91, 0xa4, 0x09, 0xcc, 0x9b, 0xd0, 0x60, 0x7b, 0x96, 0x1d, 0x3b, 0x27,
-	0x94, 0xf7, 0x6a, 0x92, 0x5f, 0x67, 0x7b, 0xf7, 0xe5, 0x59, 0x30, 0xbd, 0x29, 0x19, 0x53, 0x8b,
-	0x93, 0x71, 0x6f, 0x5d, 0x31, 0x25, 0xe1, 0x31, 0x19, 0xe3, 0x47, 0xd0, 0xd8, 0x8f, 0xed, 0xd1,
-	0x84, 0x04, 0x63, 0x8a, 0xb6, 0xa1, 0x16, 0xfa, 0xee, 0xb2, 0xa0, 0x57, 0x43, 0xdf, 0x3d, 0x70,
-	0x05, 0x20, 0xa0, 0x67, 0xcb, 0x82, 0x5d, 0x0d, 0xe8, 0xd9, 0x81, 0x8b, 0xff, 0x6d, 0x40, 0x67,
-	0x44, 0x03, 0x1e, 0x11, 0x3f, 0xc9, 0x24, 0xf4, 0x63, 0xb8, 0xa4, 0xd3, 0xd1, 0x4a, 0x73, 0xd1,
-	0xc8, 0x9e, 0x60, 0x31, 0x93, 0x3a, 0x64, 0x21, 0xd5, 0xdf, 0x82, 0x76, 0xa4, 0x12, 0xc3, 0x62,
-	0x9c, 0x70, 0xd5, 0x3a, 0xea, 0x66, 0x4b, 0x13, 0x8f, 0x04, 0x0d, 0xdd, 0x85, 0x8e, 0xb0, 0x2c,
-	0x5f, 0xd6, 0xaa, 0x77, 0x6c, 0x14, 0xca, 0x9a, 0x99, 0xed, 0x80, 0x9e, 0xe5, 0x5a, 0xc1, 0x4d,
-	0x80, 0x49, 0x6c, 0x5b, 0x8e, 0x0c, 0x80, 0x2e, 0x42, 0xd9, 0x09, 0xd2, 0xa8, 0x98, 0x8d, 0x49,
-	0xf2, 0x13, 0xff, 0xbe, 0x0a, 0xcd, 0xfd, 0xd8, 0x4e, 0x5d, 0xfb, 0x3e, 0xac, 0x0b, 0xe9, 0x88,
-	0x8e, 0x75, 0xc4, 0xb6, 0xb5, 0x68, 0x82, 0x10, 0xbf, 0x4d, 0x3a, 0xf6, 0x18, 0x8f, 0x54, 0x82,
-	0xd5, 0x26, 0x92, 0x80, 0xde, 0x86, 0x75, 0x46, 0x03, 0x6e, 0x11, 0xae, 0x43, 0x29, 0x2f, 0x7d,
-	0x9c, 0xcc, 0x18, 0xb3, 0x26, 0xb8, 0x43, 0x8e, 0x76, 0xa0, 0xaa, 0x9c, 0x56, 0xde, 0xf4, 0x96,
-	0xe8, 0x97, 0x01, 0x30, 0x15, 0x0c, 0x61, 0x58, 0x13, 0x73, 0xa9, 0xb7, 0x26, 0x03, 0x2c, 0x9d,
-	0x7f, 0xdf, 0x0f, 0xcf, 0x4c, 0xea, 0x84, 0x91, 0x6b, 0x4a, 0x5e, 0xff, 0x8f, 0x06, 0x74, 0x16,
-	0xec, 0x5a, 0xd9, 0xd2, 0xae, 0x03, 0xe8, 0x72, 0x5c, 0x36, 0x9b, 0x74, 0xa9, 0xee, 0xc7, 0xf6,
-	0x2b, 0x54, 0x59, 0xff, 0xd3, 0x32, 0xd4, 0x13, 0x1f, 0xd0, 0xbb, 0xb0, 0x49, 0xc6, 0x22, 0x2a,
-	0x4e, 0x18, 0x04, 0xd4, 0x51, 0x7a, 0x84, 0x49, 0x15, 0xf3, 0x92, 0x64, 0x8c, 0x32, 0xba, 0x48,
-	0x0b, 0x9d, 0x29, 0xcc, 0x62, 0x94, 0x06, 0xd2, 0xb0, 0x8a, 0xd9, 0x4a, 0x88, 0x47, 0x94, 0x06,
-	0xe8, 0x3a, 0x74, 0x52, 0x90, 0x43, 0x9c, 0x09, 0x55, 0x03, 0xb4, 0x62, 0x6e, 0x24, 0xe4, 0x91,
-	0xa4, 0xa2, 0x6f, 0x42, 0x4b, 0xf1, 0x2d, 0x7b, 0xce, 0xa9, 0x6a, 0xc7, 0x15, 0xb3, 0xa9, 0x68,
-	0xf7, 0x05, 0x09, 0x8d, 0xe0, 0xb2, 0x4f, 0x44, 0x12, 0xc6, 0xb2, 0x36, 0x8f, 0x63, 0xdf, 0x8a,
-	0x67, 0x2e, 0xe1, 0x54, 0x4f, 0xd8, 0x85, 0x17, 0xdc, 0x12, 0xe0, 0xa3, 0x14, 0xfb, 0xb1, 0x84,
-	0xa2, 0x21, 0xbc, 0x21, 0x95, 0x10, 0xce, 0xe9, 0x74, 0xc6, 0xa9, 0x9b, 0xe8, 0xa8, 0x2d, 0xd3,
-	0xd1, 0x15, 0xd8, 0x61, 0x02, 0x55, 0x2a, 0xf0, 0x27, 0xb0, 0xbe, 0x1f, 0xdb, 0x07, 0xc1, 0x71,
-	0xa8, 0x87, 0x8d, 0xb1, 0x64, 0xd8, 0x14, 0x9e, 0xa2, 0xfc, 0x52, 0x0d, 0xef, 0x16, 0xc0, 0xa1,
-	0xc7, 0xf8, 0x2f, 0x8e, 0xf7, 0x63, 0x9b, 0xa1, 0x6d, 0x58, 0x9b, 0xc4, 0x76, 0x52, 0xa9, 0x4d,
-	0x9d, 0x77, 0xe2, 0x56, 0x53, 0x32, 0xf0, 0x6f, 0xa4, 0x19, 0x47, 0xf3, 0xc0, 0x59, 0x61, 0x46,
-	0xa1, 0x93, 0x97, 0x9f, 0xdb, 0xc9, 0x77, 0x72, 0x63, 0x4a, 0xe5, 0x0d, 0xca, 0x8f, 0x29, 0x55,
-	0xe8, 0xb9, 0x41, 0x75, 0x57, 0x26, 0xb0, 0xb8, 0x3b, 0xed, 0xcd, 0x6f, 0x41, 0x5b, 0xb3, 0xad,
-	0x6c, 0x2c, 0x56, 0xcc, 0x96, 0x26, 0x8e, 0x04, 0x0d, 0xff, 0xc5, 0x00, 0x94, 0x66, 0x3e, 0x8d,
-	0xbe, 0x52, 0xf3, 0xe6, 0x03, 0xe8, 0x16, 0x4c, 0xd3, 0x7e, 0xbd, 0x07, 0x2d, 0xbd, 0xdc, 0x5a,
-	0x62, 0x03, 0xd5, 0xe6, 0x2d, 0xe4, 0x49, 0x53, 0x43, 0x04, 0x05, 0x4f, 0x60, 0x6b, 0x3f, 0xb6,
-	0x1f, 0x78, 0x4c, 0x57, 0xd1, 0x6b, 0xf3, 0x12, 0xef, 0x41, 0x57, 0x3f, 0xd1, 0x63, 0x31, 0xd1,
-	0x92, 0x8b, 0xbe, 0x0e, 0x8d, 0x80, 0x4c, 0x29, 0x9b, 0x11, 0x47, 0xd9, 0xdb, 0x30, 0x33, 0x02,
-	0xbe, 0x09, 0x5b, 0x45, 0x21, 0xed, 0xe8, 0x16, 0x54, 0xe5, 0x5c, 0xd4, 0x12, 0xea, 0x80, 0xef,
-	0x41, 0x57, 0x24, 0x65, 0x3a, 0x1d, 0xbe, 0xd4, 0x3a, 0x8d, 0x7f, 0x02, 0x5b, 0x45, 0x69, 0x7d,
-	0xd7, 0xf5, 0x5c, 0xbe, 0xe5, 0x12, 0x3c, 0xc9, 0xb7, 0x2c, 0xd1, 0xfe, 0x66, 0xc0, 0xba, 0xa6,
-	0xae, 0xc8, 0xf2, 0x55, 0x5b, 0xfb, 0x2b, 0x6f, 0x7d, 0x85, 0xdd, 0xbc, 0xba, 0x62, 0x37, 0x3f,
-	0x86, 0xcd, 0xa1, 0xeb, 0x26, 0xbe, 0x7f, 0xb9, 0xef, 0x8d, 0x6c, 0x87, 0x2e, 0xbf, 0x70, 0x87,
-	0xfe, 0x83, 0x01, 0xdd, 0xa1, 0xeb, 0x66, 0x2b, 0xb2, 0xbe, 0x2a, 0xf3, 0xc6, 0x58, 0xe1, 0x4d,
-	0xce, 0xa0, 0xf2, 0xea, 0x0f, 0x84, 0x17, 0xaf, 0xfe, 0xb8, 0x06, 0x6b, 0x1f, 0x86, 0xe1, 0x0c,
-	0x53, 0xb8, 0xac, 0xb6, 0xc8, 0xd7, 0x6a, 0x14, 0xfe, 0xd4, 0x00, 0x34, 0x8a, 0x28, 0xe1, 0xc5,
-	0x3c, 0x7f, 0xc9, 0x18, 0xff, 0x48, 0x8c, 0x96, 0x19, 0xb1, 0x3d, 0xdf, 0xe3, 0x1e, 0x2d, 0x74,
-	0x63, 0xa9, 0x6e, 0x94, 0x30, 0xe7, 0xf7, 0xd7, 0x3e, 0xfb, 0xcf, 0x76, 0xc9, 0x2c, 0xc0, 0xd1,
-	0x1d, 0xd8, 0x38, 0x25, 0xbe, 0xe7, 0x5a, 0x6e, 0xac, 0x66, 0xb5, 0x8e, 0xcc, 0x42, 0x0b, 0x68,
-	0x4b, 0xd0, 0x03, 0x8d, 0xc1, 0xef, 0x42, 0xb7, 0x60, 0xf1, 0xca, 0x22, 0xbb, 0x0d, 0x9d, 0x91,
-	0x6a, 0x20, 0x49, 0xfb, 0x79, 0x41, 0x0d, 0x5f, 0x83, 0x96, 0x16, 0x90, 0xea, 0x9f, 0xa3, 0xf6,
-	0x1d, 0x68, 0x48, 0xb6, 0x1c, 0x55, 0xdf, 0x00, 0x98, 0xc5, 0xb6, 0xef, 0x39, 0xb9, 0xf5, 0xb9,
-	0xa1, 0x28, 0x0f, 0xe9, 0x1c, 0x8f, 0x54, 0x9d, 0xeb, 0xe0, 0xa5, 0x75, 0xbe, 0x05, 0x55, 0x99,
-	0x7d, 0x52, 0xa0, 0x6a, 0xaa, 0x03, 0xba, 0x0c, 0xb5, 0x29, 0x89, 0x4e, 0x68, 0xa4, 0x97, 0x6d,
-	0x7d, 0xc2, 0xbf, 0x54, 0xe5, 0x9e, 0x29, 0xc9, 0xca, 0x3d, 0x19, 0xf7, 0xf9, 0x72, 0x4f, 0x5e,
-	0x2a, 0x65, 0xa2, 0x6d, 0x68, 0x06, 0xf4, 0xd7, 0xdc, 0x2a, 0x68, 0x07, 0x41, 0x7a, 0x24, 0x29,
-	0xbb, 0x7f, 0x5d, 0x4b, 0x43, 0x95, 0xee, 0xa7, 0xdf, 0x03, 0x18, 0xba, 0x6e, 0xd2, 0x25, 0x96,
-	0x0c, 0xae, 0x7e, 0xb7, 0x40, 0xd3, 0xdf, 0xcf, 0x25, 0xf4, 0x43, 0x68, 0xab, 0xec, 0x7d, 0x05,
-	0xd9, 0x11, 0xb4, 0xf2, 0x9d, 0x0d, 0x5d, 0x91, 0xf9, 0x7d, 0xb1, 0x53, 0xf6, 0x7b, 0x17, 0x19,
-	0xa9, 0x92, 0xbb, 0xd0, 0x7c, 0x9f, 0x72, 0x67, 0xa2, 0x3e, 0x73, 0xd0, 0xa6, 0x80, 0x16, 0xbe,
-	0xc4, 0xfa, 0x28, 0x4f, 0x4a, 0xe5, 0xee, 0xc1, 0xc6, 0x11, 0x8f, 0x28, 0x99, 0xa6, 0x8b, 0x70,
-	0x67, 0x61, 0x2f, 0x55, 0x66, 0x2f, 0x7c, 0x09, 0xe0, 0xd2, 0x0d, 0xe3, 0x3d, 0x03, 0xdd, 0x82,
-	0x75, 0x31, 0xb9, 0xc5, 0xc2, 0x98, 0xac, 0x15, 0xe2, 0xac, 0x44, 0x16, 0xc6, 0x3a, 0x2e, 0xa1,
-	0xef, 0x42, 0xbb, 0x30, 0xce, 0x50, 0xb2, 0x03, 0x5f, 0x98, 0x70, 0x7d, 0xd9, 0x7a, 0x65, 0x63,
-	0x28, 0x89, 0xe2, 0x1c, 0xfa, 0xbe, 0x5c, 0x65, 0x52, 0x72, 0x7f, 0x23, 0x09, 0x86, 0x5a, 0x72,
-	0x70, 0x09, 0xfd, 0x1c, 0xba, 0x5a, 0x3a, 0x3f, 0x94, 0x54, 0x38, 0x97, 0xcc, 0x36, 0x15, 0xce,
-	0x65, 0xf3, 0x0b, 0x97, 0x76, 0xff, 0x55, 0x81, 0x4d, 0x9d, 0x1c, 0x8f, 0x48, 0x40, 0xc6, 0x74,
-	0x4a, 0x03, 0x8e, 0xf6, 0xa0, 0x9e, 0x56, 0x55, 0x57, 0x87, 0x33, 0x5f, 0x6a, 0xfd, 0x4b, 0x39,
-	0xa2, 0x54, 0x89, 0x4b, 0xe8, 0xb6, 0xcc, 0x29, 0x9d, 0xa0, 0xe8, 0x0d, 0x99, 0xad, 0x8b, 0x3d,
-	0xbe, 0xe0, 0xee, 0x1e, 0xb4, 0xf2, 0xbd, 0x59, 0x39, 0xb0, 0xa4, 0x5b, 0x17, 0x84, 0x7e, 0x00,
-	0x9d, 0x85, 0xf6, 0x89, 0xfa, 0x82, 0xbd, 0xbc, 0xa7, 0x16, 0x44, 0x7f, 0x0a, 0xcd, 0x5c, 0x7f,
-	0x41, 0x97, 0xa5, 0x0f, 0x17, 0x5a, 0x64, 0xff, 0xca, 0x05, 0x7a, 0xfa, 0xae, 0x77, 0xa0, 0x7d,
-	0xc0, 0x58, 0x2c, 0x3e, 0x1c, 0x94, 0x8e, 0xec, 0x99, 0x56, 0x48, 0xed, 0xc0, 0xe6, 0x07, 0x94,
-	0x3f, 0xd6, 0x1f, 0xd0, 0xaa, 0x79, 0xe4, 0x24, 0xdb, 0x69, 0x57, 0x15, 0x4d, 0x27, 0xab, 0x93,
-	0xa4, 0x25, 0x64, 0x75, 0xb2, 0xd0, 0x69, 0xb2, 0x3a, 0x59, 0xec, 0x1e, 0xb8, 0x74, 0xff, 0xce,
-	0x93, 0xa7, 0x83, 0xd2, 0xe7, 0x4f, 0x07, 0xa5, 0x2f, 0x9e, 0x0e, 0x8c, 0xdf, 0x9d, 0x0f, 0x8c,
-	0xbf, 0x9f, 0x0f, 0x8c, 0xcf, 0xce, 0x07, 0xc6, 0x93, 0xf3, 0x81, 0xf1, 0xdf, 0xf3, 0x81, 0xf1,
-	0xbf, 0xf3, 0x41, 0xe9, 0x8b, 0xf3, 0x81, 0xf1, 0xa7, 0x67, 0x83, 0xd2, 0x93, 0x67, 0x83, 0xd2,
-	0xe7, 0xcf, 0x06, 0x25, 0xbb, 0x26, 0xff, 0x0c, 0xdc, 0xfb, 0x7f, 0x00, 0x00, 0x00, 0xff, 0xff,
-	0x58, 0x5f, 0x88, 0x84, 0x9d, 0x14, 0x00, 0x00,
+	// 1603 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xcc, 0x58, 0xcd, 0x73, 0x13, 0xd9,
+	0x11, 0xd7, 0x48, 0x96, 0x2c, 0xb5, 0x24, 0x0b, 0x3f, 0x19, 0xa3, 0x88, 0x44, 0x90, 0x89, 0x09,
+	0x04, 0x88, 0x49, 0x2c, 0x92, 0x54, 0x52, 0xa4, 0x12, 0x59, 0x14, 0xd8, 0xc1, 0x10, 0x6a, 0x6c,
+	0xb8, 0x2a, 0xf3, 0xf1, 0x24, 0x4f, 0x79, 0x34, 0xa3, 0xcc, 0x7b, 0x63, 0xaf, 0x2f, 0x5b, 0x7b,
+	0xdc, 0xe3, 0x1e, 0xf6, 0xb2, 0xc7, 0xbd, 0x6d, 0xed, 0x89, 0x3f, 0x83, 0xdb, 0x72, 0xda, 0xe2,
+	0xb4, 0xb5, 0xb6, 0x2f, 0x7b, 0xe4, 0x4f, 0xd8, 0x7a, 0x5f, 0xf3, 0x21, 0x1b, 0x61, 0xa8, 0xa2,
+	0x6a, 0x6f, 0x7e, 0xdd, 0xbf, 0xee, 0xe9, 0x7e, 0xaf, 0xfb, 0xd7, 0x2d, 0x43, 0xdd, 0x0e, 0x7c,
+	0x1a, 0x06, 0xde, 0xea, 0x24, 0x0c, 0x68, 0x80, 0xf2, 0x13, 0xab, 0xdd, 0x70, 0xf0, 0x90, 0xdc,
+	0x19, 0x05, 0xa3, 0x40, 0x08, 0xdb, 0xe5, 0xbd, 0x7d, 0xf9, 0x57, 0xd5, 0x33, 0x2d, 0x2c, 0xb1,
+	0xed, 0xba, 0x69, 0xdb, 0x41, 0xe4, 0x53, 0x79, 0x84, 0xc8, 0x73, 0x1d, 0x85, 0xa3, 0xc1, 0x1e,
+	0xf6, 0xe5, 0xa1, 0x41, 0xdd, 0x31, 0x26, 0xd4, 0x1c, 0x4f, 0x14, 0x72, 0xe8, 0x05, 0x07, 0xca,
+	0x89, 0x8f, 0xe9, 0x41, 0x10, 0xee, 0x89, 0xa3, 0xfe, 0x9d, 0x06, 0x0b, 0xdb, 0x38, 0xdc, 0x77,
+	0x6d, 0x6c, 0xe0, 0xff, 0x47, 0x98, 0x50, 0x74, 0x0d, 0xe6, 0xe5, 0x87, 0x5a, 0xda, 0x55, 0xed,
+	0x46, 0x75, 0xad, 0xba, 0x3a, 0xb1, 0x56, 0x7b, 0x42, 0x64, 0x28, 0x1d, 0x6a, 0x43, 0x61, 0x37,
+	0xb2, 0x5a, 0x79, 0x0e, 0x29, 0x33, 0xc8, 0xb3, 0xad, 0xcd, 0xfb, 0x06, 0x13, 0xa2, 0x16, 0xe4,
+	0x5d, 0xa7, 0x55, 0x98, 0x52, 0xe5, 0x5d, 0x07, 0x21, 0x98, 0xa3, 0x87, 0x13, 0xdc, 0x9a, 0xbb,
+	0xaa, 0xdd, 0xa8, 0x18, 0xfc, 0x6f, 0xb4, 0x02, 0x25, 0x9e, 0x26, 0x69, 0x15, 0xb9, 0x45, 0x8d,
+	0x59, 0x6c, 0x31, 0xc9, 0x36, 0xa6, 0x86, 0xd4, 0xa1, 0xdf, 0x43, 0x79, 0x8c, 0xa9, 0xe9, 0x98,
+	0xd4, 0x6c, 0x95, 0xae, 0x16, 0x6e, 0x54, 0xd7, 0x80, 0xe1, 0x1e, 0x3d, 0x7f, 0x6a, 0xba, 0xa1,
+	0x11, 0xeb, 0xf4, 0x45, 0x68, 0xc4, 0x09, 0x91, 0x49, 0xe0, 0x13, 0xac, 0x7f, 0xab, 0x41, 0x85,
+	0xfb, 0xdb, 0x72, 0xfd, 0xbd, 0xf3, 0xe6, 0x97, 0x44, 0x95, 0x9f, 0x11, 0xd5, 0x0a, 0x94, 0xa8,
+	0x19, 0x8e, 0x30, 0x95, 0xd9, 0x4e, 0xa1, 0x84, 0x0e, 0xdd, 0x84, 0x92, 0xe7, 0x8e, 0x5d, 0x4a,
+	0x78, 0xde, 0xd5, 0x35, 0x94, 0xfa, 0xe2, 0xea, 0x16, 0xd7, 0x18, 0x12, 0xa1, 0xdf, 0x03, 0x88,
+	0x63, 0x25, 0x68, 0x15, 0x44, 0x09, 0x0c, 0x3c, 0x76, 0x6c, 0x69, 0x3c, 0xf1, 0x7a, 0xfc, 0x11,
+	0x06, 0x32, 0xc0, 0x8b, 0xf1, 0xfa, 0xa7, 0x50, 0x53, 0xd9, 0x07, 0x11, 0xc5, 0xea, 0x95, 0xb4,
+	0xb7, 0xbf, 0x52, 0x7e, 0xc6, 0x2b, 0x15, 0xce, 0x7c, 0xa5, 0xb9, 0xb7, 0xdf, 0x87, 0x3e, 0x84,
+	0x86, 0xcc, 0x4b, 0x86, 0x41, 0xce, 0x7b, 0xdf, 0xb7, 0xa1, 0x4c, 0xa4, 0x49, 0x2b, 0xcf, 0xd3,
+	0xbc, 0xc0, 0x70, 0xe9, 0x6c, 0x8c, 0x18, 0xa1, 0x7f, 0xa9, 0x41, 0xbd, 0x1f, 0xf8, 0x43, 0x77,
+	0x94, 0x94, 0x6d, 0x85, 0x50, 0xd3, 0xf2, 0xf0, 0xc0, 0x75, 0x4e, 0xe5, 0x5b, 0x16, 0xaa, 0x4d,
+	0x07, 0xfd, 0x01, 0xaa, 0xae, 0x4f, 0xa8, 0xe9, 0xdb, 0x1c, 0x38, 0x9d, 0x3d, 0x28, 0xe5, 0xa6,
+	0x83, 0xfe, 0x0c, 0x15, 0x2f, 0xb0, 0x4d, 0xea, 0x06, 0x3e, 0x69, 0x15, 0x78, 0x48, 0x4d, 0x06,
+	0x7c, 0x22, 0x3a, 0x68, 0x4b, 0xea, 0x8c, 0x04, 0xa5, 0x9f, 0x68, 0xb0, 0xa0, 0xc2, 0x12, 0xc5,
+	0x87, 0x2e, 0xc1, 0x3c, 0xf5, 0xc8, 0x60, 0x0f, 0x1f, 0xf2, 0xa8, 0x6a, 0x46, 0x89, 0x7a, 0xe4,
+	0x11, 0x3e, 0x44, 0xbf, 0x82, 0x32, 0x53, 0xd8, 0x38, 0xa4, 0x3c, 0x8c, 0x9a, 0xc1, 0x80, 0x7d,
+	0x1c, 0x52, 0x74, 0x19, 0x2a, 0xbc, 0xa1, 0x07, 0x93, 0xc8, 0xe2, 0x8f, 0x50, 0x33, 0xca, 0x5c,
+	0xf0, 0x34, 0xb2, 0x90, 0x0e, 0x75, 0xd2, 0x1d, 0x98, 0xb6, 0x8d, 0x89, 0x70, 0x2b, 0x7a, 0xa9,
+	0x4a, 0xba, 0x3d, 0x2e, 0x63, 0xbe, 0x05, 0x86, 0x60, 0x3b, 0xc4, 0x94, 0x63, 0x8a, 0x0a, 0xb3,
+	0xcd, 0x65, 0x0c, 0x73, 0x19, 0x2a, 0xa4, 0x3b, 0xb0, 0x22, 0x7b, 0x0f, 0xd3, 0x56, 0x89, 0xeb,
+	0xcb, 0xa4, 0xbb, 0xce, 0xcf, 0x4c, 0xe9, 0x8e, 0xcd, 0x11, 0x1e, 0x50, 0x73, 0xd4, 0x9a, 0x17,
+	0x4a, 0x2e, 0xd8, 0x31, 0x47, 0xfa, 0x8b, 0x3c, 0x94, 0x37, 0x22, 0x6b, 0x9b, 0x9a, 0x94, 0xa0,
+	0x5b, 0xb0, 0x68, 0x8e, 0xb0, 0x4f, 0x07, 0x76, 0xe0, 0xfb, 0xd8, 0x16, 0xb7, 0xc5, 0x32, 0x2d,
+	0x18, 0x17, 0xb8, 0xa2, 0x9f, 0xc8, 0xd1, 0xef, 0x40, 0x91, 0x18, 0x19, 0x10, 0x8c, 0x7d, 0x9e,
+	0x78, 0xc1, 0xa8, 0x29, 0xe1, 0x36, 0xc6, 0x3e, 0xba, 0x0e, 0x8d, 0x18, 0x64, 0x9b, 0xf6, 0x2e,
+	0x16, 0x54, 0x52, 0x30, 0x16, 0x94, 0xb8, 0xcf, 0xa5, 0xe8, 0xb7, 0x50, 0x13, 0xfa, 0x81, 0x75,
+	0x48, 0xb1, 0x28, 0xcc, 0x82, 0x51, 0x15, 0xb2, 0x75, 0x26, 0x42, 0x7d, 0x58, 0xf6, 0x4c, 0x42,
+	0x07, 0x24, 0xe2, 0x77, 0x33, 0x8c, 0xbc, 0x41, 0x34, 0x71, 0x4c, 0x8a, 0x25, 0xd7, 0xf0, 0x56,
+	0xda, 0x51, 0x7c, 0x69, 0x2c, 0x31, 0xf0, 0x76, 0x8c, 0x7d, 0xc6, 0xa1, 0xa8, 0x07, 0x17, 0xb9,
+	0x13, 0x93, 0x52, 0x3c, 0x9e, 0x50, 0xec, 0x28, 0x1f, 0xa5, 0xb3, 0x7c, 0x34, 0x19, 0xb6, 0xa7,
+	0xa0, 0xc2, 0x85, 0x7e, 0x00, 0x0d, 0x75, 0x63, 0xaa, 0x60, 0x67, 0xb5, 0xa6, 0x0e, 0x45, 0xc2,
+	0xb0, 0x69, 0xee, 0x89, 0xed, 0x85, 0x0a, 0xad, 0x40, 0x91, 0xf1, 0xba, 0x2a, 0xcd, 0x05, 0x86,
+	0x79, 0xe0, 0x05, 0x07, 0x06, 0xb6, 0x83, 0xd0, 0x31, 0x84, 0x52, 0x7f, 0x0e, 0xf3, 0x1b, 0x91,
+	0xb5, 0xe9, 0x0f, 0x03, 0xd9, 0xef, 0xda, 0x19, 0xfd, 0x9e, 0xa9, 0xf4, 0xfc, 0xb9, 0x2a, 0xfd,
+	0x8f, 0x00, 0x5b, 0x2e, 0xa1, 0xff, 0x1d, 0x6e, 0x44, 0x16, 0x41, 0x57, 0x60, 0x6e, 0x37, 0xb2,
+	0x14, 0x3f, 0x55, 0x65, 0xb8, 0xec, 0xab, 0x06, 0x57, 0xe8, 0x5f, 0x69, 0x80, 0x36, 0x22, 0xcb,
+	0xc0, 0x23, 0x97, 0x50, 0x1c, 0xfe, 0xa2, 0x9a, 0xf6, 0x21, 0x34, 0x33, 0xa1, 0xc9, 0xc6, 0xfd,
+	0x13, 0xd4, 0xe4, 0xac, 0x1e, 0xb0, 0x81, 0x2a, 0xc3, 0x9b, 0x7a, 0xec, 0xaa, 0x84, 0x30, 0x89,
+	0xbe, 0x0b, 0x4b, 0x1b, 0x91, 0x75, 0xdf, 0x25, 0xb2, 0x15, 0x3e, 0x5a, 0x96, 0x7a, 0x17, 0x9a,
+	0x92, 0x18, 0x77, 0x18, 0x2d, 0xa8, 0x0f, 0xfd, 0x1a, 0x2a, 0xbe, 0x39, 0xc6, 0x64, 0x62, 0xda,
+	0x22, 0xde, 0x8a, 0x91, 0x08, 0xf4, 0xdb, 0xb0, 0x94, 0x35, 0x92, 0x89, 0x2e, 0x41, 0x91, 0x93,
+	0x8b, 0xb4, 0x10, 0x07, 0xfd, 0x1e, 0x34, 0xd9, 0x03, 0x2b, 0x1a, 0x7f, 0xbf, 0xed, 0x40, 0xff,
+	0x17, 0x2c, 0x65, 0xad, 0xe5, 0xb7, 0xae, 0xa7, 0x58, 0x3e, 0x55, 0x2c, 0x8a, 0xe5, 0x13, 0x82,
+	0xff, 0x5a, 0x83, 0x79, 0x29, 0x9d, 0x51, 0xb8, 0xb3, 0x96, 0x90, 0x0f, 0x1e, 0x62, 0x99, 0x55,
+	0xa3, 0x38, 0x63, 0xd5, 0x18, 0xc2, 0x62, 0xcf, 0x71, 0x54, 0xee, 0xef, 0xb7, 0x3e, 0x25, 0x2b,
+	0x41, 0xfe, 0x9d, 0x2b, 0xc1, 0xe7, 0x1a, 0x34, 0x7b, 0x8e, 0x93, 0x4c, 0x7c, 0xf9, 0xa9, 0x24,
+	0x1b, 0x6d, 0x46, 0x36, 0xa9, 0x80, 0xf2, 0xb3, 0xf7, 0x9d, 0x77, 0x6f, 0x32, 0x7a, 0x09, 0xe6,
+	0x9e, 0x04, 0xc1, 0x44, 0xc7, 0xb0, 0x6c, 0xe0, 0x71, 0xb0, 0x8f, 0x3f, 0x6a, 0x50, 0xfa, 0x0b,
+	0x0d, 0x50, 0x3f, 0xc4, 0x26, 0xcd, 0xd6, 0xf9, 0x39, 0xef, 0xf8, 0x9f, 0x6c, 0x3e, 0x4c, 0x4c,
+	0xcb, 0xf5, 0x5c, 0xea, 0xe2, 0x0c, 0xb3, 0x71, 0x77, 0x7d, 0xa5, 0x3c, 0x5c, 0x9f, 0x7b, 0xf9,
+	0xc3, 0x95, 0x9c, 0x91, 0x81, 0xa3, 0xbb, 0xb0, 0xb0, 0x6f, 0x7a, 0xae, 0x33, 0x70, 0xa2, 0x90,
+	0x53, 0x85, 0xbc, 0x99, 0x29, 0x0a, 0xa8, 0x73, 0xd0, 0x7d, 0x89, 0xd1, 0x6f, 0x41, 0x33, 0x13,
+	0xf1, 0xcc, 0x26, 0xbb, 0x03, 0x8d, 0xbe, 0x20, 0x10, 0x45, 0x3f, 0xef, 0xe8, 0xe1, 0x15, 0xa8,
+	0x49, 0x03, 0xee, 0xfe, 0x2d, 0x6e, 0x6f, 0x42, 0x85, 0xab, 0x39, 0xed, 0xff, 0x06, 0x60, 0x12,
+	0x59, 0x9e, 0x6b, 0xa7, 0x76, 0x90, 0x8a, 0x90, 0x3c, 0xc2, 0x87, 0x7a, 0x5f, 0xf4, 0xb9, 0xbc,
+	0xbc, 0xb8, 0xcf, 0x97, 0xa0, 0xc8, 0xab, 0x8f, 0x1b, 0x14, 0x0d, 0x71, 0x40, 0xcb, 0x50, 0x1a,
+	0x9b, 0xe1, 0x1e, 0x0e, 0xe5, 0xc6, 0x22, 0x4f, 0xfa, 0xff, 0x44, 0xbb, 0x27, 0x4e, 0x92, 0x76,
+	0x57, 0x33, 0x3b, 0xdd, 0xee, 0xea, 0xa5, 0x62, 0x25, 0xba, 0x02, 0x55, 0x1f, 0x7f, 0x42, 0x07,
+	0x19, 0xef, 0xc0, 0x44, 0x8f, 0xb9, 0x64, 0x6d, 0x17, 0xaa, 0x6c, 0x00, 0xaa, 0xa5, 0x72, 0x15,
+	0xaa, 0x3d, 0xc7, 0x89, 0x8f, 0xcd, 0x94, 0x57, 0x25, 0x6c, 0x73, 0x3e, 0xe0, 0xd5, 0x9a, 0x63,
+	0xdc, 0x2a, 0x3b, 0x88, 0xff, 0x06, 0x58, 0xc8, 0x6c, 0xd0, 0x19, 0xe8, 0xda, 0x51, 0x21, 0x7e,
+	0x94, 0xd8, 0xff, 0xdf, 0x00, 0x92, 0xcf, 0x21, 0x94, 0xa6, 0x2c, 0x71, 0x5f, 0xed, 0x66, 0x46,
+	0x26, 0x7f, 0x78, 0xe4, 0xd0, 0x3f, 0xa0, 0x2e, 0xfa, 0xe4, 0x03, 0x6c, 0xfb, 0x50, 0x4b, 0x73,
+	0x28, 0xba, 0xc4, 0x83, 0x3e, 0xcd, 0xc9, 0xed, 0xd6, 0x69, 0x45, 0xec, 0xe4, 0xaf, 0x50, 0x7d,
+	0x80, 0xa9, 0xbd, 0x2b, 0xb6, 0x52, 0xb4, 0xc8, 0xa0, 0x99, 0xc5, 0xb9, 0x8d, 0xd2, 0xa2, 0xd8,
+	0xee, 0x2f, 0x50, 0xcf, 0xcc, 0x32, 0xd4, 0x92, 0x43, 0xfd, 0xd4, 0x78, 0xcb, 0xdc, 0xf3, 0x35,
+	0x98, 0xef, 0x79, 0x1e, 0xdf, 0x09, 0x62, 0x71, 0x7b, 0x41, 0xc5, 0x27, 0xb6, 0x05, 0x3d, 0x87,
+	0xfe, 0x03, 0x4d, 0x69, 0x9d, 0x9e, 0x48, 0x22, 0xc3, 0x33, 0x06, 0x9b, 0xc8, 0xf0, 0xac, 0xe1,
+	0xa5, 0xe7, 0xd0, 0x1a, 0x34, 0x9e, 0x86, 0x01, 0xdb, 0xd8, 0xe2, 0x9d, 0xb4, 0x99, 0xd9, 0x97,
+	0x4e, 0x87, 0xb9, 0xf6, 0x7d, 0x01, 0x16, 0xe5, 0x1b, 0x3f, 0x36, 0x7d, 0x73, 0x84, 0xc7, 0xd8,
+	0xa7, 0xa8, 0x0b, 0xe5, 0xb8, 0x0d, 0x9b, 0xf2, 0x56, 0xd2, 0xbd, 0xd9, 0xbe, 0x90, 0x12, 0xf2,
+	0x30, 0xf4, 0x1c, 0xba, 0xc3, 0x4b, 0x43, 0xd6, 0x1e, 0xba, 0xc8, 0x0b, 0x71, 0x7a, 0x28, 0x64,
+	0xae, 0xa8, 0x0b, 0xb5, 0x34, 0x99, 0x8b, 0xa4, 0xcf, 0xa0, 0xf7, 0x8c, 0xd1, 0xdf, 0xa1, 0x31,
+	0xc5, 0xb7, 0xa8, 0xcd, 0xd4, 0x67, 0x93, 0x70, 0xc6, 0xf4, 0xdf, 0x50, 0x4d, 0x11, 0x12, 0x5a,
+	0xe6, 0x39, 0x9c, 0xe2, 0xd4, 0xf6, 0xa5, 0x53, 0xf2, 0xf8, 0x86, 0xef, 0x42, 0x7d, 0x93, 0x90,
+	0x08, 0x6f, 0x44, 0x96, 0xf0, 0x91, 0x3c, 0xed, 0x0c, 0xab, 0x55, 0x58, 0x7c, 0x88, 0xe9, 0x8e,
+	0xfc, 0xd9, 0x22, 0xd8, 0x26, 0x65, 0x59, 0x8f, 0x69, 0x98, 0xb1, 0x54, 0x52, 0xee, 0x8a, 0x43,
+	0x92, 0x72, 0x9f, 0xa2, 0xa6, 0xa4, 0xdc, 0xa7, 0xe9, 0x46, 0xcf, 0xad, 0xdf, 0x7d, 0x75, 0xd4,
+	0xc9, 0xbd, 0x3e, 0xea, 0xe4, 0xde, 0x1c, 0x75, 0xb4, 0xcf, 0x8e, 0x3b, 0xda, 0x37, 0xc7, 0x1d,
+	0xed, 0xe5, 0x71, 0x47, 0x7b, 0x75, 0xdc, 0xd1, 0x7e, 0x3c, 0xee, 0x68, 0x3f, 0x1d, 0x77, 0x72,
+	0x6f, 0x8e, 0x3b, 0xda, 0x17, 0x27, 0x9d, 0xdc, 0xab, 0x93, 0x4e, 0xee, 0xf5, 0x49, 0x27, 0x67,
+	0x95, 0xf8, 0x3f, 0x43, 0xba, 0x3f, 0x07, 0x00, 0x00, 0xff, 0xff, 0x6d, 0xf6, 0x65, 0xb2, 0x9d,
+	0x11, 0x00, 0x00,
 }
 
 func (this *ServiceRequest) Equal(that interface{}) bool {
@@ -2385,33 +2024,6 @@ func (this *AccountServices) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *ActivityEntry) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*ActivityEntry)
-	if !ok {
-		that2, ok := that.(ActivityEntry)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.RouteAdded.Equal(that1.RouteAdded) {
-		return false
-	}
-	if !this.RouteRemoved.Equal(that1.RouteRemoved) {
-		return false
-	}
-	return true
-}
 func (this *ConfigRequest) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
@@ -2489,152 +2101,14 @@ func (this *ConfigResponse) Equal(that interface{}) bool {
 	}
 	return true
 }
-func (this *HubChange) Equal(that interface{}) bool {
+func (this *HubStats) Equal(that interface{}) bool {
 	if that == nil {
 		return this == nil
 	}
 
-	that1, ok := that.(*HubChange)
+	that1, ok := that.(*HubStats)
 	if !ok {
-		that2, ok := that.(HubChange)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.OldId.Equal(that1.OldId) {
-		return false
-	}
-	if !this.NewId.Equal(that1.NewId) {
-		return false
-	}
-	return true
-}
-func (this *CentralActivity) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*CentralActivity)
-	if !ok {
-		that2, ok := that.(CentralActivity)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if len(this.AccountServices) != len(that1.AccountServices) {
-		return false
-	}
-	for i := range this.AccountServices {
-		if !this.AccountServices[i].Equal(that1.AccountServices[i]) {
-			return false
-		}
-	}
-	if this.RequestStats != that1.RequestStats {
-		return false
-	}
-	if !this.NewLabelLinks.Equal(that1.NewLabelLinks) {
-		return false
-	}
-	if !this.HubChange.Equal(that1.HubChange) {
-		return false
-	}
-	return true
-}
-func (this *HubActivity) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*HubActivity)
-	if !ok {
-		that2, ok := that.(HubActivity)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.HubReg.Equal(that1.HubReg) {
-		return false
-	}
-	if !this.SentAt.Equal(that1.SentAt) {
-		return false
-	}
-	if !this.Stats.Equal(that1.Stats) {
-		return false
-	}
-	if len(this.Flow) != len(that1.Flow) {
-		return false
-	}
-	for i := range this.Flow {
-		if !this.Flow[i].Equal(that1.Flow[i]) {
-			return false
-		}
-	}
-	return true
-}
-func (this *HubActivity_HubRegistration) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*HubActivity_HubRegistration)
-	if !ok {
-		that2, ok := that.(HubActivity_HubRegistration)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.Hub.Equal(that1.Hub) {
-		return false
-	}
-	if !this.StableHub.Equal(that1.StableHub) {
-		return false
-	}
-	if len(this.Locations) != len(that1.Locations) {
-		return false
-	}
-	for i := range this.Locations {
-		if !this.Locations[i].Equal(that1.Locations[i]) {
-			return false
-		}
-	}
-	return true
-}
-func (this *HubActivity_HubStats) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*HubActivity_HubStats)
-	if !ok {
-		that2, ok := that.(HubActivity_HubStats)
+		that2, ok := that.(HubStats)
 		if ok {
 			that1 = &that2
 		} else {
@@ -2663,6 +2137,41 @@ func (this *HubActivity_HubStats) Equal(that interface{}) bool {
 	}
 	if !this.LastAttemptedUpdate.Equal(that1.LastAttemptedUpdate) {
 		return false
+	}
+	return true
+}
+func (this *HubStatsRequest) Equal(that interface{}) bool {
+	if that == nil {
+		return this == nil
+	}
+
+	that1, ok := that.(*HubStatsRequest)
+	if !ok {
+		that2, ok := that.(HubStatsRequest)
+		if ok {
+			that1 = &that2
+		} else {
+			return false
+		}
+	}
+	if that1 == nil {
+		return this == nil
+	} else if this == nil {
+		return false
+	}
+	if !this.Hub.Equal(that1.Hub) {
+		return false
+	}
+	if !this.Stats.Equal(that1.Stats) {
+		return false
+	}
+	if len(this.Flows) != len(that1.Flows) {
+		return false
+	}
+	for i := range this.Flows {
+		if !this.Flows[i].Equal(that1.Flows[i]) {
+			return false
+		}
 	}
 	return true
 }
@@ -2724,65 +2233,6 @@ func (this *ListOfHubs) Equal(that interface{}) bool {
 		if !this.Hubs[i].Equal(that1.Hubs[i]) {
 			return false
 		}
-	}
-	return true
-}
-func (this *HubSync) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*HubSync)
-	if !ok {
-		that2, ok := that.(HubSync)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if !this.Id.Equal(that1.Id) {
-		return false
-	}
-	if !this.StableId.Equal(that1.StableId) {
-		return false
-	}
-	if len(this.Services) != len(that1.Services) {
-		return false
-	}
-	for i := range this.Services {
-		if !this.Services[i].Equal(that1.Services[i]) {
-			return false
-		}
-	}
-	return true
-}
-func (this *HubSyncResponse) Equal(that interface{}) bool {
-	if that == nil {
-		return this == nil
-	}
-
-	that1, ok := that.(*HubSyncResponse)
-	if !ok {
-		that2, ok := that.(HubSyncResponse)
-		if ok {
-			that1 = &that2
-		} else {
-			return false
-		}
-	}
-	if that1 == nil {
-		return this == nil
-	} else if this == nil {
-		return false
-	}
-	if this.ServiceCount != that1.ServiceCount {
-		return false
 	}
 	return true
 }
@@ -3410,21 +2860,6 @@ func (this *AccountServices) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
-func (this *ActivityEntry) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 6)
-	s = append(s, "&pb.ActivityEntry{")
-	if this.RouteAdded != nil {
-		s = append(s, "RouteAdded: "+fmt.Sprintf("%#v", this.RouteAdded)+",\n")
-	}
-	if this.RouteRemoved != nil {
-		s = append(s, "RouteRemoved: "+fmt.Sprintf("%#v", this.RouteRemoved)+",\n")
-	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
 func (this *ConfigRequest) GoString() string {
 	if this == nil {
 		return "nil"
@@ -3459,85 +2894,12 @@ func (this *ConfigResponse) GoString() string {
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
-func (this *HubChange) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 6)
-	s = append(s, "&pb.HubChange{")
-	if this.OldId != nil {
-		s = append(s, "OldId: "+fmt.Sprintf("%#v", this.OldId)+",\n")
-	}
-	if this.NewId != nil {
-		s = append(s, "NewId: "+fmt.Sprintf("%#v", this.NewId)+",\n")
-	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
-func (this *CentralActivity) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 8)
-	s = append(s, "&pb.CentralActivity{")
-	if this.AccountServices != nil {
-		s = append(s, "AccountServices: "+fmt.Sprintf("%#v", this.AccountServices)+",\n")
-	}
-	s = append(s, "RequestStats: "+fmt.Sprintf("%#v", this.RequestStats)+",\n")
-	if this.NewLabelLinks != nil {
-		s = append(s, "NewLabelLinks: "+fmt.Sprintf("%#v", this.NewLabelLinks)+",\n")
-	}
-	if this.HubChange != nil {
-		s = append(s, "HubChange: "+fmt.Sprintf("%#v", this.HubChange)+",\n")
-	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
-func (this *HubActivity) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 8)
-	s = append(s, "&pb.HubActivity{")
-	if this.HubReg != nil {
-		s = append(s, "HubReg: "+fmt.Sprintf("%#v", this.HubReg)+",\n")
-	}
-	if this.SentAt != nil {
-		s = append(s, "SentAt: "+fmt.Sprintf("%#v", this.SentAt)+",\n")
-	}
-	if this.Stats != nil {
-		s = append(s, "Stats: "+fmt.Sprintf("%#v", this.Stats)+",\n")
-	}
-	if this.Flow != nil {
-		s = append(s, "Flow: "+fmt.Sprintf("%#v", this.Flow)+",\n")
-	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
-func (this *HubActivity_HubRegistration) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 7)
-	s = append(s, "&pb.HubActivity_HubRegistration{")
-	if this.Hub != nil {
-		s = append(s, "Hub: "+fmt.Sprintf("%#v", this.Hub)+",\n")
-	}
-	if this.StableHub != nil {
-		s = append(s, "StableHub: "+fmt.Sprintf("%#v", this.StableHub)+",\n")
-	}
-	if this.Locations != nil {
-		s = append(s, "Locations: "+fmt.Sprintf("%#v", this.Locations)+",\n")
-	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
-func (this *HubActivity_HubStats) GoString() string {
+func (this *HubStats) GoString() string {
 	if this == nil {
 		return "nil"
 	}
 	s := make([]string, 0, 10)
-	s = append(s, "&pb.HubActivity_HubStats{")
+	s = append(s, "&pb.HubStats{")
 	s = append(s, "AgentConnections: "+fmt.Sprintf("%#v", this.AgentConnections)+",\n")
 	s = append(s, "AccountsSeen: "+fmt.Sprintf("%#v", this.AccountsSeen)+",\n")
 	s = append(s, "AccountsCached: "+fmt.Sprintf("%#v", this.AccountsCached)+",\n")
@@ -3547,6 +2909,24 @@ func (this *HubActivity_HubStats) GoString() string {
 	}
 	if this.LastAttemptedUpdate != nil {
 		s = append(s, "LastAttemptedUpdate: "+fmt.Sprintf("%#v", this.LastAttemptedUpdate)+",\n")
+	}
+	s = append(s, "}")
+	return strings.Join(s, "")
+}
+func (this *HubStatsRequest) GoString() string {
+	if this == nil {
+		return "nil"
+	}
+	s := make([]string, 0, 7)
+	s = append(s, "&pb.HubStatsRequest{")
+	if this.Hub != nil {
+		s = append(s, "Hub: "+fmt.Sprintf("%#v", this.Hub)+",\n")
+	}
+	if this.Stats != nil {
+		s = append(s, "Stats: "+fmt.Sprintf("%#v", this.Stats)+",\n")
+	}
+	if this.Flows != nil {
+		s = append(s, "Flows: "+fmt.Sprintf("%#v", this.Flows)+",\n")
 	}
 	s = append(s, "}")
 	return strings.Join(s, "")
@@ -3575,34 +2955,6 @@ func (this *ListOfHubs) GoString() string {
 	if this.Hubs != nil {
 		s = append(s, "Hubs: "+fmt.Sprintf("%#v", this.Hubs)+",\n")
 	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
-func (this *HubSync) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 7)
-	s = append(s, "&pb.HubSync{")
-	if this.Id != nil {
-		s = append(s, "Id: "+fmt.Sprintf("%#v", this.Id)+",\n")
-	}
-	if this.StableId != nil {
-		s = append(s, "StableId: "+fmt.Sprintf("%#v", this.StableId)+",\n")
-	}
-	if this.Services != nil {
-		s = append(s, "Services: "+fmt.Sprintf("%#v", this.Services)+",\n")
-	}
-	s = append(s, "}")
-	return strings.Join(s, "")
-}
-func (this *HubSyncResponse) GoString() string {
-	if this == nil {
-		return "nil"
-	}
-	s := make([]string, 0, 5)
-	s = append(s, "&pb.HubSyncResponse{")
-	s = append(s, "ServiceCount: "+fmt.Sprintf("%#v", this.ServiceCount)+",\n")
 	s = append(s, "}")
 	return strings.Join(s, "")
 }
@@ -3877,6 +3229,114 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
+// HubServicesClient is the client API for HubServices service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
+type HubServicesClient interface {
+	AddServices(ctx context.Context, in *AccountServices, opts ...grpc.CallOption) (*Noop, error)
+	AddLabeLink(ctx context.Context, in *LabelLinks, opts ...grpc.CallOption) (*Noop, error)
+}
+
+type hubServicesClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewHubServicesClient(cc *grpc.ClientConn) HubServicesClient {
+	return &hubServicesClient{cc}
+}
+
+func (c *hubServicesClient) AddServices(ctx context.Context, in *AccountServices, opts ...grpc.CallOption) (*Noop, error) {
+	out := new(Noop)
+	err := c.cc.Invoke(ctx, "/pb.HubServices/AddServices", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *hubServicesClient) AddLabeLink(ctx context.Context, in *LabelLinks, opts ...grpc.CallOption) (*Noop, error) {
+	out := new(Noop)
+	err := c.cc.Invoke(ctx, "/pb.HubServices/AddLabeLink", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// HubServicesServer is the server API for HubServices service.
+type HubServicesServer interface {
+	AddServices(context.Context, *AccountServices) (*Noop, error)
+	AddLabeLink(context.Context, *LabelLinks) (*Noop, error)
+}
+
+// UnimplementedHubServicesServer can be embedded to have forward compatible implementations.
+type UnimplementedHubServicesServer struct {
+}
+
+func (*UnimplementedHubServicesServer) AddServices(ctx context.Context, req *AccountServices) (*Noop, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddServices not implemented")
+}
+func (*UnimplementedHubServicesServer) AddLabeLink(ctx context.Context, req *LabelLinks) (*Noop, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AddLabeLink not implemented")
+}
+
+func RegisterHubServicesServer(s *grpc.Server, srv HubServicesServer) {
+	s.RegisterService(&_HubServices_serviceDesc, srv)
+}
+
+func _HubServices_AddServices_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AccountServices)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HubServicesServer).AddServices(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.HubServices/AddServices",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HubServicesServer).AddServices(ctx, req.(*AccountServices))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _HubServices_AddLabeLink_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LabelLinks)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HubServicesServer).AddLabeLink(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.HubServices/AddLabeLink",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HubServicesServer).AddLabeLink(ctx, req.(*LabelLinks))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _HubServices_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "pb.HubServices",
+	HandlerType: (*HubServicesServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "AddServices",
+			Handler:    _HubServices_AddServices_Handler,
+		},
+		{
+			MethodName: "AddLabeLink",
+			Handler:    _HubServices_AddLabeLink_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "control.proto",
+}
+
 // ControlServicesClient is the client API for ControlServices service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
@@ -3885,11 +3345,10 @@ type ControlServicesClient interface {
 	RemoveService(ctx context.Context, in *ServiceRequest, opts ...grpc.CallOption) (*ServiceResponse, error)
 	ListServices(ctx context.Context, in *ListServicesRequest, opts ...grpc.CallOption) (*ListServicesResponse, error)
 	FetchConfig(ctx context.Context, in *ConfigRequest, opts ...grpc.CallOption) (*ConfigResponse, error)
-	StreamActivity(ctx context.Context, opts ...grpc.CallOption) (ControlServices_StreamActivityClient, error)
-	SyncHub(ctx context.Context, in *HubSync, opts ...grpc.CallOption) (*HubSyncResponse, error)
 	HubDisconnect(ctx context.Context, in *HubDisconnectRequest, opts ...grpc.CallOption) (*Noop, error)
 	AllHubs(ctx context.Context, in *Noop, opts ...grpc.CallOption) (*ListOfHubs, error)
 	RequestServiceToken(ctx context.Context, in *ServiceTokenRequest, opts ...grpc.CallOption) (*ServiceTokenResponse, error)
+	ProcessHubStats(ctx context.Context, in *HubStatsRequest, opts ...grpc.CallOption) (*Noop, error)
 }
 
 type controlServicesClient struct {
@@ -3936,46 +3395,6 @@ func (c *controlServicesClient) FetchConfig(ctx context.Context, in *ConfigReque
 	return out, nil
 }
 
-func (c *controlServicesClient) StreamActivity(ctx context.Context, opts ...grpc.CallOption) (ControlServices_StreamActivityClient, error) {
-	stream, err := c.cc.NewStream(ctx, &_ControlServices_serviceDesc.Streams[0], "/pb.ControlServices/StreamActivity", opts...)
-	if err != nil {
-		return nil, err
-	}
-	x := &controlServicesStreamActivityClient{stream}
-	return x, nil
-}
-
-type ControlServices_StreamActivityClient interface {
-	Send(*HubActivity) error
-	Recv() (*CentralActivity, error)
-	grpc.ClientStream
-}
-
-type controlServicesStreamActivityClient struct {
-	grpc.ClientStream
-}
-
-func (x *controlServicesStreamActivityClient) Send(m *HubActivity) error {
-	return x.ClientStream.SendMsg(m)
-}
-
-func (x *controlServicesStreamActivityClient) Recv() (*CentralActivity, error) {
-	m := new(CentralActivity)
-	if err := x.ClientStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func (c *controlServicesClient) SyncHub(ctx context.Context, in *HubSync, opts ...grpc.CallOption) (*HubSyncResponse, error) {
-	out := new(HubSyncResponse)
-	err := c.cc.Invoke(ctx, "/pb.ControlServices/SyncHub", in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 func (c *controlServicesClient) HubDisconnect(ctx context.Context, in *HubDisconnectRequest, opts ...grpc.CallOption) (*Noop, error) {
 	out := new(Noop)
 	err := c.cc.Invoke(ctx, "/pb.ControlServices/HubDisconnect", in, out, opts...)
@@ -4003,17 +3422,25 @@ func (c *controlServicesClient) RequestServiceToken(ctx context.Context, in *Ser
 	return out, nil
 }
 
+func (c *controlServicesClient) ProcessHubStats(ctx context.Context, in *HubStatsRequest, opts ...grpc.CallOption) (*Noop, error) {
+	out := new(Noop)
+	err := c.cc.Invoke(ctx, "/pb.ControlServices/ProcessHubStats", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // ControlServicesServer is the server API for ControlServices service.
 type ControlServicesServer interface {
 	AddService(context.Context, *ServiceRequest) (*ServiceResponse, error)
 	RemoveService(context.Context, *ServiceRequest) (*ServiceResponse, error)
 	ListServices(context.Context, *ListServicesRequest) (*ListServicesResponse, error)
 	FetchConfig(context.Context, *ConfigRequest) (*ConfigResponse, error)
-	StreamActivity(ControlServices_StreamActivityServer) error
-	SyncHub(context.Context, *HubSync) (*HubSyncResponse, error)
 	HubDisconnect(context.Context, *HubDisconnectRequest) (*Noop, error)
 	AllHubs(context.Context, *Noop) (*ListOfHubs, error)
 	RequestServiceToken(context.Context, *ServiceTokenRequest) (*ServiceTokenResponse, error)
+	ProcessHubStats(context.Context, *HubStatsRequest) (*Noop, error)
 }
 
 // UnimplementedControlServicesServer can be embedded to have forward compatible implementations.
@@ -4032,12 +3459,6 @@ func (*UnimplementedControlServicesServer) ListServices(ctx context.Context, req
 func (*UnimplementedControlServicesServer) FetchConfig(ctx context.Context, req *ConfigRequest) (*ConfigResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method FetchConfig not implemented")
 }
-func (*UnimplementedControlServicesServer) StreamActivity(srv ControlServices_StreamActivityServer) error {
-	return status.Errorf(codes.Unimplemented, "method StreamActivity not implemented")
-}
-func (*UnimplementedControlServicesServer) SyncHub(ctx context.Context, req *HubSync) (*HubSyncResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SyncHub not implemented")
-}
 func (*UnimplementedControlServicesServer) HubDisconnect(ctx context.Context, req *HubDisconnectRequest) (*Noop, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method HubDisconnect not implemented")
 }
@@ -4046,6 +3467,9 @@ func (*UnimplementedControlServicesServer) AllHubs(ctx context.Context, req *Noo
 }
 func (*UnimplementedControlServicesServer) RequestServiceToken(ctx context.Context, req *ServiceTokenRequest) (*ServiceTokenResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RequestServiceToken not implemented")
+}
+func (*UnimplementedControlServicesServer) ProcessHubStats(ctx context.Context, req *HubStatsRequest) (*Noop, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ProcessHubStats not implemented")
 }
 
 func RegisterControlServicesServer(s *grpc.Server, srv ControlServicesServer) {
@@ -4124,50 +3548,6 @@ func _ControlServices_FetchConfig_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ControlServices_StreamActivity_Handler(srv interface{}, stream grpc.ServerStream) error {
-	return srv.(ControlServicesServer).StreamActivity(&controlServicesStreamActivityServer{stream})
-}
-
-type ControlServices_StreamActivityServer interface {
-	Send(*CentralActivity) error
-	Recv() (*HubActivity, error)
-	grpc.ServerStream
-}
-
-type controlServicesStreamActivityServer struct {
-	grpc.ServerStream
-}
-
-func (x *controlServicesStreamActivityServer) Send(m *CentralActivity) error {
-	return x.ServerStream.SendMsg(m)
-}
-
-func (x *controlServicesStreamActivityServer) Recv() (*HubActivity, error) {
-	m := new(HubActivity)
-	if err := x.ServerStream.RecvMsg(m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-func _ControlServices_SyncHub_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(HubSync)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ControlServicesServer).SyncHub(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pb.ControlServices/SyncHub",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ControlServicesServer).SyncHub(ctx, req.(*HubSync))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 func _ControlServices_HubDisconnect_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(HubDisconnectRequest)
 	if err := dec(in); err != nil {
@@ -4222,6 +3602,24 @@ func _ControlServices_RequestServiceToken_Handler(srv interface{}, ctx context.C
 	return interceptor(ctx, in, info, handler)
 }
 
+func _ControlServices_ProcessHubStats_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HubStatsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServicesServer).ProcessHubStats(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/pb.ControlServices/ProcessHubStats",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServicesServer).ProcessHubStats(ctx, req.(*HubStatsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _ControlServices_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pb.ControlServices",
 	HandlerType: (*ControlServicesServer)(nil),
@@ -4243,10 +3641,6 @@ var _ControlServices_serviceDesc = grpc.ServiceDesc{
 			Handler:    _ControlServices_FetchConfig_Handler,
 		},
 		{
-			MethodName: "SyncHub",
-			Handler:    _ControlServices_SyncHub_Handler,
-		},
-		{
 			MethodName: "HubDisconnect",
 			Handler:    _ControlServices_HubDisconnect_Handler,
 		},
@@ -4258,15 +3652,12 @@ var _ControlServices_serviceDesc = grpc.ServiceDesc{
 			MethodName: "RequestServiceToken",
 			Handler:    _ControlServices_RequestServiceToken_Handler,
 		},
-	},
-	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "StreamActivity",
-			Handler:       _ControlServices_StreamActivity_Handler,
-			ServerStreams: true,
-			ClientStreams: true,
+			MethodName: "ProcessHubStats",
+			Handler:    _ControlServices_ProcessHubStats_Handler,
 		},
 	},
+	Streams:  []grpc.StreamDesc{},
 	Metadata: "control.proto",
 }
 
@@ -4932,53 +4323,6 @@ func (m *AccountServices) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ActivityEntry) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *ActivityEntry) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *ActivityEntry) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.RouteRemoved != nil {
-		{
-			size, err := m.RouteRemoved.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.RouteAdded != nil {
-		{
-			size, err := m.RouteAdded.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
 func (m *ConfigRequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -5112,7 +4456,7 @@ func (m *ConfigResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *HubChange) Marshal() (dAtA []byte, err error) {
+func (m *HubStats) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -5122,264 +4466,12 @@ func (m *HubChange) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *HubChange) MarshalTo(dAtA []byte) (int, error) {
+func (m *HubStats) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *HubChange) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.NewId != nil {
-		{
-			size, err := m.NewId.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.OldId != nil {
-		{
-			size, err := m.OldId.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *CentralActivity) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *CentralActivity) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *CentralActivity) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.HubChange != nil {
-		{
-			size, err := m.HubChange.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x22
-	}
-	if m.NewLabelLinks != nil {
-		{
-			size, err := m.NewLabelLinks.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x1a
-	}
-	if m.RequestStats {
-		i--
-		if m.RequestStats {
-			dAtA[i] = 1
-		} else {
-			dAtA[i] = 0
-		}
-		i--
-		dAtA[i] = 0x10
-	}
-	if len(m.AccountServices) > 0 {
-		for iNdEx := len(m.AccountServices) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.AccountServices[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintControl(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0xa
-		}
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *HubActivity) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HubActivity) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *HubActivity) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.Flow) > 0 {
-		for iNdEx := len(m.Flow) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Flow[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintControl(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x22
-		}
-	}
-	if m.Stats != nil {
-		{
-			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x1a
-	}
-	if m.SentAt != nil {
-		{
-			size, err := m.SentAt.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.HubReg != nil {
-		{
-			size, err := m.HubReg.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *HubActivity_HubRegistration) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HubActivity_HubRegistration) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *HubActivity_HubRegistration) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.Locations) > 0 {
-		for iNdEx := len(m.Locations) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Locations[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintControl(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x1a
-		}
-	}
-	if m.StableHub != nil {
-		{
-			size, err := m.StableHub.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.Hub != nil {
-		{
-			size, err := m.Hub.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *HubActivity_HubStats) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HubActivity_HubStats) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *HubActivity_HubStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *HubStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -5427,6 +4519,67 @@ func (m *HubActivity_HubStats) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 		i = encodeVarintControl(dAtA, i, uint64(m.AgentConnections))
 		i--
 		dAtA[i] = 0x8
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *HubStatsRequest) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *HubStatsRequest) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *HubStatsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.Flows) > 0 {
+		for iNdEx := len(m.Flows) - 1; iNdEx >= 0; iNdEx-- {
+			{
+				size, err := m.Flows[iNdEx].MarshalToSizedBuffer(dAtA[:i])
+				if err != nil {
+					return 0, err
+				}
+				i -= size
+				i = encodeVarintControl(dAtA, i, uint64(size))
+			}
+			i--
+			dAtA[i] = 0x1a
+		}
+	}
+	if m.Stats != nil {
+		{
+			size, err := m.Stats.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0x12
+	}
+	if m.Hub != nil {
+		{
+			size, err := m.Hub.MarshalToSizedBuffer(dAtA[:i])
+			if err != nil {
+				return 0, err
+			}
+			i -= size
+			i = encodeVarintControl(dAtA, i, uint64(size))
+		}
+		i--
+		dAtA[i] = 0xa
 	}
 	return len(dAtA) - i, nil
 }
@@ -5513,95 +4666,6 @@ func (m *ListOfHubs) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 			i--
 			dAtA[i] = 0xa
 		}
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *HubSync) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HubSync) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *HubSync) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if len(m.Services) > 0 {
-		for iNdEx := len(m.Services) - 1; iNdEx >= 0; iNdEx-- {
-			{
-				size, err := m.Services[iNdEx].MarshalToSizedBuffer(dAtA[:i])
-				if err != nil {
-					return 0, err
-				}
-				i -= size
-				i = encodeVarintControl(dAtA, i, uint64(size))
-			}
-			i--
-			dAtA[i] = 0x1a
-		}
-	}
-	if m.StableId != nil {
-		{
-			size, err := m.StableId.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0x12
-	}
-	if m.Id != nil {
-		{
-			size, err := m.Id.MarshalToSizedBuffer(dAtA[:i])
-			if err != nil {
-				return 0, err
-			}
-			i -= size
-			i = encodeVarintControl(dAtA, i, uint64(size))
-		}
-		i--
-		dAtA[i] = 0xa
-	}
-	return len(dAtA) - i, nil
-}
-
-func (m *HubSyncResponse) Marshal() (dAtA []byte, err error) {
-	size := m.Size()
-	dAtA = make([]byte, size)
-	n, err := m.MarshalToSizedBuffer(dAtA[:size])
-	if err != nil {
-		return nil, err
-	}
-	return dAtA[:n], nil
-}
-
-func (m *HubSyncResponse) MarshalTo(dAtA []byte) (int, error) {
-	size := m.Size()
-	return m.MarshalToSizedBuffer(dAtA[:size])
-}
-
-func (m *HubSyncResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
-	i := len(dAtA)
-	_ = i
-	var l int
-	_ = l
-	if m.ServiceCount != 0 {
-		i = encodeVarintControl(dAtA, i, uint64(m.ServiceCount))
-		i--
-		dAtA[i] = 0x8
 	}
 	return len(dAtA) - i, nil
 }
@@ -6536,23 +5600,6 @@ func (m *AccountServices) Size() (n int) {
 	return n
 }
 
-func (m *ActivityEntry) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.RouteAdded != nil {
-		l = m.RouteAdded.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if m.RouteRemoved != nil {
-		l = m.RouteRemoved.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	return n
-}
-
 func (m *ConfigRequest) Size() (n int) {
 	if m == nil {
 		return 0
@@ -6613,100 +5660,7 @@ func (m *ConfigResponse) Size() (n int) {
 	return n
 }
 
-func (m *HubChange) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.OldId != nil {
-		l = m.OldId.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if m.NewId != nil {
-		l = m.NewId.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	return n
-}
-
-func (m *CentralActivity) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if len(m.AccountServices) > 0 {
-		for _, e := range m.AccountServices {
-			l = e.Size()
-			n += 1 + l + sovControl(uint64(l))
-		}
-	}
-	if m.RequestStats {
-		n += 2
-	}
-	if m.NewLabelLinks != nil {
-		l = m.NewLabelLinks.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if m.HubChange != nil {
-		l = m.HubChange.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	return n
-}
-
-func (m *HubActivity) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.HubReg != nil {
-		l = m.HubReg.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if m.SentAt != nil {
-		l = m.SentAt.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if m.Stats != nil {
-		l = m.Stats.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if len(m.Flow) > 0 {
-		for _, e := range m.Flow {
-			l = e.Size()
-			n += 1 + l + sovControl(uint64(l))
-		}
-	}
-	return n
-}
-
-func (m *HubActivity_HubRegistration) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Hub != nil {
-		l = m.Hub.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if m.StableHub != nil {
-		l = m.StableHub.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if len(m.Locations) > 0 {
-		for _, e := range m.Locations {
-			l = e.Size()
-			n += 1 + l + sovControl(uint64(l))
-		}
-	}
-	return n
-}
-
-func (m *HubActivity_HubStats) Size() (n int) {
+func (m *HubStats) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -6731,6 +5685,29 @@ func (m *HubActivity_HubStats) Size() (n int) {
 	if m.LastAttemptedUpdate != nil {
 		l = m.LastAttemptedUpdate.Size()
 		n += 1 + l + sovControl(uint64(l))
+	}
+	return n
+}
+
+func (m *HubStatsRequest) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	if m.Hub != nil {
+		l = m.Hub.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if m.Stats != nil {
+		l = m.Stats.Size()
+		n += 1 + l + sovControl(uint64(l))
+	}
+	if len(m.Flows) > 0 {
+		for _, e := range m.Flows {
+			l = e.Size()
+			n += 1 + l + sovControl(uint64(l))
+		}
 	}
 	return n
 }
@@ -6765,41 +5742,6 @@ func (m *ListOfHubs) Size() (n int) {
 			l = e.Size()
 			n += 1 + l + sovControl(uint64(l))
 		}
-	}
-	return n
-}
-
-func (m *HubSync) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.Id != nil {
-		l = m.Id.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if m.StableId != nil {
-		l = m.StableId.Size()
-		n += 1 + l + sovControl(uint64(l))
-	}
-	if len(m.Services) > 0 {
-		for _, e := range m.Services {
-			l = e.Size()
-			n += 1 + l + sovControl(uint64(l))
-		}
-	}
-	return n
-}
-
-func (m *HubSyncResponse) Size() (n int) {
-	if m == nil {
-		return 0
-	}
-	var l int
-	_ = l
-	if m.ServiceCount != 0 {
-		n += 1 + sovControl(uint64(m.ServiceCount))
 	}
 	return n
 }
@@ -7208,17 +6150,6 @@ func (this *AccountServices) String() string {
 	}, "")
 	return s
 }
-func (this *ActivityEntry) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&ActivityEntry{`,
-		`RouteAdded:` + strings.Replace(this.RouteAdded.String(), "AccountServices", "AccountServices", 1) + `,`,
-		`RouteRemoved:` + strings.Replace(fmt.Sprintf("%v", this.RouteRemoved), "ULID", "ULID", 1) + `,`,
-		`}`,
-	}, "")
-	return s
-}
 func (this *ConfigRequest) String() string {
 	if this == nil {
 		return "nil"
@@ -7252,81 +6183,34 @@ func (this *ConfigResponse) String() string {
 	}, "")
 	return s
 }
-func (this *HubChange) String() string {
+func (this *HubStats) String() string {
 	if this == nil {
 		return "nil"
 	}
-	s := strings.Join([]string{`&HubChange{`,
-		`OldId:` + strings.Replace(fmt.Sprintf("%v", this.OldId), "ULID", "ULID", 1) + `,`,
-		`NewId:` + strings.Replace(fmt.Sprintf("%v", this.NewId), "ULID", "ULID", 1) + `,`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *CentralActivity) String() string {
-	if this == nil {
-		return "nil"
-	}
-	repeatedStringForAccountServices := "[]*AccountServices{"
-	for _, f := range this.AccountServices {
-		repeatedStringForAccountServices += strings.Replace(f.String(), "AccountServices", "AccountServices", 1) + ","
-	}
-	repeatedStringForAccountServices += "}"
-	s := strings.Join([]string{`&CentralActivity{`,
-		`AccountServices:` + repeatedStringForAccountServices + `,`,
-		`RequestStats:` + fmt.Sprintf("%v", this.RequestStats) + `,`,
-		`NewLabelLinks:` + strings.Replace(this.NewLabelLinks.String(), "LabelLinks", "LabelLinks", 1) + `,`,
-		`HubChange:` + strings.Replace(this.HubChange.String(), "HubChange", "HubChange", 1) + `,`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *HubActivity) String() string {
-	if this == nil {
-		return "nil"
-	}
-	repeatedStringForFlow := "[]*FlowRecord{"
-	for _, f := range this.Flow {
-		repeatedStringForFlow += strings.Replace(fmt.Sprintf("%v", f), "FlowRecord", "FlowRecord", 1) + ","
-	}
-	repeatedStringForFlow += "}"
-	s := strings.Join([]string{`&HubActivity{`,
-		`HubReg:` + strings.Replace(fmt.Sprintf("%v", this.HubReg), "HubActivity_HubRegistration", "HubActivity_HubRegistration", 1) + `,`,
-		`SentAt:` + strings.Replace(fmt.Sprintf("%v", this.SentAt), "Timestamp", "Timestamp", 1) + `,`,
-		`Stats:` + strings.Replace(fmt.Sprintf("%v", this.Stats), "HubActivity_HubStats", "HubActivity_HubStats", 1) + `,`,
-		`Flow:` + repeatedStringForFlow + `,`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *HubActivity_HubRegistration) String() string {
-	if this == nil {
-		return "nil"
-	}
-	repeatedStringForLocations := "[]*NetworkLocation{"
-	for _, f := range this.Locations {
-		repeatedStringForLocations += strings.Replace(fmt.Sprintf("%v", f), "NetworkLocation", "NetworkLocation", 1) + ","
-	}
-	repeatedStringForLocations += "}"
-	s := strings.Join([]string{`&HubActivity_HubRegistration{`,
-		`Hub:` + strings.Replace(fmt.Sprintf("%v", this.Hub), "ULID", "ULID", 1) + `,`,
-		`StableHub:` + strings.Replace(fmt.Sprintf("%v", this.StableHub), "ULID", "ULID", 1) + `,`,
-		`Locations:` + repeatedStringForLocations + `,`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *HubActivity_HubStats) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&HubActivity_HubStats{`,
+	s := strings.Join([]string{`&HubStats{`,
 		`AgentConnections:` + fmt.Sprintf("%v", this.AgentConnections) + `,`,
 		`AccountsSeen:` + fmt.Sprintf("%v", this.AccountsSeen) + `,`,
 		`AccountsCached:` + fmt.Sprintf("%v", this.AccountsCached) + `,`,
 		`CachedBytes:` + fmt.Sprintf("%v", this.CachedBytes) + `,`,
 		`LastSuccessfulUpdate:` + strings.Replace(fmt.Sprintf("%v", this.LastSuccessfulUpdate), "Timestamp", "Timestamp", 1) + `,`,
 		`LastAttemptedUpdate:` + strings.Replace(fmt.Sprintf("%v", this.LastAttemptedUpdate), "Timestamp", "Timestamp", 1) + `,`,
+		`}`,
+	}, "")
+	return s
+}
+func (this *HubStatsRequest) String() string {
+	if this == nil {
+		return "nil"
+	}
+	repeatedStringForFlows := "[]*FlowRecord{"
+	for _, f := range this.Flows {
+		repeatedStringForFlows += strings.Replace(fmt.Sprintf("%v", f), "FlowRecord", "FlowRecord", 1) + ","
+	}
+	repeatedStringForFlows += "}"
+	s := strings.Join([]string{`&HubStatsRequest{`,
+		`Hub:` + strings.Replace(fmt.Sprintf("%v", this.Hub), "ULID", "ULID", 1) + `,`,
+		`Stats:` + strings.Replace(this.Stats.String(), "HubStats", "HubStats", 1) + `,`,
+		`Flows:` + repeatedStringForFlows + `,`,
 		`}`,
 	}, "")
 	return s
@@ -7358,33 +6242,6 @@ func (this *ListOfHubs) String() string {
 	repeatedStringForHubs += "}"
 	s := strings.Join([]string{`&ListOfHubs{`,
 		`Hubs:` + repeatedStringForHubs + `,`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *HubSync) String() string {
-	if this == nil {
-		return "nil"
-	}
-	repeatedStringForServices := "[]*ServiceRequest{"
-	for _, f := range this.Services {
-		repeatedStringForServices += strings.Replace(f.String(), "ServiceRequest", "ServiceRequest", 1) + ","
-	}
-	repeatedStringForServices += "}"
-	s := strings.Join([]string{`&HubSync{`,
-		`Id:` + strings.Replace(fmt.Sprintf("%v", this.Id), "ULID", "ULID", 1) + `,`,
-		`StableId:` + strings.Replace(fmt.Sprintf("%v", this.StableId), "ULID", "ULID", 1) + `,`,
-		`Services:` + repeatedStringForServices + `,`,
-		`}`,
-	}, "")
-	return s
-}
-func (this *HubSyncResponse) String() string {
-	if this == nil {
-		return "nil"
-	}
-	s := strings.Join([]string{`&HubSyncResponse{`,
-		`ServiceCount:` + fmt.Sprintf("%v", this.ServiceCount) + `,`,
 		`}`,
 	}, "")
 	return s
@@ -8542,131 +7399,6 @@ func (m *AccountServices) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ActivityEntry) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowControl
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: ActivityEntry: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ActivityEntry: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RouteAdded", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.RouteAdded == nil {
-				m.RouteAdded = &AccountServices{}
-			}
-			if err := m.RouteAdded.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RouteRemoved", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.RouteRemoved == nil {
-				m.RouteRemoved = &ULID{}
-			}
-			if err := m.RouteRemoved.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipControl(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
 func (m *ConfigRequest) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
@@ -9109,665 +7841,7 @@ func (m *ConfigResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *HubChange) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowControl
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HubChange: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HubChange: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field OldId", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.OldId == nil {
-				m.OldId = &ULID{}
-			}
-			if err := m.OldId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NewId", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.NewId == nil {
-				m.NewId = &ULID{}
-			}
-			if err := m.NewId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipControl(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *CentralActivity) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowControl
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: CentralActivity: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: CentralActivity: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field AccountServices", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.AccountServices = append(m.AccountServices, &AccountServices{})
-			if err := m.AccountServices[len(m.AccountServices)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field RequestStats", wireType)
-			}
-			var v int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				v |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.RequestStats = bool(v != 0)
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field NewLabelLinks", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.NewLabelLinks == nil {
-				m.NewLabelLinks = &LabelLinks{}
-			}
-			if err := m.NewLabelLinks.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field HubChange", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.HubChange == nil {
-				m.HubChange = &HubChange{}
-			}
-			if err := m.HubChange.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipControl(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HubActivity) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowControl
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HubActivity: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HubActivity: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field HubReg", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.HubReg == nil {
-				m.HubReg = &HubActivity_HubRegistration{}
-			}
-			if err := m.HubReg.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field SentAt", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.SentAt == nil {
-				m.SentAt = &Timestamp{}
-			}
-			if err := m.SentAt.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Stats == nil {
-				m.Stats = &HubActivity_HubStats{}
-			}
-			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 4:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Flow", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Flow = append(m.Flow, &FlowRecord{})
-			if err := m.Flow[len(m.Flow)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipControl(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HubActivity_HubRegistration) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowControl
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HubRegistration: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HubRegistration: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Hub", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Hub == nil {
-				m.Hub = &ULID{}
-			}
-			if err := m.Hub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StableHub", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.StableHub == nil {
-				m.StableHub = &ULID{}
-			}
-			if err := m.StableHub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Locations", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Locations = append(m.Locations, &NetworkLocation{})
-			if err := m.Locations[len(m.Locations)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipControl(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HubActivity_HubStats) Unmarshal(dAtA []byte) error {
+func (m *HubStats) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -9941,6 +8015,165 @@ func (m *HubActivity_HubStats) Unmarshal(dAtA []byte) error {
 				m.LastAttemptedUpdate = &Timestamp{}
 			}
 			if err := m.LastAttemptedUpdate.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipControl(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) < 0 {
+				return ErrInvalidLengthControl
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *HubStatsRequest) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowControl
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: HubStatsRequest: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: HubStatsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Hub", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Hub == nil {
+				m.Hub = &ULID{}
+			}
+			if err := m.Hub.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Stats", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Stats == nil {
+				m.Stats = &HubStats{}
+			}
+			if err := m.Stats.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Flows", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowControl
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				msglen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if msglen < 0 {
+				return ErrInvalidLengthControl
+			}
+			postIndex := iNdEx + msglen
+			if postIndex < 0 {
+				return ErrInvalidLengthControl
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Flows = append(m.Flows, &FlowRecord{})
+			if err := m.Flows[len(m.Flows)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
 				return err
 			}
 			iNdEx = postIndex
@@ -10154,237 +8387,6 @@ func (m *ListOfHubs) Unmarshal(dAtA []byte) error {
 				return err
 			}
 			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipControl(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HubSync) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowControl
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HubSync: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HubSync: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Id", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.Id == nil {
-				m.Id = &ULID{}
-			}
-			if err := m.Id.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 2:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field StableId", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			if m.StableId == nil {
-				m.StableId = &ULID{}
-			}
-			if err := m.StableId.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		case 3:
-			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Services", wireType)
-			}
-			var msglen int
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				msglen |= int(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			if msglen < 0 {
-				return ErrInvalidLengthControl
-			}
-			postIndex := iNdEx + msglen
-			if postIndex < 0 {
-				return ErrInvalidLengthControl
-			}
-			if postIndex > l {
-				return io.ErrUnexpectedEOF
-			}
-			m.Services = append(m.Services, &ServiceRequest{})
-			if err := m.Services[len(m.Services)-1].Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
-				return err
-			}
-			iNdEx = postIndex
-		default:
-			iNdEx = preIndex
-			skippy, err := skipControl(dAtA[iNdEx:])
-			if err != nil {
-				return err
-			}
-			if skippy < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) < 0 {
-				return ErrInvalidLengthControl
-			}
-			if (iNdEx + skippy) > l {
-				return io.ErrUnexpectedEOF
-			}
-			iNdEx += skippy
-		}
-	}
-
-	if iNdEx > l {
-		return io.ErrUnexpectedEOF
-	}
-	return nil
-}
-func (m *HubSyncResponse) Unmarshal(dAtA []byte) error {
-	l := len(dAtA)
-	iNdEx := 0
-	for iNdEx < l {
-		preIndex := iNdEx
-		var wire uint64
-		for shift := uint(0); ; shift += 7 {
-			if shift >= 64 {
-				return ErrIntOverflowControl
-			}
-			if iNdEx >= l {
-				return io.ErrUnexpectedEOF
-			}
-			b := dAtA[iNdEx]
-			iNdEx++
-			wire |= uint64(b&0x7F) << shift
-			if b < 0x80 {
-				break
-			}
-		}
-		fieldNum := int32(wire >> 3)
-		wireType := int(wire & 0x7)
-		if wireType == 4 {
-			return fmt.Errorf("proto: HubSyncResponse: wiretype end group for non-group")
-		}
-		if fieldNum <= 0 {
-			return fmt.Errorf("proto: HubSyncResponse: illegal tag %d (wire type %d)", fieldNum, wire)
-		}
-		switch fieldNum {
-		case 1:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field ServiceCount", wireType)
-			}
-			m.ServiceCount = 0
-			for shift := uint(0); ; shift += 7 {
-				if shift >= 64 {
-					return ErrIntOverflowControl
-				}
-				if iNdEx >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := dAtA[iNdEx]
-				iNdEx++
-				m.ServiceCount |= int64(b&0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
 		default:
 			iNdEx = preIndex
 			skippy, err := skipControl(dAtA[iNdEx:])
