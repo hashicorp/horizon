@@ -29,12 +29,15 @@ type ConsulHealth struct {
 	api *consul.Client
 	id  string
 
+	// Stores the address we advertise in consul, used for control to connect to us.
+	addr string
+
 	mu   sync.RWMutex
 	hubs map[string]struct{}
 }
 
 // NewConsulHealth creates a ConsulHealth instance, identified by id.
-func NewConsulHealth(id string, cfg *consul.Config) (*ConsulHealth, error) {
+func NewConsulHealth(id string, cfg *consul.Config, addr string) (*ConsulHealth, error) {
 	c, err := consul.NewClient(cfg)
 	if err != nil {
 		return nil, err
@@ -42,7 +45,7 @@ func NewConsulHealth(id string, cfg *consul.Config) (*ConsulHealth, error) {
 
 	hubs := make(map[string]struct{})
 
-	return &ConsulHealth{id: id, api: c, hubs: hubs}, nil
+	return &ConsulHealth{id: id, addr: addr, api: c, hubs: hubs}, nil
 }
 
 // Watch the hub consul service and update the local cache of that information,
@@ -119,7 +122,7 @@ func (c *ConsulHealth) Start(ctx context.Context, L hclog.Logger) error {
 	go func() {
 		ticker := time.NewTicker(updateTTL)
 		defer ticker.Stop()
-		defer c.deregisterService(context.Background())
+		defer c.DeregisterService(context.Background())
 
 		for {
 			select {
@@ -151,6 +154,7 @@ func (c *ConsulHealth) registerService(ctx context.Context) (string, error) {
 			CheckID: checkId,
 			TTL:     CheckTTL,
 		},
+		Address: c.addr,
 	})
 	if err != nil {
 		return "", err
@@ -165,8 +169,8 @@ func (c *ConsulHealth) passCheck(checkid string) error {
 	return nil
 }
 
-// deregisterService removes the consul service.
-func (c *ConsulHealth) deregisterService(ctx context.Context) error {
+// DeregisterService removes the consul service.
+func (c *ConsulHealth) DeregisterService(ctx context.Context) error {
 	return c.api.Agent().ServiceDeregister(c.id)
 }
 

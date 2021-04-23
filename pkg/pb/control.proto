@@ -81,6 +81,16 @@ message CentralActivity {
   HubChange hub_change = 4;
 }
 
+// Implemented by the hubs themselves, these functions are called by control
+// to advertise information about recent changes to the hubs. The data in this
+// functions is also present in the S3 data blobs that the hubs refresh from.
+// This data bridges the time gap between the informaiton being created and the
+// hub refreshing S3.
+service HubServices {
+  rpc AddServices(AccountServices) returns (Noop) {}
+  rpc AddLabeLink(LabelLinks) returns (Noop) {}
+}
+
 message HubActivity {
   message HubRegistration {
     ULID hub = 1;

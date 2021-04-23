@@ -31,6 +31,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/grpc/lz4"
 	grpctoken "github.com/hashicorp/horizon/pkg/grpc/token"
 	"github.com/hashicorp/horizon/pkg/hub"
+	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/periodic"
 	"github.com/hashicorp/horizon/pkg/tlsmanage"
@@ -489,6 +490,20 @@ func (h *hubRunner) Run(args []string) int {
 
 	deployment := os.Getenv("K8_DEPLOYMENT")
 
+	var labels *pb.LabelSet
+
+	strLabels := os.Getenv("LOCATION_LABELS")
+	if strLabels != "" {
+		labels = pb.ParseLabelSet(os.Getenv(strLabels))
+	}
+
+	// Learn our network location so we can populate consul. This is used for
+	// control to connect to this hub for grpc messages.
+	locs, err := netloc.Locate(labels)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	// We want to have the control client filter use ConsulHealth,
 	// so we establish that here for use as a filter.
 
@@ -513,7 +528,16 @@ func (h *hubRunner) Run(args []string) int {
 		L.Info("consul running, leader detected", "leader", leader)
 		L.Info("starting consul health monitoring")
 
-		ch, err = hub.NewConsulHealth(instanceId.SpecString(), ccfg)
+		var addr string
+
+		for _, loc := range locs {
+			if loc.IsPublic() {
+				addr = loc.Addresses[0]
+				break
+			}
+		}
+
+		ch, err = hub.NewConsulHealth(instanceId.SpecString(), ccfg, addr)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -561,17 +585,7 @@ func (h *hubRunner) Run(args []string) int {
 		client.Close(ctx)
 	}()
 
-	var labels *pb.LabelSet
-
-	strLabels := os.Getenv("LOCATION_LABELS")
-	if strLabels != "" {
-		labels = pb.ParseLabelSet(os.Getenv(strLabels))
-	}
-
-	locs, err := client.LearnLocations(labels)
-	if err != nil {
-		log.Fatal(err)
-	}
+	client.SetLocations(locs)
 
 	err = client.BootstrapConfig(ctx)
 	if err != nil {

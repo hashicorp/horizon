@@ -804,25 +804,88 @@ func (c *Client) Run(ctx context.Context) error {
 	}
 }
 
+// TrackAccount registers that we want want to track information about
+// the given account.
+func (c *Client) TrackAccount(account *pb.Account) (*accountInfo, error) {
+	u := account.StringKey()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	info, ok := c.accountServices[u]
+	if ok {
+		return info, nil
+	}
+
+	info = &accountInfo{
+		MapKey:   u,
+		S3Key:    "account_services/" + account.HashKey(),
+		LastUse:  time.Now(),
+		FileName: account.HashKey(),
+		Process:  make(chan struct{}),
+	}
+
+	c.accountServices[u] = info
+
+	return info, nil
+}
+
+// AddRecentAccountServices appends the information about this accounts
+// services to special recent services list. This allows lookup to use this
+// information before it makes it into the S3 stored account routing blob.
+func (c *Client) AddRecentAccountServices(acc *pb.AccountServices) error {
+	u := acc.Account.StringKey()
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	info, ok := c.accountServices[u]
+	if ok {
+		info.LastUse = time.Now()
+	} else {
+		return nil
+	}
+
+	info.Recent = append(info.Recent, acc.Services...)
+
+	return nil
+}
+
+// FindRecentServices returns the list of recent services for the given account.
+// Recent services are a special cache of services populate between updates
+// to the account's routing database from S3.
+func (c *Client) FindRecentServices(acc *pb.Account) ([]*pb.ServiceRoute, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	info, ok := c.accountServices[acc.StringKey()]
+	if !ok {
+		return nil, nil
+	}
+
+	return info.Recent, nil
+}
+
+// AddRecentLabelLinks appends the information about these label links
+// to a special recent list. This allows lookup to use the information
+// before it makes it into the S3 stored label links blob.
+func (c *Client) AddRecentLabelLinks(links *pb.LabelLinks) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.recentLabelLinks = append(c.recentLabelLinks, links.LabelLinks...)
+
+	return nil
+}
+
 func (c *Client) processCentralActivity(ctx context.Context, L hclog.Logger, ev *pb.CentralActivity) {
 	L.Debug("processing activity from central")
 
 	for _, acc := range ev.AccountServices {
-		u := acc.Account.StringKey()
-
-		c.mu.RLock()
-		info, ok := c.accountServices[u]
-		if ok {
-			info.LastUse = time.Now()
+		err := c.AddRecentAccountServices(acc)
+		if err != nil {
+			c.L.Error("error adding recent accounts", "error", err)
 		}
-		c.mu.RUnlock()
-
-		// We weren't tracking this account, bail
-		if !ok {
-			continue
-		}
-
-		info.Recent = append(info.Recent, acc.Services...)
 	}
 
 	if ev.NewLabelLinks != nil {

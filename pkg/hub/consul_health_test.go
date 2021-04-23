@@ -16,10 +16,10 @@ import (
 func TestConsulHealth(t *testing.T) {
 	t.Run("maintains a proper view of the hub catalog", func(t *testing.T) {
 		cfg := consul.DefaultConfig()
-		a, err := NewConsulHealth("a", cfg)
+		a, err := NewConsulHealth("a", cfg, "")
 		require.NoError(t, err)
 
-		b, err := NewConsulHealth("b", cfg)
+		b, err := NewConsulHealth("b", cfg, "")
 		require.NoError(t, err)
 
 		parent, cancel := context.WithCancel(context.Background())
@@ -28,7 +28,7 @@ func TestConsulHealth(t *testing.T) {
 		achk, err := a.registerService(parent)
 		require.NoError(t, err)
 
-		defer a.deregisterService(parent)
+		defer a.DeregisterService(parent)
 
 		err = a.passCheck(achk)
 		require.NoError(t, err)
@@ -36,7 +36,7 @@ func TestConsulHealth(t *testing.T) {
 		bchk, err := b.registerService(parent)
 		require.NoError(t, err)
 
-		defer b.deregisterService(parent)
+		defer b.DeregisterService(parent)
 
 		err = b.passCheck(bchk)
 		require.NoError(t, err)
@@ -63,7 +63,7 @@ func TestConsulHealth(t *testing.T) {
 
 		assert.True(t, a.Available("b"))
 
-		err = b.deregisterService(parent)
+		err = b.DeregisterService(parent)
 		require.NoError(t, err)
 
 		time.Sleep(time.Second)
@@ -87,10 +87,10 @@ func TestConsulHealth(t *testing.T) {
 
 	t.Run("notices service changes without polling", func(t *testing.T) {
 		cfg := consul.DefaultConfig()
-		a, err := NewConsulHealth("a", cfg)
+		a, err := NewConsulHealth("a", cfg, "")
 		require.NoError(t, err)
 
-		b, err := NewConsulHealth("b", cfg)
+		b, err := NewConsulHealth("b", cfg, "")
 		require.NoError(t, err)
 
 		parent, cancel := context.WithCancel(context.Background())
@@ -99,7 +99,7 @@ func TestConsulHealth(t *testing.T) {
 		achk, err := a.registerService(parent)
 		require.NoError(t, err)
 
-		defer a.deregisterService(parent)
+		defer a.DeregisterService(parent)
 
 		err = a.passCheck(achk)
 		require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestConsulHealth(t *testing.T) {
 		bchk, err := b.registerService(parent)
 		require.NoError(t, err)
 
-		defer b.deregisterService(parent)
+		defer b.DeregisterService(parent)
 
 		err = b.passCheck(bchk)
 		require.NoError(t, err)
@@ -118,7 +118,7 @@ func TestConsulHealth(t *testing.T) {
 
 		assert.True(t, a.Available("b"))
 
-		err = b.deregisterService(parent)
+		err = b.DeregisterService(parent)
 		require.NoError(t, err)
 
 		time.Sleep(100 * time.Millisecond)
@@ -128,10 +128,10 @@ func TestConsulHealth(t *testing.T) {
 
 	t.Run("has a comfortable default mode", func(t *testing.T) {
 		cfg := consul.DefaultConfig()
-		a, err := NewConsulHealth("a", cfg)
+		a, err := NewConsulHealth("a", cfg, "")
 		require.NoError(t, err)
 
-		b, err := NewConsulHealth("b", cfg)
+		b, err := NewConsulHealth("b", cfg, "")
 		require.NoError(t, err)
 
 		parent, cancel := context.WithCancel(context.Background())
