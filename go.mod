@@ -9,9 +9,10 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/go-acme/lego/v3 v3.5.0
+	github.com/go-redis/redis/v8 v8.11.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang-migrate/migrate/v4 v4.10.0
-	github.com/golang/protobuf v1.3.4
+	github.com/golang/protobuf v1.5.2
 	github.com/hashicorp/consul/api v1.7.0
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/hashicorp/go-hclog v0.13.0
@@ -40,10 +41,8 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.5.1
 	go.etcd.io/bbolt v1.3.3
-	golang.org/x/crypto v0.0.0-20200317142112-1b76d66859c6
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
-	golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a // indirect
-	golang.org/x/sys v0.0.0-20200413165638-669c56c373c4 // indirect
+	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
+	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/genproto v0.0.0-20200416231807-8751e049a2a0 // indirect
 	google.golang.org/grpc v1.28.1
