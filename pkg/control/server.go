@@ -103,6 +103,9 @@ type ServerConfig struct {
 	VaultPath   string
 	KeyId       string
 
+	// If no vault client is specified, this is used instead.
+	SigningKey ed25519.PrivateKey
+
 	AwsSession *session.Session
 	Bucket     string
 
@@ -230,15 +233,22 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 		s.lockMgr = &inmemLockMgr{}
 	}
 
-	L.Debug("setting up vault access")
-	pub, err := token.SetupVault(s.vaultClient, s.vaultPath)
-	if err != nil {
-		return nil, err
+	if s.vaultClient != nil {
+		L.Debug("setting up vault access")
+		pub, err := token.SetupVault(s.vaultClient, s.vaultPath)
+		if err != nil {
+			return nil, err
+		}
+
+		s.pubKey = pub
+
+		s.L.Info("vault configured for token signing", "pubkey", hex.EncodeToString(pub))
+	} else if cfg.SigningKey == nil {
+		return nil, fmt.Errorf("neither vault nor a static signing key configured")
+	} else {
+		s.pubKey = cfg.SigningKey.Public().(ed25519.PublicKey)
+		s.L.Info("static signing key configured", "pubkey", hex.EncodeToString(s.pubKey))
 	}
-
-	s.pubKey = pub
-
-	s.L.Info("vault configured for token signing", "pubkey", hex.EncodeToString(pub))
 
 	if hubImageFile != "" {
 		go s.monitorImageFile(hubImageFile)
@@ -383,9 +393,11 @@ func (s *Server) AddService(ctx context.Context, service *pb.ServiceRequest) (*p
 		},
 	})
 
-	err = s.updateAccountRouting(ctx, s.db.DB(), service.Account, "add-service")
-	if err != nil {
-		return nil, err
+	if s.awsSess != nil {
+		err = s.updateAccountRouting(ctx, s.db.DB(), service.Account, "add-service")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &pb.ServiceResponse{}, nil
@@ -404,9 +416,11 @@ func (s *Server) RemoveService(ctx context.Context, service *pb.ServiceRequest) 
 		return nil, err
 	}
 
-	err = s.updateAccountRouting(ctx, s.db.DB(), service.Account, "remove-service")
-	if err != nil {
-		return nil, err
+	if s.awsSess != nil {
+		err = s.updateAccountRouting(ctx, s.db.DB(), service.Account, "remove-service")
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &pb.ServiceResponse{}, nil
@@ -889,12 +903,16 @@ func (s *Server) GetManagementToken(ctx context.Context, namespace string) (stri
 		pb.ACCESS: namespace,
 	}
 
-	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
-	if err != nil {
-		return "", err
+	if s.vaultClient != nil {
+		token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+		if err != nil {
+			return "", err
+		}
+
+		return token, nil
 	}
 
-	return token, nil
+	return tc.EncodeED25519(s.cfg.SigningKey, s.keyId)
 }
 
 func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.ControlToken, error) {
@@ -938,7 +956,14 @@ func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.Con
 		pb.ACCESS: rec.Namespace,
 	}
 
-	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	var token string
+
+	if s.vaultClient != nil {
+		token, err = tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	} else {
+		token, err = tc.EncodeED25519(s.cfg.SigningKey, s.keyId)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -965,7 +990,17 @@ func (s *Server) IssueHubToken(ctx context.Context, _ *pb.Noop) (*pb.CreateToken
 	var tc token.TokenCreator
 	tc.Role = pb.HUB
 
-	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	var (
+		token string
+		err   error
+	)
+
+	if s.vaultClient != nil {
+		token, err = tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	} else {
+		token, err = tc.EncodeED25519(s.cfg.SigningKey, s.keyId)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -1129,13 +1164,15 @@ func (s *Server) AddLabelLink(ctx context.Context, req *pb.AddLabelLinkRequest) 
 		NewLabelLinks: &out,
 	})
 
-	L.Trace("running s3 update of label links in background")
-	go func() {
-		err := s.updateLabelLinks(s.bg)
-		if err != nil {
-			L.Error("error updating label links in S3", "error", err)
-		}
-	}()
+	if s.awsSess != nil {
+		L.Trace("running s3 update of label links in background")
+		go func() {
+			err := s.updateLabelLinks(s.bg)
+			if err != nil {
+				L.Error("error updating label links in S3", "error", err)
+			}
+		}()
+	}
 
 	return &pb.Noop{}, nil
 }
@@ -1164,13 +1201,15 @@ func (s *Server) RemoveLabelLink(ctx context.Context, req *pb.RemoveLabelLinkReq
 		return nil, err
 	}
 
-	s.L.Trace("running s3 update of label links in background")
-	go func() {
-		err := s.updateLabelLinks(s.bg)
-		if err != nil {
-			s.L.Error("error updating label links in S3", "error", err)
-		}
-	}()
+	if s.awsSess != nil {
+		s.L.Trace("running s3 update of label links in background")
+		go func() {
+			err := s.updateLabelLinks(s.bg)
+			if err != nil {
+				s.L.Error("error updating label links in S3", "error", err)
+			}
+		}()
+	}
 
 	return &pb.Noop{}, nil
 }
@@ -1221,7 +1260,14 @@ func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*
 	tc.RawCapabilities = req.Capabilities
 	tc.ValidDuration = dur
 
-	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	var token string
+
+	if s.vaultClient != nil {
+		token, err = tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	} else {
+		token, err = tc.EncodeED25519(s.cfg.SigningKey, s.keyId)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -1338,7 +1384,14 @@ func (s *Server) RequestServiceToken(ctx context.Context, req *pb.ServiceTokenRe
 		},
 	}
 
-	token, err := tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	var token string
+
+	if s.vaultClient != nil {
+		token, err = tc.EncodeED25519WithVault(s.vaultClient, s.vaultPath, s.keyId)
+	} else {
+		token, err = tc.EncodeED25519(s.cfg.SigningKey, s.keyId)
+	}
+
 	if err != nil {
 		return nil, err
 	}

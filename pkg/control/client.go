@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ import (
 	"github.com/hashicorp/horizon/pkg/netloc"
 	"github.com/hashicorp/horizon/pkg/pb"
 	"github.com/hashicorp/horizon/pkg/periodic"
+	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	gcreds "google.golang.org/grpc/credentials"
@@ -55,6 +57,14 @@ type accountInfo struct {
 	// Populated by pushes from the server
 	Recent []*pb.ServiceRoute
 }
+
+type mode int
+
+const (
+	unknownMode mode = iota
+	edgeMode
+	s3Mode
+)
 
 type Client struct {
 	L hclog.Logger
@@ -98,6 +108,13 @@ type Client struct {
 	clientset *client.Clientset
 
 	liveHubs *lru.ARCCache
+
+	// mode indicates the operational mode of the client. This is based
+	// on the configuration sent by the control server when bootstraping
+	mode mode
+
+	edge     pb.EdgeServicesClient
+	edgeData clientEdgeData
 }
 
 type hubLiveness struct {
@@ -109,6 +126,7 @@ type ClientConfig struct {
 	Logger     hclog.Logger
 	InstanceId *pb.ULID
 	Id         *pb.ULID
+	GRPCConn   *grpc.ClientConn
 	Client     pb.ControlServicesClient
 	Token      string
 	Addr       string
@@ -134,11 +152,18 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 	}
 
 	var (
-		gcc *grpc.ClientConn
-		err error
+		gcc  *grpc.ClientConn
+		edge pb.EdgeServicesClient
+		err  error
 	)
 
 	gClient := cfg.Client
+
+	if gClient == nil && cfg.GRPCConn != nil {
+		gClient = pb.NewControlServicesClient(cfg.GRPCConn)
+		edge = pb.NewEdgeServicesClient(cfg.GRPCConn)
+	}
+
 	if gClient == nil && cfg.Addr != "" {
 		opts := []grpc.DialOption{
 			grpc.WithPerRPCCredentials(grpctoken.Token(cfg.Token)),
@@ -161,6 +186,7 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		}
 
 		gClient = pb.NewControlServicesClient(gcc)
+		edge = pb.NewEdgeServicesClient(gcc)
 	}
 
 	liveHubs, err := lru.NewARC(1000)
@@ -175,11 +201,18 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		instanceId = pb.NewULID()
 	}
 
+	var m mode
+
+	if edge != nil {
+		m = edgeMode
+	}
+
 	client := &Client{
 		L:               cfg.Logger,
 		cfg:             cfg,
 		instanceId:      instanceId,
 		client:          gClient,
+		edge:            edge,
 		gcc:             gcc,
 		accountServices: make(map[string]*accountInfo),
 		localServices:   make(map[string]*pb.ServiceRequest),
@@ -188,11 +221,14 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 		cancel:          cancel,
 		hubActivity:     make(chan *pb.HubActivity, 10),
 		liveHubs:        liveHubs,
+		mode:            m,
 	}
 
 	if cfg.Session != nil {
 		client.s3api = s3.New(cfg.Session)
 	}
+
+	client.edgeData.init()
 
 	return client, nil
 }
@@ -267,6 +303,8 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 	c.tlsCert = &cert
 
 	if resp.S3AccessKey != "" {
+		c.mode = s3Mode
+
 		L := c.L
 
 		L.Info("reconfiguring s3 access to use server provided credentials",
@@ -284,6 +322,9 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 
 		c.bucket = resp.S3Bucket
 		c.cfg.S3Bucket = resp.S3Bucket
+	} else {
+		// In edge mode, we just make requests to the control server for all our needs.
+		c.mode = edgeMode
 	}
 
 	if resp.ImageTag != "" {
@@ -451,6 +492,33 @@ func (c *RouteCalculation) shuffle(in []*pb.ServiceRoute) []*pb.ServiceRoute {
 	return append(local, remote...)
 }
 
+func (c *RouteCalculation) FindBest() {
+	best := make([]*pb.ServiceRoute, len(c.All))
+	copy(best, c.All)
+
+	depOrder := make([]string, len(best))
+
+	for i, r := range best {
+		lbl, _ := r.Labels.GetLabel(deploymentOrder)
+		depOrder[i] = lbl
+	}
+
+	sort.Slice(best, func(i, j int) bool {
+		o1 := depOrder[i]
+		o2 := depOrder[j]
+
+		if o1 == "" {
+			return true
+		} else if o2 == "" {
+			return false
+		}
+
+		return o1 < o2
+	})
+
+	c.Best = best
+}
+
 func (c *RouteCalculation) Services() []*pb.ServiceRoute {
 	if len(c.Best) > 0 {
 		return c.shuffle(c.Best)
@@ -460,6 +528,15 @@ func (c *RouteCalculation) Services() []*pb.ServiceRoute {
 }
 
 func (c *Client) LookupService(ctx context.Context, account *pb.Account, labels *pb.LabelSet) (*RouteCalculation, error) {
+	switch c.mode {
+	case edgeMode:
+		return c.lookupServiceEdge(ctx, account, labels)
+	case s3Mode:
+		// ok, handled below.
+	default:
+		return nil, errors.Wrapf(ErrInvalidRequest, "unknown mode configured: %d", c.mode)
+	}
+
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
@@ -981,6 +1058,15 @@ func (c *Client) updateLabelLinks(ctx context.Context, L hclog.Logger) error {
 }
 
 func (c *Client) ResolveLabelLink(label *pb.LabelSet) (*pb.Account, *pb.LabelSet, *pb.Account_Limits, error) {
+	switch c.mode {
+	case edgeMode:
+		return c.resolveLLEdge(label)
+	case s3Mode:
+		// ok, handled below.
+	default:
+		return nil, nil, nil, errors.Wrapf(ErrInvalidRequest, "unknown mode configured: %d", c.mode)
+	}
+
 	c.labelMu.RLock()
 	defer c.labelMu.RUnlock()
 

@@ -67,16 +67,16 @@ func (s *Server) queryDBLabelLinks(ctx context.Context, req *pb.ResolveLabelLink
 
 	target := ExplodeLabels(ll.Target)
 
-	var account pb.Account
-
-	account.AccountId = pb.ULIDFromBytes(ll.Account.ID)
-	account.Namespace = ll.Account.Namespace
+	account, err := pb.AccountFromKey(ll.AccountID)
+	if err != nil {
+		return nil, err
+	}
 
 	var pblimit pb.Account_Limits
 	ll.Account.Data.Get("limits", &pblimit)
 
 	resp.Labels = target
-	resp.Account = &account
+	resp.Account = account
 	resp.Limits = &pblimit
 
 	return &resp, nil
