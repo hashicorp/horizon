@@ -81,13 +81,14 @@ func (h *hubTokenCreate) Run(args []string) int {
 	opts := []grpc.DialOption{
 		grpc.WithPerRPCCredentials(grpctoken.Token(*token)),
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
+		grpc.WithBlock(),
 	}
 
 	opts = setTransport(opts, insecure, insecureSkipVerify)
 
 	gcc, err := grpc.Dial(*addr, opts...)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error dialing grpc: %s", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -97,7 +98,7 @@ func (h *hubTokenCreate) Run(args []string) int {
 
 	ctr, err := s.IssueHubToken(ctx, &pb.Noop{})
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error sending rpc: %s", err)
 	}
 
 	fmt.Println(ctr.Token)
@@ -281,7 +282,7 @@ func (h *agentTokenCreate) Run(args []string) int {
 		grpc.WithDefaultCallOptions(grpc.UseCompressor(lz4.Name)),
 	}
 
-	setTransport(opts, insecure, insecureSkipVerify)
+	opts = setTransport(opts, insecure, insecureSkipVerify)
 
 	gcc, err := grpc.Dial(*addr, opts...)
 	if err != nil {

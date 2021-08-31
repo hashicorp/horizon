@@ -6,8 +6,10 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"regexp"
 	"sort"
+	"strings"
 	"syscall"
 	"time"
 
@@ -451,6 +453,14 @@ func Locate(defaultLabels *pb.LabelSet) ([]*pb.NetworkLocation, error) {
 	privateLabels.Finalize()
 	pubLabels.Finalize()
 	pubLabels6.Finalize()
+
+	// See if any explicit addresses were set via env vars.
+	// We only allow public to be set because it's presumed that
+	// private addresses have to be discovered.
+	if val := os.Getenv("NETLOC_PUBLIC"); val != "" {
+		parts := strings.Split(val, ",")
+		publicAddrs = append(publicAddrs, parts...)
+	}
 
 	var netlocs []*pb.NetworkLocation
 

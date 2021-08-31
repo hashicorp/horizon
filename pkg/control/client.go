@@ -3,11 +3,15 @@ package control
 import (
 	context "context"
 	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/hex"
 	io "io"
 	"io/ioutil"
-	"math/rand"
+	"math/big"
+	mrand "math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -281,6 +285,48 @@ func (c *Client) LearnLocations(def *pb.LabelSet) ([]*pb.NetworkLocation, error)
 	return locs, nil
 }
 
+func GenerateSelfSignedTLS() (*tls.Certificate, error) {
+	tlspub, tlspriv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		return nil, err
+	}
+
+	notBefore := time.Now()
+
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	template := x509.Certificate{
+		SerialNumber: serialNumber,
+		Subject: pkix.Name{
+			Organization: []string{"Horizon Internal"},
+		},
+		NotBefore: notBefore,
+		NotAfter:  notBefore.Add(3650 * (24 * time.Hour)), // 10 years
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+		DNSNames:              []string{"hub.internal"},
+		IPAddresses:           []net.IP{net.ParseIP("127.0.0.1")},
+		IsCA:                  true,
+	}
+
+	derBytes, err := x509.CreateCertificate(rand.Reader, &template, &template, tlspub, tlspriv)
+	if err != nil {
+		return nil, err
+	}
+
+	var cert tls.Certificate
+	cert.Certificate = [][]byte{derBytes}
+	cert.PrivateKey = tlspriv
+
+	return &cert, nil
+}
+
 func (c *Client) BootstrapConfig(ctx context.Context) error {
 	resp, err := c.client.FetchConfig(ctx, &pb.ConfigRequest{
 		StableId:   c.StableId(),
@@ -295,12 +341,21 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 	c.rawtlsKey = resp.TlsKey
 	c.tokenPub = resp.TokenPub
 
-	cert, err := tls.X509KeyPair(c.rawtlsCert, c.rawtlsKey)
-	if err != nil {
-		return err
-	}
+	if c.rawtlsKey == nil {
+		cert, err := GenerateSelfSignedTLS()
+		if err != nil {
+			return err
+		}
 
-	c.tlsCert = &cert
+		c.tlsCert = cert
+	} else {
+		cert, err := tls.X509KeyPair(c.rawtlsCert, c.rawtlsKey)
+		if err != nil {
+			return err
+		}
+
+		c.tlsCert = &cert
+	}
 
 	if resp.S3AccessKey != "" {
 		c.mode = s3Mode
@@ -481,11 +536,11 @@ func (c *RouteCalculation) shuffle(in []*pb.ServiceRoute) []*pb.ServiceRoute {
 		}
 	}
 
-	rand.Shuffle(len(local), func(i, j int) {
+	mrand.Shuffle(len(local), func(i, j int) {
 		local[i], local[j] = local[j], local[i]
 	})
 
-	rand.Shuffle(len(remote), func(i, j int) {
+	mrand.Shuffle(len(remote), func(i, j int) {
 		remote[i], remote[j] = remote[j], remote[i]
 	})
 

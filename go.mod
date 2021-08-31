@@ -42,7 +42,7 @@ require (
 	github.com/stretchr/testify v1.5.1
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20210428140749-89ef3d95e781
+	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
 	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
 	google.golang.org/genproto v0.0.0-20200416231807-8751e049a2a0 // indirect
 	google.golang.org/grpc v1.28.1

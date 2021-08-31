@@ -974,16 +974,19 @@ func (s *Server) Register(ctx context.Context, reg *pb.ControlRegister) (*pb.Con
 func (s *Server) IssueHubToken(ctx context.Context, _ *pb.Noop) (*pb.CreateTokenResponse, error) {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
+		s.L.Error("bad authentication recieved for issue-hub-token, no metadata")
 		return nil, ErrBadAuthentication
 	}
 
 	auth := md["authorization"]
 
 	if len(auth) < 1 {
+		s.L.Error("bad authentication recieved for issue-hub-token, no authorization")
 		return nil, ErrBadAuthentication
 	}
 
 	if auth[0] != s.registerToken {
+		s.L.Error("bad authentication recieved for issue-hub-token, invalid token")
 		return nil, ErrBadAuthentication
 	}
 
@@ -1002,6 +1005,7 @@ func (s *Server) IssueHubToken(ctx context.Context, _ *pb.Noop) (*pb.CreateToken
 	}
 
 	if err != nil {
+		s.L.Error("error encoding token", "error", err)
 		return nil, err
 	}
 
@@ -1219,6 +1223,7 @@ var ErrInvalidRequest = errors.New("invalid request")
 func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*pb.CreateTokenResponse, error) {
 	caller, err := s.checkMgmtAllowed(ctx)
 	if err != nil {
+		s.L.Error("error checking mgmt token", "error", err)
 		return nil, err
 	}
 
@@ -1252,6 +1257,9 @@ func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*
 		if err != sql.ErrNoRows {
 			return nil, errors.Wrapf(err, "creating account record")
 		}
+
+		s.L.Error("error creating account", "error", err)
+		return nil, err
 	}
 
 	var tc token.TokenCreator
@@ -1269,6 +1277,7 @@ func (s *Server) CreateToken(ctx context.Context, req *pb.CreateTokenRequest) (*
 	}
 
 	if err != nil {
+		s.L.Error("error encoding token", "error", err)
 		return nil, err
 	}
 
