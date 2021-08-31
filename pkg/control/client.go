@@ -207,7 +207,9 @@ func NewClient(ctx context.Context, cfg ClientConfig) (*Client, error) {
 
 	var m mode
 
-	if edge != nil {
+	if cfg.Session != nil {
+		m = s3Mode
+	} else if edge != nil {
 		m = edgeMode
 	}
 
@@ -377,7 +379,11 @@ func (c *Client) BootstrapConfig(ctx context.Context) error {
 
 		c.bucket = resp.S3Bucket
 		c.cfg.S3Bucket = resp.S3Bucket
+	} else if c.s3api != nil {
+		c.L.Info("detecting existing s3 configure, using s3 mode")
+		c.mode = s3Mode
 	} else {
+		c.L.Info("no s3 access configured, using edge mode")
 		// In edge mode, we just make requests to the control server for all our needs.
 		c.mode = edgeMode
 	}
