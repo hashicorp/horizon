@@ -17,6 +17,7 @@ import (
 type pipeRunner struct {
 	flags    *pflag.FlagSet
 	fControl *string
+	fHub     *string
 	fToken   *string
 	fId      *string
 	fListen  *bool
@@ -26,6 +27,7 @@ type pipeRunner struct {
 func (c *pipeRunner) init() error {
 	c.flags = pflag.NewFlagSet("agent", pflag.ExitOnError)
 	c.fControl = c.flags.String("control", "control.alpha.hzn.network", "address of control plane")
+	c.fHub = c.flags.String("hub", "", "address of a hub to connect to")
 	c.fToken = c.flags.String("token", "", "authentication token")
 	c.fId = c.flags.String("id", "", "pipe identifier")
 	c.fListen = c.flags.Bool("listen", false, "listen for a pipe connection")
@@ -81,20 +83,34 @@ func (c *pipeRunner) Run(args []string) int {
 		Level: level,
 	})
 
-	L.Debug("discovering hubs")
-
-	dc, err := discovery.NewClient(*c.fControl)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	L.Debug("refreshing data")
-
 	ctx := context.Background()
 
-	err = dc.Refresh(ctx)
-	if err != nil {
-		log.Fatal(err)
+	var config discovery.HubConfigProvider
+
+	if c.fHub != nil {
+		L.Debug("using static hub config")
+
+		config = discovery.HubConfigs(discovery.HubConfig{
+			Name:     "cli",
+			Addr:     *c.fHub,
+			Insecure: true,
+		})
+	} else {
+		L.Debug("discovering hub config")
+
+		dc, err := discovery.NewClient(*c.fControl)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		L.Debug("refreshing data")
+
+		err = dc.Refresh(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		config = dc
 	}
 
 	L.Debug("starting agent")
@@ -130,7 +146,7 @@ func (c *pipeRunner) Run(args []string) int {
 		}
 	}
 
-	err = g.Start(ctx, dc)
+	err = g.Start(ctx, config)
 	if err != nil {
 		log.Fatal(err)
 	}

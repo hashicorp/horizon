@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+import "label.proto";
+import "account.proto";
+import "control.proto";
+
+package pb;
+
+message LookupEndpointsRequest {
+  Account account = 1;
+  LabelSet labels = 2;
+}
+
+message LookupEndpointsResponse {
+  repeated ServiceRoute routes = 1;
+  int64 cache_time = 2;
+}
+
+message ResolveLabelLinkRequest {
+  LabelSet labels = 1;
+}
+
+message ResolveLabelLinkResponse {
+  Account account = 1;
+  LabelSet labels = 2;
+  Account.Limits limits = 3;
+  int64 cache_time = 4;
+}
+
+service EdgeServices {
+  rpc LookupEndpoints(LookupEndpointsRequest) returns (LookupEndpointsResponse) {}
+  rpc ResolveLabelLink(ResolveLabelLinkRequest) returns (ResolveLabelLinkResponse) {}
+}

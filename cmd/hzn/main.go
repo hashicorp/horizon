@@ -3,8 +3,12 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net"
@@ -41,6 +45,8 @@ import (
 	"github.com/mitchellh/cli"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 )
@@ -69,6 +75,9 @@ func main() {
 		"migrate": func() (cli.Command, error) {
 			return &migrateRunner{}, nil
 		},
+		"config-gen": func() (cli.Command, error) {
+			return &configGen{}, nil
+		},
 	}
 
 	fmt.Printf("hzn: %s\n", ver)
@@ -83,6 +92,36 @@ func main() {
 
 func controlFactory() (cli.Command, error) {
 	return &controlServer{}, nil
+}
+
+type configGen struct{}
+
+func (m *configGen) Help() string {
+	return "run any migrations"
+}
+
+func (m *configGen) Synopsis() string {
+	return "run any migrations"
+}
+
+func (mr *configGen) Run(args []string) int {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+
+	key := base64.StdEncoding.EncodeToString(priv)
+	fmt.Printf("SIGNING_KEY=%s\n", key)
+
+	token := make([]byte, 16)
+
+	io.ReadFull(rand.Reader, token)
+	fmt.Printf("REGISTER_TOKEN=%s\n", base64.StdEncoding.EncodeToString(token))
+
+	io.ReadFull(rand.Reader, token)
+	fmt.Printf("OPS_TOKEN=%s\n", base64.StdEncoding.EncodeToString(token))
+
+	return 0
 }
 
 type migrateRunner struct{}
@@ -181,49 +220,60 @@ func (c *controlServer) Run(args []string) int {
 	L.Info("log level configured", "level", level)
 	L.Trace("starting server")
 
-	vcfg := api.DefaultConfig()
+	staticKey := os.Getenv("SIGNING_KEY")
 
-	vc, err := api.NewClient(vcfg)
-	if err != nil {
-		log.Fatal(err)
-	}
+	var (
+		vc  *api.Client
+		err error
+	)
 
-	// If we have token AND this is kubernetes, then let's try to get a token
-	if vc.Token() == "" {
-		f, err := os.Open("/var/run/secrets/kubernetes.io/serviceaccount/token")
-		if err == nil {
-			L.Info("attempting to login to vault via kubernetes auth")
+	if staticKey == "" {
+		L.Info("no static signing key, using vault for key")
 
-			data, err := ioutil.ReadAll(f)
-			if err != nil {
-				log.Fatal(err)
-			}
+		vcfg := api.DefaultConfig()
 
-			f.Close()
+		vc, err = api.NewClient(vcfg)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-			sec, err := vc.Logical().Write("auth/kubernetes/login", map[string]interface{}{
-				"role": "horizon",
-				"jwt":  string(bytes.TrimSpace(data)),
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
+		// If we have token AND this is kubernetes, then let's try to get a token
+		if vc.Token() == "" {
+			f, err := os.Open("/var/run/secrets/kubernetes.io/serviceaccount/token")
+			if err == nil {
+				L.Info("attempting to login to vault via kubernetes auth")
 
-			if sec == nil {
-				log.Fatal("unable to login to get token")
-			}
-
-			vc.SetToken(sec.Auth.ClientToken)
-
-			L.Info("retrieved token from vault", "accessor", sec.Auth.Accessor)
-
-			go func() {
-				tic := time.NewTicker(time.Hour)
-				for {
-					<-tic.C
-					vc.Auth().Token().RenewSelf(86400)
+				data, err := ioutil.ReadAll(f)
+				if err != nil {
+					log.Fatal(err)
 				}
-			}()
+
+				f.Close()
+
+				sec, err := vc.Logical().Write("auth/kubernetes/login", map[string]interface{}{
+					"role": "horizon",
+					"jwt":  string(bytes.TrimSpace(data)),
+				})
+				if err != nil {
+					log.Fatal(err)
+				}
+
+				if sec == nil {
+					log.Fatal("unable to login to get token")
+				}
+
+				vc.SetToken(sec.Auth.ClientToken)
+
+				L.Info("retrieved token from vault", "accessor", sec.Auth.Accessor)
+
+				go func() {
+					tic := time.NewTicker(time.Hour)
+					for {
+						<-tic.C
+						vc.Auth().Token().RenewSelf(86400)
+					}
+				}()
+			}
 		}
 	}
 
@@ -237,38 +287,54 @@ func (c *controlServer) Run(args []string) int {
 		log.Fatal(err)
 	}
 
-	sess := session.New()
+	var sess *session.Session
 
 	bucket := os.Getenv("S3_BUCKET")
-	if bucket == "" {
-		log.Fatal("S3_BUCKET not set")
+	if bucket != "" {
+		L.Info("No s3 bucket provided, disabling S3 functionality")
+		sess = session.New()
 	}
+
+	ctx := hclog.WithContext(context.Background(), L)
+
+	var (
+		key, cert []byte
+		tlsmgr    *tlsmanage.Manager
+	)
 
 	domain := os.Getenv("HUB_DOMAIN")
-	if domain == "" {
-		log.Fatal("missing HUB_DOMAIN")
-	}
+	if domain != "" {
+		L.Info("hub domain configured, using LetsEncrypt for certs")
 
-	staging := os.Getenv("LETSENCRYPT_STAGING") != ""
+		staging := os.Getenv("LETSENCRYPT_STAGING") != ""
 
-	tlsmgr, err := tlsmanage.NewManager(tlsmanage.ManagerConfig{
-		L:           L,
-		Domain:      domain,
-		VaultClient: vc,
-		Staging:     staging,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
+		tlsmgr, err = tlsmanage.NewManager(tlsmanage.ManagerConfig{
+			L:           L,
+			Domain:      domain,
+			VaultClient: vc,
+			Staging:     staging,
+		})
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	zoneId := os.Getenv("ZONE_ID")
-	if zoneId == "" {
-		log.Fatal("missing ZONE_ID")
-	}
+		zoneId := os.Getenv("ZONE_ID")
+		if zoneId == "" {
+			log.Fatal("missing ZONE_ID")
+		}
 
-	err = tlsmgr.SetupRoute53(sess, zoneId)
-	if err != nil {
-		log.Fatal(err)
+		err = tlsmgr.SetupRoute53(sess, zoneId)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		cert, key, err = tlsmgr.HubMaterial(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	} else {
+		L.Info("no hub domain configured, assuming crypto done outside scope")
 	}
 
 	regTok := os.Getenv("REGISTER_TOKEN")
@@ -288,22 +354,24 @@ func (c *controlServer) Run(args []string) int {
 	hubTag := os.Getenv("HUB_IMAGE_TAG")
 
 	port := os.Getenv("PORT")
+	if port == "" {
+		port = "9833"
+	}
+
+	if os.Getenv("NO_AUTO_MIGRATIONS") == "" {
+		L.Info("running migrations")
+		var mr migrateRunner
+		mr.Run(nil)
+	}
 
 	go StartHealthz(L)
 
-	ctx := hclog.WithContext(context.Background(), L)
-
-	cert, key, err := tlsmgr.HubMaterial(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	lm, err := control.NewConsulLockManager(ctx)
 	if err != nil {
-		log.Fatal(err)
+		L.Info("consul not available, disable consul lock manager")
 	}
 
-	s, err := control.NewServer(control.ServerConfig{
+	scfg := control.ServerConfig{
 		Logger: L,
 		DB:     db,
 
@@ -323,7 +391,18 @@ func (c *controlServer) Run(args []string) int {
 		HubSecretKey: hubSecret,
 		HubImageTag:  hubTag,
 		LockManager:  lm,
-	})
+	}
+
+	if staticKey != "" {
+		data, err := base64.StdEncoding.DecodeString(staticKey)
+		if err != nil {
+			log.Fatalf("error decoding static-key: %s", err)
+		}
+
+		scfg.SigningKey = ed25519.PrivateKey(data)
+	}
+
+	s, err := control.NewServer(scfg)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -333,45 +412,27 @@ func (c *controlServer) Run(args []string) int {
 	workq.RegisterHandler("cleanup-activity-log", lc.CleanupActivityLog)
 	workq.RegisterPeriodicJob("cleanup-activity-log", "default", "cleanup-activity-log", nil, time.Hour)
 
-	hubDomain := domain
-	if strings.HasPrefix(hubDomain, "*.") {
-		hubDomain = hubDomain[2:]
-	}
-
-	s.SetHubTLS(cert, key, hubDomain)
-
-	// So that when they are refreshed by the background job, we eventually pick
-	// them up. Hubs are also refreshing their config on an hourly basis so they'll
-	// end up picking up the new TLS material that way too.
-	go periodic.Run(ctx, time.Hour, func() {
-		cert, key, err := tlsmgr.RefreshFromVault()
-		if err != nil {
-			L.Error("error refreshing hub certs from vault")
-		} else {
-			s.SetHubTLS(cert, key, hubDomain)
-		}
-	})
-
 	gs := grpc.NewServer()
 	pb.RegisterControlServicesServer(gs, s)
 	pb.RegisterControlManagementServer(gs, s)
 	pb.RegisterFlowTopReporterServer(gs, s)
+	pb.RegisterEdgeServicesServer(gs, s)
 
-	tlsCert, err := tlsmgr.Certificate()
+	L.Info("registered grpc services", "services", []string{"control", "mgmt", "flow", "edge"})
+
+	li, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error listening on port: %s", err)
 	}
 
-	var lcfg tls.Config
-	lcfg.Certificates = []tls.Certificate{tlsCert}
-
 	hs := &http.Server{
-		TLSConfig:   &lcfg,
 		Addr:        ":" + port,
 		IdleTimeout: 2 * time.Minute,
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.ProtoMajor == 2 &&
 				strings.HasPrefix(r.Header.Get("Content-Type"), "application/grpc") {
+
+				s.L.Info("grpc request", "url", r.URL.String())
 				gs.ServeHTTP(w, r)
 			} else {
 				s.ServeHTTP(w, r)
@@ -382,7 +443,38 @@ func (c *controlServer) Run(args []string) int {
 		}),
 	}
 
-	tlsmgr.RegisterRenewHandler(L, workq.GlobalRegistry)
+	if tlsmgr != nil {
+		hubDomain := domain
+		if strings.HasPrefix(hubDomain, "*.") {
+			hubDomain = hubDomain[2:]
+		}
+
+		s.SetHubTLS(cert, key, hubDomain)
+
+		// So that when they are refreshed by the background job, we eventually pick
+		// them up. Hubs are also refreshing their config on an hourly basis so they'll
+		// end up picking up the new TLS material that way too.
+		go periodic.Run(ctx, time.Hour, func() {
+			cert, key, err := tlsmgr.RefreshFromVault()
+			if err != nil {
+				L.Error("error refreshing hub certs from vault")
+			} else {
+				s.SetHubTLS(cert, key, hubDomain)
+			}
+		})
+
+		tlsCert, err := tlsmgr.Certificate()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var lcfg tls.Config
+		lcfg.Certificates = []tls.Certificate{tlsCert}
+
+		hs.TLSConfig = &lcfg
+
+		tlsmgr.RegisterRenewHandler(L, workq.GlobalRegistry)
+	}
 
 	L.Info("starting background worker")
 
@@ -402,7 +494,16 @@ func (c *controlServer) Run(args []string) int {
 		}
 	}()
 
-	err = hs.ListenAndServeTLS("", "")
+	if hs.TLSConfig != nil {
+		L.Info("starting http server with TLS", "addr", hs.Addr)
+		err = hs.ServeTLS(li, "", "")
+	} else {
+		h2s := &http2.Server{}
+		L.Info("starting http server without TLS", "addr", hs.Addr)
+		hs.Handler = h2c.NewHandler(hs.Handler, h2s)
+		err = hs.Serve(li)
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -466,7 +567,8 @@ func (h *hubRunner) Run(args []string) int {
 
 	sid := os.Getenv("STABLE_ID")
 	if sid == "" {
-		log.Fatal("missing STABLE_ID")
+		L.Info("Generating stable id to use")
+		sid = pb.NewULID().String()
 	}
 
 	webNamespace := os.Getenv("WEB_NAMESPACE")
@@ -528,6 +630,7 @@ func (h *hubRunner) Run(args []string) int {
 		}
 	}
 
+	L.Info("connecting to control: %s", "control", addr)
 	client, err := control.NewClient(ctx, control.ClientConfig{
 		Id:                 id,
 		InstanceId:         instanceId,
@@ -573,6 +676,7 @@ func (h *hubRunner) Run(args []string) int {
 		log.Fatal(err)
 	}
 
+	L.Info("bootstrapping config from control")
 	err = client.BootstrapConfig(ctx)
 	if err != nil {
 		log.Fatal(err)

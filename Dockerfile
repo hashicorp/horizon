@@ -17,10 +17,12 @@ COPY . /tmp/hzn-src
 WORKDIR /tmp/hzn-src
 
 RUN --mount=type=cache,target=/root/.cache/go-build go build -o /tmp/hzn -ldflags "-X main.sha1ver=`git rev-parse HEAD` -X main.buildTime=$(date +'+%FT%T.%N%:z')" ./cmd/hzn
+RUN --mount=type=cache,target=/root/.cache/go-build go build -o /tmp/hznctl -ldflags "-X main.sha1ver=`git rev-parse HEAD` -X main.buildTime=$(date +'+%FT%T.%N%:z')" ./cmd/hznctl
 
 FROM docker.mirror.hashicorp.services/alpine
 
 COPY --from=builder /tmp/hzn /usr/bin/hzn
+COPY --from=builder /tmp/hznctl /usr/bin/hznctl
 
 COPY ./pkg/control/migrations /migrations
 

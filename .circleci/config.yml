@@ -4,7 +4,7 @@ version: 2
 jobs:
   build-and-package:
     docker:
-      - image: docker.mirror.hashicorp.services/circleci/golang:1.14
+      - image: docker.mirror.hashicorp.services/circleci/golang:1.17
       - image: docker.mirror.hashicorp.services/localstack/localstack:latest
       - image: docker.mirror.hashicorp.services/letsencrypt/pebble
         command: ["pebble"]
@@ -61,7 +61,7 @@ jobs:
             echo -e "\nbuild counter: ${BUILD_COUNTER}; build id: ${BUILD_NUMBER}\n"
 
       - run: sudo apt-get update
-      - run: sudo apt-get install postgresql-client-11
+      - run: sudo apt-get install postgresql-client-13
 
       # specify any bash command here prefixed with `run: `
       - run: go get -v -t -d ./...
@@ -92,7 +92,7 @@ jobs:
 
   docker-push:
     docker:
-      - image: docker.mirror.hashicorp.services/circleci/golang:1.12
+      - image: docker.mirror.hashicorp.services/circleci/golang:1.17
 
     environment:
       ## this along with CIRCLE_BUILD_NUM and BUILD_NUMBER (computed) are used
