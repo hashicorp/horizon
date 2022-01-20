@@ -60,7 +60,7 @@ type nopLogger struct{}
 
 func (_ nopLogger) Print(v ...interface{}) {}
 
-var gormDebug = flag.Bool("hzn-gorm-debug", false, "set to true to have Gorm log all generated SQL.")
+var gormDebug = flag.Bool("hzn-gorm-debug", false, "set to true to have Gorm in Horizon log all generated SQL.")
 
 // TestDBOptions collects options that customize the test databases.
 type TestDBOptions struct {
