@@ -463,13 +463,8 @@ func (c *controlServer) Run(args []string) int {
 			}
 		})
 
-		tlsCert, err := tlsmgr.Certificate()
-		if err != nil {
-			log.Fatal(err)
-		}
-
 		var lcfg tls.Config
-		lcfg.Certificates = []tls.Certificate{tlsCert}
+		lcfg.GetCertificate = tlsmgr.GetCertificateFunc()
 
 		hs.TLSConfig = &lcfg
 
@@ -776,7 +771,6 @@ func (c *devServer) Run(args []string) int {
 		WithCredentials(credentials.NewStaticCredentials("hzn", "hzn", "hzn")).
 		WithS3ForcePathStyle(true),
 	)
-
 	if err != nil {
 		log.Fatalf("unable to connect to S3: %v", err)
 	}
@@ -1012,7 +1006,6 @@ func (h *devServer) RunHub(ctx context.Context, token, addr string, sess *sessio
 		Insecure:           true,
 		InsecureSkipVerify: true,
 	})
-
 	if err != nil {
 		log.Fatal(err)
 	}

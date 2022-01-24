@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sync"
 
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
@@ -40,6 +41,14 @@ type Manager struct {
 	hubCert   []byte
 	hubIssuer []byte
 	hubKey    []byte
+
+	// tlsCert is the cached value returned from calling Certificate(). It is
+	// the certificate used in the TLSConfig of the HTTP server. This gets
+	// populated by a short lived (~90 days) certificate from LetsEncrypt.
+	//
+	// tlsCertMu is a mutex to enable safely updating tlsCert in the background.
+	tlsCert   tls.Certificate
+	tlsCertMu sync.RWMutex
 
 	challengeProvider challenge.Provider
 	dnsOptions        []dns01.ChallengeOption
@@ -176,6 +185,8 @@ func (m *Manager) SetupRoute53(sess *session.Session, zoneId string) error {
 }
 
 func (m *Manager) SetupHubCert(ctx context.Context) error {
+	m.tlsCertMu.Lock()
+	defer m.tlsCertMu.Unlock()
 	domain := m.cfg.Domain
 
 	log.Logger = hclog.FromContext(ctx).StandardLogger(&hclog.StandardLoggerOptions{InferLevels: true})
@@ -212,6 +223,11 @@ func (m *Manager) SetupHubCert(ctx context.Context) error {
 	m.hubCert = cert.Certificate
 	m.hubIssuer = cert.IssuerCertificate
 	m.hubKey = cert.PrivateKey
+	tlsCert, err := m.Certificate()
+	if err != nil {
+		return errors.Wrapf(err, "error attempting to parse public key pair from certificate")
+	}
+	m.tlsCert = tlsCert
 
 	return nil
 }
@@ -258,4 +274,15 @@ func (m *Manager) HubMaterial(ctx context.Context) ([]byte, []byte, error) {
 
 func (m *Manager) Certificate() (tls.Certificate, error) {
 	return tls.X509KeyPair(m.hubCert, m.hubKey)
+}
+
+//	GetCertificateFunc returns a function that will return the certificate we
+//	have stored when a TLS handshake begins. This allows a background process to
+//	renew/recreate the LetsEncrypt cert and be picked up without a restart.
+func (m *Manager) GetCertificateFunc() func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
+	return func(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+		m.tlsCertMu.RLock()
+		defer m.tlsCertMu.RUnlock()
+		return &m.tlsCert, nil
+	}
 }
