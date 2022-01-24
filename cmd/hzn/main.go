@@ -152,7 +152,9 @@ func (mr *migrateRunner) Run(args []string) int {
 
 	err = m.Up()
 	if err != nil {
-		log.Fatal(err)
+		if err != migrate.ErrNoChange {
+			log.Fatal(err)
+		}
 	}
 
 	return 0
@@ -776,7 +778,6 @@ func (c *devServer) Run(args []string) int {
 		WithCredentials(credentials.NewStaticCredentials("hzn", "hzn", "hzn")).
 		WithS3ForcePathStyle(true),
 	)
-
 	if err != nil {
 		log.Fatalf("unable to connect to S3: %v", err)
 	}
@@ -1012,7 +1013,6 @@ func (h *devServer) RunHub(ctx context.Context, token, addr string, sess *sessio
 		Insecure:           true,
 		InsecureSkipVerify: true,
 	})
-
 	if err != nil {
 		log.Fatal(err)
 	}
