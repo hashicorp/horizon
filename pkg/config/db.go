@@ -18,7 +18,7 @@ var (
 
 var (
 	TestDBUrl = "postgres://localhost/horizon_test?sslmode=disable"
-	DevDBUrl  = "postgres://localhost/horizon_dev?sslmode=disable"
+	DevDBUrl  = "postgres://postgres:postgres@localhost/horizon_dev?sslmode=disable"
 )
 
 func DB() *gorm.DB {
@@ -50,7 +50,6 @@ func DB() *gorm.DB {
 
 	if db == nil {
 		panic("no database configured")
-
 	}
 	return db
 }
