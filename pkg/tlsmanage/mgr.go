@@ -185,8 +185,6 @@ func (m *Manager) SetupRoute53(sess *session.Session, zoneId string) error {
 }
 
 func (m *Manager) SetupHubCert(ctx context.Context) error {
-	m.tlsCertMu.Lock()
-	defer m.tlsCertMu.Unlock()
 	domain := m.cfg.Domain
 
 	log.Logger = hclog.FromContext(ctx).StandardLogger(&hclog.StandardLoggerOptions{InferLevels: true})
@@ -219,6 +217,9 @@ func (m *Manager) SetupHubCert(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrapf(err, "attempting to obtain certificate")
 	}
+
+	m.tlsCertMu.Lock()
+	defer m.tlsCertMu.Unlock()
 
 	m.hubCert = cert.Certificate
 	m.hubIssuer = cert.IssuerCertificate
