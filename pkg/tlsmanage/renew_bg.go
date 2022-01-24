@@ -8,16 +8,17 @@ import (
 	"github.com/hashicorp/horizon/pkg/workq"
 )
 
-var (
-	HubCertRenewPeriod = time.Hour * 24 * 30 // every 30 days
-)
+// TODO: (catsby) change this back
+// var hubCertRenewPeriod = time.Hour * 24 * 30 // every 30 days
+var hubCertRenewPeriod = time.Hour * 24 // every day
 
 func init() {
-	workq.RegisterPeriodicJob("renew-hub-cert", "default", "renew-hub-cert", nil, HubCertRenewPeriod)
+	workq.RegisterPeriodicJob("renew-hub-cert", "default", "renew-hub-cert", nil, hubCertRenewPeriod)
 }
 
 func (m *Manager) RegisterRenewHandler(L hclog.Logger, reg *workq.Registry) {
-	reg.Register("renew-hub-cert", func(ctx context.Context, jobType string, _ *struct{}) error {
+	reg.Register("renew-hub-cert", func(ctx context.Context, _ string, _ *struct{}) error {
+		L.Warn("renewing hub cert")
 		err := m.SetupHubCert(ctx)
 		if err != nil {
 			L.Error("error retrieving updated cert/key for hub", "error", err)
@@ -29,6 +30,7 @@ func (m *Manager) RegisterRenewHandler(L hclog.Logger, reg *workq.Registry) {
 			L.Error("error storing new cert/key in vault", "error", err)
 			return err
 		}
+		L.Warn("done renewing hub cert")
 
 		return nil
 	})
