@@ -152,7 +152,9 @@ func (mr *migrateRunner) Run(args []string) int {
 
 	err = m.Up()
 	if err != nil {
-		log.Fatal(err)
+		if err != migrate.ErrNoChange {
+			log.Fatal(err)
+		}
 	}
 
 	return 0

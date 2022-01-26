@@ -50,7 +50,6 @@ func DB() *gorm.DB {
 
 	if db == nil {
 		panic("no database configured")
-
 	}
 	return db
 }
