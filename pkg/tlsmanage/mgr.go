@@ -239,8 +239,15 @@ func (m *Manager) RefreshFromVault() ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
+	m.tlsCertMu.Lock()
+	defer m.tlsCertMu.Unlock()
 	m.hubCert = cert
 	m.hubKey = key
+	tlsCert, err := m.Certificate()
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "error attempting to parse public key pair from certificate")
+	}
+	m.tlsCert = tlsCert
 
 	return cert, key, nil
 }
@@ -252,11 +259,15 @@ func (m *Manager) HubMaterial(ctx context.Context) ([]byte, []byte, error) {
 
 	cert, key, err := m.FetchFromVault()
 	if err == nil {
+		m.tlsCertMu.Lock()
+		defer m.tlsCertMu.Unlock()
 		m.hubCert = cert
 		m.hubKey = key
+		tlsCert, err := m.Certificate()
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, errors.Wrapf(err, "error attempting to parse public key pair from certificate")
 		}
+		m.tlsCert = tlsCert
 		return cert, m.hubKey, nil
 	}
 
