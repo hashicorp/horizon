@@ -198,7 +198,7 @@ func (m *Manager) SetupHubCert(ctx context.Context) error {
 	if m.registration == nil {
 		m.cfg.L.Warn("manager registration is nil")
 	} else {
-		m.cfg.L.Debug("manager registration URI", "uri", m.registration.URI)
+		m.cfg.L.Warn("manager registration URI", "uri", m.registration.URI)
 	}
 
 	client.Challenge.SetDNS01Provider(m.challengeProvider, m.dnsOptions...)
