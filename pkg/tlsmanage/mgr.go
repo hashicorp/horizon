@@ -198,6 +198,7 @@ func (m *Manager) SetupHubCert(ctx context.Context) error {
 	client.Challenge.SetDNS01Provider(m.challengeProvider, m.dnsOptions...)
 	reg, err := client.Registration.ResolveAccountByKey()
 	if err != nil {
+		m.cfg.L.Error("error resolving account by key", "error", err)
 		reg, err = client.Registration.Register(registration.RegisterOptions{
 			TermsOfServiceAgreed: true,
 		})
