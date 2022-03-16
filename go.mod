@@ -4,11 +4,11 @@ go 1.13
 
 require (
 	github.com/armon/go-metrics v0.3.3
-	github.com/aws/aws-sdk-go v1.25.41
+	github.com/aws/aws-sdk-go v1.30.20
 	github.com/caddyserver/certmagic v0.10.3
 	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.4.1 // indirect
-	github.com/go-acme/lego/v3 v3.5.0
+	github.com/go-acme/lego/v3 v3.9.0
 	github.com/go-redis/redis/v8 v8.11.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang-migrate/migrate/v4 v4.10.0
@@ -30,7 +30,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/go-server-timing v1.0.0
 	github.com/mitchellh/go-testing-interface v1.0.0
-	github.com/mitchellh/mapstructure v1.1.2
+	github.com/mitchellh/mapstructure v1.3.1
 	github.com/mr-tron/base58 v1.1.3
 	github.com/oklog/ulid v1.3.1
 	github.com/oschwald/geoip2-golang v1.4.0
@@ -39,7 +39,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.4.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.6.1
 	go.etcd.io/bbolt v1.3.3
 	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
 	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
