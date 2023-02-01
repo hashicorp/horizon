@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 // Package httpassets contain the assets for HTML pages that Horizon
 // serves. This is temporary since this is Waypoint-specific and Horizon
 // is not Waypoint-specific. But we needed this done before launch so here we
