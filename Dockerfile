@@ -1,4 +1,7 @@
 # syntax = docker.mirror.hashicorp.services/docker/dockerfile:experimental
+# Copyright (c) HashiCorp, Inc.
+# SPDX-License-Identifier: MPL-2.0
+
 
 FROM docker.mirror.hashicorp.services/golang:1.15-alpine AS builder
 

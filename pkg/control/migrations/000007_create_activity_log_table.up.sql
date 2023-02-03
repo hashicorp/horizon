@@ -1,3 +1,6 @@
+-- Copyright (c) HashiCorp, Inc.
+-- SPDX-License-Identifier: MPL-2.0
+
 CREATE TABLE IF NOT EXISTS activity_logs (
   id bigserial PRIMARY KEY,
   event jsonb NOT NULL,

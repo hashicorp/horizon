@@ -1,3 +1,6 @@
+-- Copyright (c) HashiCorp, Inc.
+-- SPDX-License-Identifier: MPL-2.0
+
 CREATE TABLE IF NOT EXISTS label_links (
   id serial PRIMARY KEY,
   account_id bytea NOT NULL,

@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 // Package testsql provides helpers for working with PostgreSQL databases in
 // unit tests, from creating per-test DBs to also running the migrations.
 //

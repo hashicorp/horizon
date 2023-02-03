@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package horizon
 
 import "github.com/hashicorp/horizon/pkg/agent"

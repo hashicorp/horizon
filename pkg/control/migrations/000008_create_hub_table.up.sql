@@ -1,3 +1,6 @@
+-- Copyright (c) HashiCorp, Inc.
+-- SPDX-License-Identifier: MPL-2.0
+
 CREATE TABLE IF NOT EXISTS hubs (
   stable_id bytea PRIMARY KEY,
   instance_id bytea UNIQUE,

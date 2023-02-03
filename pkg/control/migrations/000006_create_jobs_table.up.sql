@@ -1,3 +1,6 @@
+-- Copyright (c) HashiCorp, Inc.
+-- SPDX-License-Identifier: MPL-2.0
+
 CREATE TYPE job_status AS ENUM ('queued', 'finished');
 
 CREATE TABLE IF NOT EXISTS jobs (
