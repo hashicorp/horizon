@@ -9,10 +9,9 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/frankban/quicktest v1.4.1 // indirect
 	github.com/go-acme/lego/v3 v3.5.0
-	github.com/go-redis/redis/v8 v8.11.3
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang-migrate/migrate/v4 v4.10.0
-	github.com/golang/protobuf v1.5.2
+	github.com/golang/protobuf v1.5.3
 	github.com/hashicorp/consul/api v1.7.0
 	github.com/hashicorp/go-cleanhttp v0.5.1
 	github.com/hashicorp/go-hclog v0.13.0
@@ -24,7 +23,7 @@ require (
 	github.com/hashicorp/yamux v0.0.0-20210316155119-a95892c5f864
 	github.com/imdario/mergo v0.3.8 // indirect
 	github.com/jinzhu/gorm v1.9.12
-	github.com/klauspost/compress v1.10.10
+	github.com/klauspost/compress v1.15.9
 	github.com/lib/pq v1.3.0
 	github.com/mitchellh/cli v1.1.0
 	github.com/mitchellh/go-homedir v1.1.0
@@ -39,14 +38,14 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.4.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.5.1
+	github.com/stretchr/testify v1.8.3
 	go.etcd.io/bbolt v1.3.3
-	golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9
-	golang.org/x/net v0.0.0-20210825183410-e898025ed96a
-	golang.org/x/time v0.0.0-20200630173020-3af7569d3a1e
-	google.golang.org/genproto v0.0.0-20200416231807-8751e049a2a0 // indirect
-	google.golang.org/grpc v1.28.1
+	golang.org/x/crypto v0.0.0-20211108221036-ceb1ce70b4fa
+	golang.org/x/net v0.9.0
+	golang.org/x/time v0.3.0
+	google.golang.org/grpc v1.56.3
 	gopkg.in/square/go-jose.v2 v2.4.1 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gortc.io/stun v1.22.2
 	k8s.io/apimachinery v0.18.0
 	k8s.io/client-go v0.18.0
